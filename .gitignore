@@ -1,0 +1,16 @@
+# Ignore Python virtual environment
+/venv/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore user-uploaded models
+models/coqui/*
+models/piper/*
+models/kokoro/*
+
+# Ignore audio files
+static/audio/*

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenWebTTS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+</head>
+<body class="bg-gray-100 flex">
+
+    <!-- Sidebar for Books -->
+    <div class="w-1/4 bg-gray-800 text-white p-4">
+        <h2 class="text-2xl font-bold mb-4">Books</h2>
+        <ul id="book-list" class="space-y-2">
+            <!-- Book items will be added here dynamically -->
+        </ul>
+        <button id="new-book-btn" class="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+            New Book
+        </button>
+        <a href="/config" class="mt-4 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded block text-center">
+            Config
+        </a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="w-3/4 p-6">
+        <div class="container mx-auto">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">OpenWebTTS</h1>
+            <p class="text-gray-600 mb-6">A simple web UI for local Text-to-Speech engines.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="engine" class="block text-sm font-medium text-gray-700">TTS Engine</label>
+                        <select id="engine" name="engine" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="coqui">Coqui TTS</option>
+                            <option value="piper">Piper</option>
+                            <option value="kokoro">Kokoro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="voice" class="block text-sm font-medium text-gray-700">Voice/Speaker</label>
+                        <select id="voice" name="voice" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="">-- Select an engine first --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">Read PDF</h2>
+                    <label for="pdf-file" class="block text-sm font-medium text-gray-700">Select PDF File</label>
+                    <input type="file" id="pdf-file" name="pdf-file" accept=".pdf" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+                    <div id="pdf-viewer" class="mt-4 border rounded-lg"></div>
+                    <div id="pagination-controls" class="flex justify-between items-center mt-4">
+                        <button id="prev-page" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">Previous</button>
+                        <span id="page-num" class="text-sm text-gray-600"></span>
+                        <button id="next-page" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">Next</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="text" class="block text-sm font-medium text-gray-700">Text to Synthesize</label>
+                    <div id="text-display" contenteditable="true" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px]"></div>
+                    <textarea id="text" name="text" rows="6" placeholder="Enter your text here..." class="hidden"></textarea>
+                </div>
+
+                <div class="flex items-center mt-4">
+                    <button id="generate-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">
+                        Generate Speech
+                    </button>
+                    <div class="ml-4 flex items-center">
+                        <input id="auto-read-checkbox" type="checkbox" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        <label for="auto-read-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Read Next Page</label>
+                    </div>
+                </div>
+
+                <div id="loading" class="hidden text-center mt-4">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                    <p class="mt-2 text-sm text-gray-600">Generating...</p>
+                </div>
+
+                <div id="audio-output" class="hidden mt-6">
+                    <audio id="audio-player" controls class="w-full"></audio>
+                    <a id="download-link" href="#" download="speech.wav" class="mt-2 inline-block text-sm text-indigo-600 hover:text-indigo-800">Download Audio</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
