@@ -422,11 +422,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         audioPlayer.onended = async () => {
             console.log('Audio ended event fired.');
+            const playedChunkId = currentAudio.text.id; // Define playedChunkId here
             if (activeBookId && books[activeBookId].autoDeleteChunks) {
-                const playedChunkId = allTextChunks[currentChunkIndex].id;
                 const spansToRemove = textDisplay.querySelectorAll(`span[data-chunk-id="${playedChunkId}"]`);
                 spansToRemove.forEach(span => span.remove());
                 console.log(`Removed spans for chunk: ${playedChunkId}`);
+
+                // Update the stored text to reflect the deletion
+                const remainingText = allTextChunks.filter(chunk => chunk.id !== playedChunkId).map(chunk => chunk.text).join(' ');
+                books[activeBookId].text = remainingText;
+                saveBooks();
             }
             console.log('Before incrementing currentChunkIndex.');
             currentChunkIndex++;
