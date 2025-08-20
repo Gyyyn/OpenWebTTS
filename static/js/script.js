@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookList = document.getElementById('book-list');
     const newBookBtn = document.getElementById('new-book-btn');
     const autoReadCheckbox = document.getElementById('auto-read-checkbox');
+    const autoDeleteChunksCheckbox = document.getElementById('auto-delete-chunks-checkbox');
 
     // Modal Elements
     const bookModal = document.getElementById('book-modal');
@@ -38,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioQueue = [];
     let isPlaying = false;
     let isPaused = false;
+    let allTextChunks = [];
+    let currentChunkIndex = 0;
 
     // Set workerSrc for PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
@@ -52,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBooks();
         loadBookContent(bookId);
         updateAutoReadCheckbox();
+        updateAutoDeleteChunksCheckbox();
     }
 
     function renderBooks() {
@@ -163,15 +167,27 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    function wrapWordsInSpans(text) {
-        const words = text.trim().split(/\s+/);
-        return words.map(word => `<span>${word} </span>`).join('');
+    function wrapWordsInSpans(chunks) {
+        let html = '';
+        chunks.forEach(chunk => {
+            const words = chunk.text.split(/(\s+)/); // Split by spaces, keeping spaces
+            words.forEach(word => {
+                if (word.trim() !== '') { // Only wrap actual words
+                    html += `<span data-chunk-id="${chunk.id}">${word}</span>`;
+                } else {
+                    html += word; // Keep spaces as they are
+                }
+            });
+        });
+        return html;
     }
 
     async function loadBookContent(bookId) {
         if (books[bookId]) {
             bookPageTitle.innerHTML = books[bookId].title;
-            textDisplay.innerHTML = wrapWordsInSpans(books[bookId].text);
+            allTextChunks = splitTextIntoChunks(books[bookId].text);
+            textDisplay.innerHTML = wrapWordsInSpans(allTextChunks);
+            currentChunkIndex = 0; // Reset chunk index
 
             if (books[bookId].pdfId) {
                 const pdfData = await loadPdf(books[bookId].pdfId);
@@ -203,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const bookTitle = bookTitleInput.value;
                 if (bookTitle) {
                     const bookId = `book-${Date.now()}`;
-                    books[bookId] = { title: bookTitle, text: '', autoRead: false, pdfId: null };
+                    books[bookId] = { title: bookTitle, text: '', autoRead: false, autoDeleteChunks: false, pdfId: null };
                     saveBooks();
                     setActiveBook(bookId);
                 }
@@ -218,9 +234,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateAutoDeleteChunksCheckbox() {
+        if (activeBookId && books[activeBookId]) {
+            autoDeleteChunksCheckbox.checked = books[activeBookId].autoDeleteChunks;
+        }
+    }
+
     autoReadCheckbox.addEventListener('change', () => {
         if (activeBookId && books[activeBookId]) {
             books[activeBookId].autoRead = autoReadCheckbox.checked;
+            saveBooks();
+        }
+    });
+
+    autoDeleteChunksCheckbox.addEventListener('change', () => {
+        if (activeBookId && books[activeBookId]) {
+            books[activeBookId].autoDeleteChunks = autoDeleteChunksCheckbox.checked;
             saveBooks();
         }
     });
@@ -229,8 +258,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     textDisplay.addEventListener('input', () => {
         if (activeBookId && books[activeBookId]) {
-            books[activeBookId].text = textDisplay.textContent; // Save plain text
-            textDisplay.innerHTML = wrapWordsInSpans(textDisplay.textContent); // Update display with spans
+            const plainText = textDisplay.textContent; // Get plain text from contenteditable
+            books[activeBookId].text = plainText; // Save plain text
+            allTextChunks = splitTextIntoChunks(plainText); // Re-chunk the text
+            textDisplay.innerHTML = wrapWordsInSpans(allTextChunks); // Update display with new spans
             saveBooks();
         }
     });
@@ -306,13 +337,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function splitTextIntoChunks(text, chunkSize = 50) {
         const words = text.split(/\s+/);
         const chunks = [];
+        let currentTextIndex = 0;
         for (let i = 0; i < words.length; i += chunkSize) {
-            chunks.push(words.slice(i, i + chunkSize).join(' '));
+            const chunkWords = words.slice(i, i + chunkSize);
+            const chunkText = chunkWords.join(' ');
+            chunks.push({
+                id: `chunk-${i}`,
+                text: chunkText,
+                startIndex: currentTextIndex,
+                endIndex: currentTextIndex + chunkText.length
+            });
+            currentTextIndex += chunkText.length + (chunkWords.length > 0 ? chunkWords.length - 1 : 0); // Add spaces between words
         }
         return chunks;
     }
 
     async function generateSpeech(text) {
+        console.log('generateSpeech called with text:', text);
         const engine = engineSelect.value;
         const voice = voiceSelect.value;
 
@@ -330,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ engine, voice, text }),
+                body: JSON.stringify({ engine, voice, text: text.text }),
             });
 
             if (!response.ok) {
@@ -339,6 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
+            console.log('generateSpeech returning audio_url:', data.audio_url);
             return data.audio_url;
         } catch (error) {
             console.error('Error generating speech:', error);
@@ -376,55 +418,99 @@ document.addEventListener('DOMContentLoaded', () => {
         audioPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
 
         audioPlayer.play();
+        console.log('Audio playback started.');
 
-        audioPlayer.onended = () => {
-            playAudioQueue();
+        audioPlayer.onended = async () => {
+            console.log('Audio ended event fired.');
+            if (activeBookId && books[activeBookId].autoDeleteChunks) {
+                const playedChunkId = allTextChunks[currentChunkIndex].id;
+                const spansToRemove = textDisplay.querySelectorAll(`span[data-chunk-id="${playedChunkId}"]`);
+                spansToRemove.forEach(span => span.remove());
+                console.log(`Removed spans for chunk: ${playedChunkId}`);
+            }
+            console.log('Before incrementing currentChunkIndex.');
+            currentChunkIndex++;
+            if (currentChunkIndex < allTextChunks.length) {
+                // Generate and add the next chunk to the queue
+                await processNextChunk();
+                // Then, play the next item in the queue
+                playAudioQueue();
+            } else {
+                isPlaying = false;
+                disableAudioControls();
+                clearAllHighlights();
+                if (autoReadCheckbox.checked && currentPageNum < pdfDoc.numPages) {
+                    renderPage(currentPageNum + 1).then(() => {
+                        startSpeechGeneration();
+                    });
+                }
+            }
         };
     }
 
     async function startSpeechGeneration() {
         const text = textDisplay.textContent.trim();
-        const chunks = splitTextIntoChunks(text);
+        allTextChunks = splitTextIntoChunks(text);
+        currentChunkIndex = 0;
 
-        if (chunks.length === 0) {
+        if (allTextChunks.length === 0) {
             return;
         }
 
-        loadingDiv.classList.remove('hidden'); // Spinner shows
+        loadingDiv.classList.remove('hidden');
         generateBtn.disabled = true;
+        audioQueue = []; // Clear previous queue
+        isPlaying = false;
+        isPaused = false;
 
-        for (const chunk of chunks) {
-            const audioUrl = await generateSpeech(chunk);
-            if (audioUrl) {
-                audioQueue.push({ url: audioUrl, text: chunk });
-                if (!isPlaying && audioQueue.length === 1) {
-                    playAudioQueue();
-                    loadingDiv.classList.add('hidden'); // Hide spinner
-                    audioOutput.classList.remove('hidden'); // Show controls
-                }
-            }
-        }
+        await processNextChunk();
+        playAudioQueue(); // Start playback of the first chunk
 
-        generateBtn.disabled = false;
+        loadingDiv.classList.add('hidden');
+        audioOutput.classList.remove('hidden');
     }
 
-    function highlightWords(text, duration) {
+    async function processNextChunk() {
+        console.log('Processing next chunk.');
+        if (currentChunkIndex >= allTextChunks.length) {
+            loadingDiv.classList.add('hidden');
+            generateBtn.disabled = false;
+            return;
+        }
+
+        const chunk = allTextChunks[currentChunkIndex];
+        console.log('Calling generateSpeech for chunk:', chunk);
+        const audioUrl = await generateSpeech(chunk);
+        console.log('generateSpeech returned audioUrl:', audioUrl);
+
+        if (audioUrl) {
+            console.log('Pushing audio to queue.');
+            audioQueue.push({ url: audioUrl, text: chunk });
+        } else {
+            // If audio generation fails, we should still try to process the next chunk
+            // or handle the error appropriately. For now, just log.
+            console.error('Failed to generate audio for chunk:', chunk);
+        }
+    }
+
+    function highlightWords(chunkObject, duration) {
         clearAllHighlights(); // Ensure all previous highlights are cleared
 
-        const allWordElements = textDisplay.querySelectorAll('span');
-        allWordElements.forEach(span => span.classList.add('highlight'));
+        const currentChunkId = chunkObject.id;
+        const currentChunkSpans = textDisplay.querySelectorAll(`span[data-chunk-id="${currentChunkId}"]`);
+        currentChunkSpans.forEach(span => span.classList.add('highlight'));
 
         // No need for timeupdate listener for this simple chunk highlighting
-        audioPlayer.removeEventListener('timeupdate', window.highlightTimeUpdateListener);
+        audioPlayer.removeEventListener('loadedmetadata', window.highlightTimeUpdateListener);
         window.highlightTimeUpdateListener = null;
     }
 
     function clearAllHighlights() {
-        const allWordElements = textDisplay.querySelectorAll('span');
+        const allWordElements = textDisplay.querySelectorAll('span.highlight');
         allWordElements.forEach(span => span.classList.remove('highlight'));
         // Remove the timeupdate listener when clearing highlights
         if (window.highlightTimeUpdateListener) {
-            audioPlayer.removeEventListener('timeupdate', window.highlightTimeUpdateListener);
+            audioPlayer.removeEventListener('loadedmetadata', window.highlightTimeUpdateListener);
             window.highlightTimeUpdateListener = null; // Clear the reference
         }
         // Also clear any setInterval if it was still active (from previous implementation)
@@ -455,13 +541,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const textContent = await page.getTextContent();
         const pageText = textContent.items.map(item => item.str).join(' ');
         
-        textDisplay.innerHTML = '';
-        const words = pageText.trim().split(/\s+/);
-        words.forEach(word => {
-            const span = document.createElement('span');
-            span.textContent = word + ' ';
-            textDisplay.appendChild(span);
-        });
+        allTextChunks = splitTextIntoChunks(pageText);
+        textDisplay.innerHTML = wrapWordsInSpans(allTextChunks);
+        currentChunkIndex = 0; // Reset chunk index
 
         pageNumSpan.textContent = `Page ${num} of ${pdfDoc.numPages}`;
         localStorage.setItem(pdfDoc.fingerprint, num);
@@ -470,7 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nextPageBtn.disabled = num >= pdfDoc.numPages;
 
         if (activeBookId && books[activeBookId]) {
-            books[activeBookId].text = textDisplay.innerHTML;
+            books[activeBookId].text = pageText;
             saveBooks();
         }
     }
@@ -533,6 +615,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 books[activeBookId].pdfId = activeBookId; // Use activeBookId as pdfId
                 books[activeBookId].text = ''; // Clear text for PDF books
                 saveBooks();
+                allTextChunks = []; // Reset chunks
+                currentChunkIndex = 0; // Reset chunk index
                 
                 await savePdf(activeBookId, arrayBuffer);
 
@@ -569,7 +653,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 books[activeBookId].text = data.text;
                 saveBooks();
-                textDisplay.innerHTML = wrapWordsInSpans(data.text);
+                allTextChunks = splitTextIntoChunks(data.text);
+                textDisplay.innerHTML = wrapWordsInSpans(allTextChunks);
+                currentChunkIndex = 0; // Reset chunk index
 
                 // Clear PDF specific elements
                 pdfViewer.innerHTML = '';
