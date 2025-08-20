@@ -5,12 +5,18 @@ import uuid
 import wave
 import fitz  # PyMuPDF
 import requests
+import ebooklib
+from ebooklib import epub
+from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import List, Dict
+from io import BytesIO
+import tempfile
+import shutil
 
 # --- Configuration ---
 MODELS_DIR = "models"
@@ -207,6 +213,42 @@ async def read_pdf(file: UploadFile = File(...)):
         return PdfText(text=text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read PDF. Reason: {str(e)}")
+
+@app.post("/api/read_epub", response_model=PdfText) # Reusing PdfText model for simplicity
+async def read_epub(file: UploadFile = File(...)):
+    if not file.filename.endswith((".epub", ".opf")): # .opf is sometimes used for epub content
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an EPUB file.")
+
+    try:
+        epub_bytes = await file.read()
+        
+        # Create a temporary file to write the epub bytes
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as temp_epub_file:
+            temp_epub_file.write(epub_bytes)
+            temp_epub_path = temp_epub_file.name
+
+        try:
+            book = epub.read_epub(temp_epub_path)
+            
+            full_text = []
+            for item in book.get_items():
+                if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                    # Use BeautifulSoup to parse HTML and extract text
+                    soup = BeautifulSoup(item.content, 'html.parser')
+                    # Extract text from common tags, you might need to refine this
+                    for tag in ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'div']:
+                        for element in soup.find_all(tag):
+                            text_content = element.get_text(separator=' ', strip=True)
+                            if text_content:
+                                full_text.append(text_content)
+            
+            return PdfText(text="\n\n".join(full_text)) # Join with double newline for readability
+        finally:
+            # Ensure the temporary file is deleted
+            os.unlink(temp_epub_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read EPUB. Reason: {str(e)}")
+
 
 # --- Main Execution ---
 

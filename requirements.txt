@@ -5,3 +5,4 @@ TTS
 piper-tts
 PyMuPDF
 requests
+ebooklib

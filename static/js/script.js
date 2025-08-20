@@ -361,46 +361,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function highlightWords(text, duration) {
+        clearAllHighlights(); // Ensure all previous highlights are cleared
+
         const allWordElements = textDisplay.querySelectorAll('span');
-        allWordElements.forEach(span => span.classList.remove('highlight')); // Clear all previous highlights
+        allWordElements.forEach(span => span.classList.add('highlight'));
 
-        let currentHighlightIndex = 0;
-        const wordsInDisplay = Array.from(allWordElements); // Get all words in the display
-
-        if (wordsInDisplay.length === 0) {
-            return; // No words to highlight
-        }
-
-        const delay = (duration * 1000) / wordsInDisplay.length; // Distribute duration across all words
-
-        // Clear any existing interval to prevent multiple highlighting processes
-        if (window.highlightInterval) {
-            clearInterval(window.highlightInterval);
-        }
-
-        window.highlightInterval = setInterval(() => {
-            if (currentHighlightIndex < wordsInDisplay.length) {
-                // Remove highlight from previous word
-                if (currentHighlightIndex > 0) {
-                    wordsInDisplay[currentHighlightIndex - 1].classList.remove('highlight');
-                }
-                // Add highlight to current word
-                wordsInDisplay[currentHighlightIndex].classList.add('highlight');
-                currentHighlightIndex++;
-            } else {
-                clearInterval(window.highlightInterval);
-                window.highlightInterval = null;
-                // Remove highlight from the last word after it's done
-                if (wordsInDisplay.length > 0) {
-                    wordsInDisplay[wordsInDisplay.length - 1].classList.remove('highlight');
-                }
-            }
-        }, delay);
+        // No need for timeupdate listener for this simple chunk highlighting
+        audioPlayer.removeEventListener('timeupdate', window.highlightTimeUpdateListener);
+        window.highlightTimeUpdateListener = null;
     }
 
     function clearAllHighlights() {
         const allWordElements = textDisplay.querySelectorAll('span');
         allWordElements.forEach(span => span.classList.remove('highlight'));
+        // Remove the timeupdate listener when clearing highlights
+        if (window.highlightTimeUpdateListener) {
+            audioPlayer.removeEventListener('timeupdate', window.highlightTimeUpdateListener);
+            window.highlightTimeUpdateListener = null; // Clear the reference
+        }
+        // Also clear any setInterval if it was still active (from previous implementation)
         if (window.highlightInterval) {
             clearInterval(window.highlightInterval);
             window.highlightInterval = null;
@@ -479,7 +458,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pdfFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') {
+        if (!file) return;
+
+        const fileName = file.name;
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+
+        if (fileExtension === 'pdf') {
             const reader = new FileReader();
             reader.onload = async (event) => {
                 const arrayBuffer = event.target.result;
@@ -497,8 +481,59 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderPage(lastPage);
             };
             reader.readAsArrayBuffer(file);
-        } else if (file) {
-            alert('Please select a valid PDF file.');
+        } else if (fileExtension === 'epub') {
+            const bookId = `book-${Date.now()}`;
+            const bookTitle = file.name.replace('.epub', '');
+
+            books[bookId] = { title: bookTitle, text: '', autoRead: false, pdfId: null }; // No pdfId for epub
+            saveBooks();
+            setActiveBook(bookId);
+
+            loadingDiv.classList.remove('hidden');
+            generateBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/api/read_epub', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to read EPUB.');
+                }
+
+                const data = await response.json();
+                books[bookId].text = data.text;
+                saveBooks();
+                textDisplay.innerHTML = wrapWordsInSpans(data.text);
+
+                // Clear PDF specific elements
+                pdfViewer.innerHTML = '';
+                pageNumSpan.textContent = '';
+                prevPageBtn.disabled = true;
+                nextPageBtn.disabled = true;
+                pdfDoc = null; // Clear PDF document reference
+
+            } catch (error) {
+                console.error('Error reading EPUB:', error);
+                alert(`An error occurred: ${error.message}`);
+                delete books[bookId]; // Clean up if error
+                saveBooks();
+                if (activeBookId === bookId) {
+                    activeBookId = null;
+                    localStorage.removeItem('activeBookId');
+                }
+                textDisplay.innerHTML = '';
+            } finally {
+                loadingDiv.classList.add('hidden');
+                generateBtn.disabled = false;
+            }
+        } else {
+            alert('Please select a valid PDF or EPUB file.');
         }
     });
 
