@@ -1,0 +1,14 @@
+button, a.button {
+    display: flex;
+    align-items: center;
+}
+
+#pdf-viewer canvas {
+    max-width: 100%;
+}
+
+.highlight {
+    background-color: yellow;
+    padding: 2px 0;
+    border-radius: 3px;
+}

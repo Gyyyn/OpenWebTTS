@@ -1,9 +1,13 @@
+// Import IndexedDB functions
+import { savePdf, loadPdf, deletePdf } from './db.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const engineSelect = document.getElementById('engine');
     const voiceSelect = document.getElementById('voice');
     const generateBtn = document.getElementById('generate-btn');
     const textInput = document.getElementById('text');
     const textDisplay = document.getElementById('text-display');
+    const bookPageTitle = document.getElementById('book-title');
     const loadingDiv = document.getElementById('loading');
     const audioOutput = document.getElementById('audio-output');
     const audioPlayer = document.getElementById('audio-player');
@@ -16,11 +20,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookList = document.getElementById('book-list');
     const newBookBtn = document.getElementById('new-book-btn');
     const autoReadCheckbox = document.getElementById('auto-read-checkbox');
+    const playbackSpeed = document.getElementById('playback-speed');
+    const pauseBtn = document.getElementById('pause-btn');
+    const stopBtn = document.getElementById('stop-btn');
 
     let pdfDoc = null;
     let currentPageNum = 1;
     let books = JSON.parse(localStorage.getItem('books')) || {};
     let activeBookId = localStorage.getItem('activeBookId') || null;
+    let audioQueue = [];
+    let isPlaying = false;
+    let isPaused = false;
 
     // Set workerSrc for PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
@@ -45,41 +55,102 @@ document.addEventListener('DOMContentLoaded', () => {
             li.className = `flex justify-between items-center cursor-pointer p-2 rounded ${bookId === activeBookId ? 'bg-blue-600' : 'hover:bg-gray-700'}`;
             
             const titleSpan = document.createElement('span');
+            titleSpan.className = `overflow-hidden`
             titleSpan.textContent = book.title;
-            titleSpan.addEventListener('click', () => {
+            li.addEventListener('click', () => {
                 setActiveBook(bookId);
             });
 
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'flex items-center space-x-2';
+
+            const renameBtn = document.createElement('button');
+            renameBtn.innerHTML = '<ion-icon name="create-outline"></ion-icon>';
+            renameBtn.className = 'hover:text-gray-300';
+            renameBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                renameBook(bookId);
+            });
+
             const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'X';
-            deleteBtn.className = 'text-red-500 hover:text-red-700';
+            deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
+            deleteBtn.className = 'hover:text-gray-300';
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 deleteBook(bookId);
             });
 
             li.appendChild(titleSpan);
-            li.appendChild(deleteBtn);
+            actionsDiv.appendChild(renameBtn);
+            actionsDiv.appendChild(deleteBtn);
+            li.appendChild(actionsDiv);
             bookList.appendChild(li);
         }
     }
 
     function deleteBook(bookId) {
         if (confirm('Are you sure you want to delete this book?')) {
+            if (books[bookId].pdfId) {
+                deletePdf(books[bookId].pdfId);
+            }
             delete books[bookId];
             saveBooks();
             if (activeBookId === bookId) {
                 activeBookId = null;
                 localStorage.removeItem('activeBookId');
                 textDisplay.innerHTML = '';
+                pdfViewer.innerHTML = ''; // Clear PDF viewer
+                pageNumSpan.textContent = ''; // Clear page number
+                prevPageBtn.disabled = true;
+                nextPageBtn.disabled = true;
             }
             renderBooks();
         }
     }
 
-    function loadBookContent(bookId) {
+    function renameBook(bookId) {
+        const book = books[bookId];
+        if (!book) return;
+
+        const newTitle = prompt('Enter new title for "' + book.title + '":', book.title);
+        if (newTitle !== null && newTitle.trim() !== '' && newTitle !== book.title) {
+            book.title = newTitle.trim();
+            saveBooks();
+            renderBooks();
+            if (activeBookId === bookId) {
+                bookPageTitle.innerHTML = newTitle.trim();
+            }
+        }
+    }
+
+    function wrapWordsInSpans(text) {
+        const words = text.trim().split(/\s+/);
+        return words.map(word => `<span>${word} </span>`).join('');
+    }
+
+    async function loadBookContent(bookId) {
         if (books[bookId]) {
-            textDisplay.innerHTML = books[bookId].text;
+            bookPageTitle.innerHTML = books[bookId].title;
+            textDisplay.innerHTML = wrapWordsInSpans(books[bookId].text);
+
+            if (books[bookId].pdfId) {
+                const pdfData = await loadPdf(books[bookId].pdfId);
+                if (pdfData) {
+                    pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+                    const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
+                    renderPage(lastPage);
+                } else {
+                    pdfViewer.innerHTML = '';
+                    pageNumSpan.textContent = '';
+                    prevPageBtn.disabled = true;
+                    nextPageBtn.disabled = true;
+                }
+            } else {
+                pdfViewer.innerHTML = '';
+                pageNumSpan.textContent = '';
+                prevPageBtn.disabled = true;
+                nextPageBtn.disabled = true;
+            }
         }
     }
 
@@ -87,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const bookId = `book-${Date.now()}`;
         const bookTitle = prompt('Enter book title:');
         if (bookTitle) {
-            books[bookId] = { title: bookTitle, text: '', autoRead: false };
+            books[bookId] = { title: bookTitle, text: '', autoRead: false, pdfId: null };
             saveBooks();
             setActiveBook(bookId);
         }
@@ -110,7 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     textDisplay.addEventListener('input', () => {
         if (activeBookId && books[activeBookId]) {
-            books[activeBookId].text = textDisplay.innerHTML;
+            books[activeBookId].text = textDisplay.textContent; // Save plain text
+            textDisplay.innerHTML = wrapWordsInSpans(textDisplay.textContent); // Update display with spans
             saveBooks();
         }
     });
@@ -143,23 +215,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function generateSpeech() {
+    async function updateVoices() {
+        const engine = engineSelect.value;
+        voiceSelect.innerHTML = '<option value="">Loading voices...</option>';
+
+        try {
+            const response = await fetch(`/api/voices?engine=${engine}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch voices.');
+            }
+            const voices = await response.json();
+
+            voiceSelect.innerHTML = '';
+            if (voices.length === 0) {
+                voiceSelect.innerHTML = '<option value="">-- No voices found --</option>';
+            } else {
+                voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.id;
+                    option.textContent = voice.name;
+                    voiceSelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching voices:', error);
+            voiceSelect.innerHTML = '<option value="">-- Error loading voices --</option>';
+        }
+    }
+
+    function enableAudioControls() {
+        pauseBtn.disabled = false;
+        stopBtn.disabled = false;
+        playbackSpeed.disabled = false;
+    }
+
+    function disableAudioControls() {
+        pauseBtn.disabled = true;
+        stopBtn.disabled = true;
+        playbackSpeed.disabled = true;
+    }
+
+    function splitTextIntoChunks(text, chunkSize = 50) {
+        const words = text.split(/\s+/);
+        const chunks = [];
+        for (let i = 0; i < words.length; i += chunkSize) {
+            chunks.push(words.slice(i, i + chunkSize).join(' '));
+        }
+        return chunks;
+    }
+
+    async function generateSpeech(text) {
         const engine = engineSelect.value;
         const voice = voiceSelect.value;
-        const text = textDisplay.textContent.trim();
 
         if (!text) {
-            alert('Please enter some text.');
             return;
         }
         if (!voice) {
             alert('Please select a voice.');
             return;
         }
-
-        loadingDiv.classList.remove('hidden');
-        audioOutput.classList.add('hidden');
-        generateBtn.disabled = true;
 
         try {
             const response = await fetch('/api/synthesize', {
@@ -176,55 +291,120 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-            audioPlayer.src = data.audio_url;
-            downloadLink.href = data.audio_url;
-            audioOutput.classList.remove('hidden');
-            
-            audioPlayer.addEventListener('play', () => {
-                highlightWords(text, audioPlayer.duration);
-            });
-
-            audioPlayer.play();
-
-            audioPlayer.onended = () => {
-                if (autoReadCheckbox.checked && currentPageNum < pdfDoc.numPages) {
-                    renderPage(currentPageNum + 1).then(() => {
-                        setTimeout(generateSpeech, 500);
-                    });
-                }
-            };
-
+            return data.audio_url;
         } catch (error) {
             console.error('Error generating speech:', error);
             alert(`An error occurred: ${error.message}`);
-        } finally {
-            loadingDiv.classList.add('hidden');
-            generateBtn.disabled = false;
         }
     }
 
-    function highlightWords(text, duration) {
-        const words = text.split(/\s+/);
-        const wordElements = textDisplay.querySelectorAll('span');
-        const totalWords = words.length;
-        const delay = (duration * 1000) / totalWords;
+    async function playAudioQueue() {
+        if (isPaused) {
+            return;
+        }
 
-        let i = 0;
-        const interval = setInterval(() => {
-            if (i > 0) {
-                wordElements[i - 1].classList.remove('highlight');
+        if (audioQueue.length === 0) {
+            isPlaying = false;
+            disableAudioControls(); // Disable controls when queue is empty
+            clearAllHighlights(); // Clear highlights when playback finishes
+            if (autoReadCheckbox.checked && currentPageNum < pdfDoc.numPages) {
+                renderPage(currentPageNum + 1).then(() => {
+                    startSpeechGeneration();
+                });
             }
-            if (i < totalWords) {
-                wordElements[i].classList.add('highlight');
+            return;
+        }
+
+        isPlaying = true;
+        enableAudioControls(); // Enable controls when audio starts playing
+        const currentAudio = audioQueue.shift();
+        audioPlayer.src = currentAudio.url;
+        audioPlayer.playbackRate = playbackSpeed.value;
+
+        const onLoadedMetadata = () => {
+            highlightWords(currentAudio.text, audioPlayer.duration);
+            audioPlayer.removeEventListener('loadedmetadata', onLoadedMetadata);
+        };
+        audioPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
+
+        audioPlayer.play();
+
+        audioPlayer.onended = () => {
+            playAudioQueue();
+        };
+    }
+
+    async function startSpeechGeneration() {
+        const text = textDisplay.textContent.trim();
+        const chunks = splitTextIntoChunks(text);
+
+        if (chunks.length === 0) {
+            return;
+        }
+
+        loadingDiv.classList.remove('hidden'); // Spinner shows
+        generateBtn.disabled = true;
+
+        for (const chunk of chunks) {
+            const audioUrl = await generateSpeech(chunk);
+            if (audioUrl) {
+                audioQueue.push({ url: audioUrl, text: chunk });
+                if (!isPlaying && audioQueue.length === 1) {
+                    playAudioQueue();
+                    loadingDiv.classList.add('hidden'); // Hide spinner
+                    audioOutput.classList.remove('hidden'); // Show controls
+                }
             }
-            i++;
-            if (i > totalWords) {
-                clearInterval(interval);
-                if (wordElements.length > 0) {
-                   wordElements[totalWords - 1].classList.remove('highlight');
+        }
+
+        generateBtn.disabled = false;
+    }
+
+    function highlightWords(text, duration) {
+        const allWordElements = textDisplay.querySelectorAll('span');
+        allWordElements.forEach(span => span.classList.remove('highlight')); // Clear all previous highlights
+
+        let currentHighlightIndex = 0;
+        const wordsInDisplay = Array.from(allWordElements); // Get all words in the display
+
+        if (wordsInDisplay.length === 0) {
+            return; // No words to highlight
+        }
+
+        const delay = (duration * 1000) / wordsInDisplay.length; // Distribute duration across all words
+
+        // Clear any existing interval to prevent multiple highlighting processes
+        if (window.highlightInterval) {
+            clearInterval(window.highlightInterval);
+        }
+
+        window.highlightInterval = setInterval(() => {
+            if (currentHighlightIndex < wordsInDisplay.length) {
+                // Remove highlight from previous word
+                if (currentHighlightIndex > 0) {
+                    wordsInDisplay[currentHighlightIndex - 1].classList.remove('highlight');
+                }
+                // Add highlight to current word
+                wordsInDisplay[currentHighlightIndex].classList.add('highlight');
+                currentHighlightIndex++;
+            } else {
+                clearInterval(window.highlightInterval);
+                window.highlightInterval = null;
+                // Remove highlight from the last word after it's done
+                if (wordsInDisplay.length > 0) {
+                    wordsInDisplay[wordsInDisplay.length - 1].classList.remove('highlight');
                 }
             }
         }, delay);
+    }
+
+    function clearAllHighlights() {
+        const allWordElements = textDisplay.querySelectorAll('span');
+        allWordElements.forEach(span => span.classList.remove('highlight'));
+        if (window.highlightInterval) {
+            clearInterval(window.highlightInterval);
+            window.highlightInterval = null;
+        }
     }
 
     async function renderPage(num) {
@@ -268,20 +448,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    playbackSpeed.addEventListener('input', () => {
+        audioPlayer.playbackRate = playbackSpeed.value;
+    });
+
+    pauseBtn.addEventListener('click', () => {
+        if (isPlaying) {
+            if (isPaused) {
+                isPaused = false;
+                pauseBtn.innerHTML = '<ion-icon name="pause-outline"></ion-icon>';
+                audioPlayer.play();
+            } else {
+                isPaused = true;
+                pauseBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                audioPlayer.pause();
+            }
+        }
+    });
+
+    stopBtn.addEventListener('click', () => {
+        isPlaying = false;
+        isPaused = false;
+        audioQueue = [];
+        audioPlayer.pause();
+        audioPlayer.src = '';
+        pauseBtn.innerHTML = '<ion-icon name="pause-outline"></ion-icon>'; // Reset pause button icon
+        disableAudioControls(); // Disable controls on stop
+        clearAllHighlights(); // Clear highlights on stop
+    });
+
     pdfFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file && file.type === 'application/pdf') {
-            const fileUrl = URL.createObjectURL(file);
-            pdfDoc = await pdfjsLib.getDocument(fileUrl).promise;
-            const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
-            renderPage(lastPage);
-
-            if (!activeBookId) {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const arrayBuffer = event.target.result;
                 const bookId = `book-${Date.now()}`;
-                books[bookId] = { title: file.name, text: '', autoRead: false };
+                const bookTitle = file.name.replace('.pdf', '');
+
+                books[bookId] = { title: bookTitle, text: '', autoRead: false, pdfId: bookId };
                 saveBooks();
                 setActiveBook(bookId);
-            }
+
+                await savePdf(bookId, arrayBuffer);
+
+                pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
+                renderPage(lastPage);
+            };
+            reader.readAsArrayBuffer(file);
         } else if (file) {
             alert('Please select a valid PDF file.');
         }
@@ -298,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     engineSelect.addEventListener('change', updateVoices);
-    generateBtn.addEventListener('click', generateSpeech);
+    generateBtn.addEventListener('click', startSpeechGeneration);
 
     // Initial load
     renderBooks();
@@ -307,4 +522,5 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAutoReadCheckbox();
     }
     updateVoices();
+    disableAudioControls(); // Disable controls on initial load
 });

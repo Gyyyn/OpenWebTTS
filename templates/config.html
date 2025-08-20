@@ -5,11 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenWebTTS - Config</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="bg-gray-100">
 
     <div class="container mx-auto p-6">
         <h1 class="text-4xl font-bold text-gray-800 mb-6">Config</h1>
+
+        <button class="mb-4 bg-gray-200 hover:bg-gray-300 font-bold py-2 px-4 rounded-md" onclick="(e) => window.history.back()">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+            <span class="ms-2">Back</span>
+        </button>
 
         <div class="bg-white p-6 rounded-lg shadow-md">
             <h2 class="text-2xl font-bold mb-4">Download Piper Models</h2>
@@ -21,8 +27,9 @@
                     </select>
                 </div>
                 <div>
-                    <button id="download-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">
-                        Download
+                    <button id="download-btn" class="justify-center full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">
+                        <span class="me-2">Download</span>
+                        <ion-icon name="download-outline"></ion-icon>
                     </button>
                 </div>
             </div>
@@ -30,6 +37,8 @@
         </div>
     </div>
 
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
     <script src="/static/js/config.js"></script>
 </body>
 </html>
