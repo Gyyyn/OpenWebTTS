@@ -20,6 +20,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookList = document.getElementById('book-list');
     const newBookBtn = document.getElementById('new-book-btn');
     const autoReadCheckbox = document.getElementById('auto-read-checkbox');
+
+    // Modal Elements
+    const bookModal = document.getElementById('book-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const bookTitleInput = document.getElementById('book-title-input');
+    const modalCancelBtn = document.getElementById('modal-cancel-btn');
+    const modalActionBtn = document.getElementById('modal-action-btn');
     const playbackSpeed = document.getElementById('playback-speed');
     const pauseBtn = document.getElementById('pause-btn');
     const stopBtn = document.getElementById('stop-btn');
@@ -88,39 +95,72 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function showBookModal(title, actionText, currentTitle = '', actionCallback) {
+        modalTitle.textContent = title;
+        bookTitleInput.value = currentTitle;
+        modalActionBtn.textContent = actionText;
+        modalActionBtn.onclick = actionCallback;
+        bookTitleInput.style.display = 'block'; // Ensure input is visible by default
+        bookModal.classList.remove('hidden');
+    }
+
+    function hideBookModal() {
+        bookModal.classList.add('hidden');
+        bookTitleInput.value = ''; // Clear input on hide
+    }
+
     function deleteBook(bookId) {
-        if (confirm('Are you sure you want to delete this book?')) {
-            if (books[bookId].pdfId) {
-                deletePdf(books[bookId].pdfId);
+        const book = books[bookId];
+        if (!book) return;
+
+        showBookModal(
+            `Delete Book: ${book.title}?`,
+            'Delete',
+            '',
+            () => {
+                if (books[bookId].pdfId) {
+                    deletePdf(books[bookId].pdfId);
+                }
+                delete books[bookId];
+                saveBooks();
+                if (activeBookId === bookId) {
+                    activeBookId = null;
+                    localStorage.removeItem('activeBookId');
+                    textDisplay.innerHTML = '';
+                    pdfViewer.innerHTML = ''; // Clear PDF viewer
+                    pageNumSpan.textContent = ''; // Clear page number
+                    prevPageBtn.disabled = true;
+                    nextPageBtn.disabled = true;
+                }
+                renderBooks();
+                hideBookModal();
             }
-            delete books[bookId];
-            saveBooks();
-            if (activeBookId === bookId) {
-                activeBookId = null;
-                localStorage.removeItem('activeBookId');
-                textDisplay.innerHTML = '';
-                pdfViewer.innerHTML = ''; // Clear PDF viewer
-                pageNumSpan.textContent = ''; // Clear page number
-                prevPageBtn.disabled = true;
-                nextPageBtn.disabled = true;
-            }
-            renderBooks();
-        }
+        );
+        // Hide the input field for delete confirmation
+        bookTitleInput.style.display = 'none';
     }
 
     function renameBook(bookId) {
         const book = books[bookId];
         if (!book) return;
 
-        const newTitle = prompt('Enter new title for "' + book.title + '":', book.title);
-        if (newTitle !== null && newTitle.trim() !== '' && newTitle !== book.title) {
-            book.title = newTitle.trim();
-            saveBooks();
-            renderBooks();
-            if (activeBookId === bookId) {
-                bookPageTitle.innerHTML = newTitle.trim();
+        showBookModal(
+            'Rename Book',
+            'Rename',
+            book.title,
+            () => {
+                const newTitle = bookTitleInput.value;
+                if (newTitle !== null && newTitle.trim() !== '' && newTitle !== book.title) {
+                    book.title = newTitle.trim();
+                    saveBooks();
+                    renderBooks();
+                    if (activeBookId === bookId) {
+                        bookPageTitle.innerHTML = newTitle.trim();
+                    }
+                }
+                hideBookModal();
             }
-        }
+        );
     }
 
     function wrapWordsInSpans(text) {
@@ -155,13 +195,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createNewBook() {
-        const bookId = `book-${Date.now()}`;
-        const bookTitle = prompt('Enter book title:');
-        if (bookTitle) {
-            books[bookId] = { title: bookTitle, text: '', autoRead: false, pdfId: null };
-            saveBooks();
-            setActiveBook(bookId);
-        }
+        showBookModal(
+            'New Book',
+            'Create',
+            '',
+            () => {
+                const bookTitle = bookTitleInput.value;
+                if (bookTitle) {
+                    const bookId = `book-${Date.now()}`;
+                    books[bookId] = { title: bookTitle, text: '', autoRead: false, pdfId: null };
+                    saveBooks();
+                    setActiveBook(bookId);
+                }
+                hideBookModal();
+            }
+        );
     }
 
     function updateAutoReadCheckbox() {
@@ -460,21 +508,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = e.target.files[0];
         if (!file) return;
 
+        if (!activeBookId) {
+            alert('Please create or select a book first.');
+            return;
+        }
+
         const fileName = file.name;
         const fileExtension = fileName.split('.').pop().toLowerCase();
+
+        // Update the title of the active book to match the file name
+        books[activeBookId].title = fileName.replace(`.${fileExtension}`, '');
+        bookPageTitle.innerHTML = books[activeBookId].title; // Update displayed title
 
         if (fileExtension === 'pdf') {
             const reader = new FileReader();
             reader.onload = async (event) => {
                 const arrayBuffer = event.target.result;
-                const bookId = `book-${Date.now()}`;
-                const bookTitle = file.name.replace('.pdf', '');
 
-                books[bookId] = { title: bookTitle, text: '', autoRead: false, pdfId: bookId };
+                // Clear previous PDF data if any
+                if (books[activeBookId].pdfId) {
+                    await deletePdf(books[activeBookId].pdfId);
+                }
+
+                books[activeBookId].pdfId = activeBookId; // Use activeBookId as pdfId
+                books[activeBookId].text = ''; // Clear text for PDF books
                 saveBooks();
-                setActiveBook(bookId);
-
-                await savePdf(bookId, arrayBuffer);
+                
+                await savePdf(activeBookId, arrayBuffer);
 
                 pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
@@ -482,12 +542,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             reader.readAsArrayBuffer(file);
         } else if (fileExtension === 'epub') {
-            const bookId = `book-${Date.now()}`;
-            const bookTitle = file.name.replace('.epub', '');
-
-            books[bookId] = { title: bookTitle, text: '', autoRead: false, pdfId: null }; // No pdfId for epub
+            // Clear previous PDF data if any
+            if (books[activeBookId].pdfId) {
+                await deletePdf(books[activeBookId].pdfId);
+            }
+            books[activeBookId].pdfId = null; // No pdfId for epub
             saveBooks();
-            setActiveBook(bookId);
 
             loadingDiv.classList.remove('hidden');
             generateBtn.disabled = true;
@@ -507,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const data = await response.json();
-                books[bookId].text = data.text;
+                books[activeBookId].text = data.text;
                 saveBooks();
                 textDisplay.innerHTML = wrapWordsInSpans(data.text);
 
@@ -521,12 +581,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Error reading EPUB:', error);
                 alert(`An error occurred: ${error.message}`);
-                delete books[bookId]; // Clean up if error
+                // Revert changes if error
+                books[activeBookId].text = ''; 
+                books[activeBookId].pdfId = null;
                 saveBooks();
-                if (activeBookId === bookId) {
-                    activeBookId = null;
-                    localStorage.removeItem('activeBookId');
-                }
                 textDisplay.innerHTML = '';
             } finally {
                 loadingDiv.classList.add('hidden');
@@ -549,6 +607,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     engineSelect.addEventListener('change', updateVoices);
     generateBtn.addEventListener('click', startSpeechGeneration);
+
+    modalCancelBtn.addEventListener('click', hideBookModal);
 
     // Initial load
     renderBooks();
