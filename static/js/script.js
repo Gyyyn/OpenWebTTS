@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPaused = false;
     let allTextChunks = [];
     let currentChunkIndex = 0;
+    let lastChunkProcessed = -1;
 
     // Set workerSrc for PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
@@ -182,11 +183,53 @@ document.addEventListener('DOMContentLoaded', () => {
         return html;
     }
 
+    function highlightChunk(chunkObject) {
+        const fullText = textDisplay.textContent;
+        const chunkText = chunkObject.text;
+        const startIndex = fullText.indexOf(chunkText);
+
+        if (startIndex === -1) {
+            console.error("Could not find chunk text to highlight:", chunkObject);
+            return;
+        }
+
+        // Create the HTML for the highlighted chunk (with spans for each word)
+        const words = chunkText.split(/(\s+)/); // Keep spaces
+        let highlightedHtml = '';
+        words.forEach(word => {
+            if (word.trim() !== '') {
+                // Use the same data-chunk-id for easy removal later
+                highlightedHtml += `<span class="highlight" data-chunk-id="${chunkObject.id}">${word}</span>`;
+            } else {
+                highlightedHtml += word;
+            }
+        });
+
+        // Replace the plain text of the chunk with our new highlighted HTML
+        textDisplay.innerHTML = fullText.substring(0, startIndex) +
+                            highlightedHtml +
+                            fullText.substring(startIndex + chunkText.length);
+    }
+
+    function unhighlightChunk(chunkObject) {
+        // Find all the spans for the chunk we just played
+        const spans = textDisplay.querySelectorAll(`span[data-chunk-id="${chunkObject.id}"]`);
+        if (spans.length === 0) return;
+
+        // We can simply replace the entire innerHTML with the plain text again.
+        // This is efficient because the highlight/unhighlight is the only change.
+        textDisplay.textContent = allTextChunks.map(chunk => chunk.text).join(' ');
+    }
+
     async function loadBookContent(bookId) {
         if (books[bookId]) {
             bookPageTitle.innerHTML = books[bookId].title;
             allTextChunks = splitTextIntoChunks(books[bookId].text);
-            textDisplay.innerHTML = wrapWordsInSpans(allTextChunks);
+
+            /*textDisplay.innerHTML = wrapWordsInSpans(allTextChunks);*/
+
+            textDisplay.textContent = books[bookId].text;
+
             currentChunkIndex = 0; // Reset chunk index
 
             if (books[bookId].pdfId) {
@@ -294,34 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function updateVoices() {
-        const engine = engineSelect.value;
-        voiceSelect.innerHTML = '<option value="">Loading voices...</option>';
-
-        try {
-            const response = await fetch(`/api/voices?engine=${engine}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch voices.');
-            }
-            const voices = await response.json();
-
-            voiceSelect.innerHTML = '';
-            if (voices.length === 0) {
-                voiceSelect.innerHTML = '<option value="">-- No voices found --</option>';
-            } else {
-                voices.forEach(voice => {
-                    const option = document.createElement('option');
-                    option.value = voice.id;
-                    option.textContent = voice.name;
-                    voiceSelect.appendChild(option);
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching voices:', error);
-            voiceSelect.innerHTML = '<option value="">-- Error loading voices --</option>';
-        }
-    }
-
     function enableAudioControls() {
         pauseBtn.disabled = false;
         stopBtn.disabled = false;
@@ -353,7 +368,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function generateSpeech(text) {
-        console.log('generateSpeech called with text:', text);
         const engine = engineSelect.value;
         const voice = voiceSelect.value;
 
@@ -380,18 +394,38 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-            console.log('generateSpeech returning audio_url:', data.audio_url);
-            return data.audio_url;
+
+            if (data.status === 'generating') {
+                // Poll the audio URL until it's ready
+                return new Promise((resolve, reject) => {
+                    const poll = setInterval(async () => {
+                        try {
+                            const headResponse = await fetch(data.audio_url, { method: 'HEAD' });
+                            if (headResponse.ok) {
+                                clearInterval(poll);
+                                resolve(data.audio_url);
+                            }
+                        } catch (error) {
+                            // Network error, keep polling, but log it for debugging
+                            console.warn('Polling for audio file, network error:', error);
+                        }
+                    }, 500); // Poll every 500ms
+                });
+            } else {
+                return data.audio_url;
+            }
+
         } catch (error) {
             console.error('Error generating speech:', error);
             alert(`An error occurred: ${error.message}`);
+            return null; // Ensure we return null on failure
         }
     }
 
     async function playAudioQueue() {
-        if (isPaused) {
-            return;
-        }
+
+        if (isPaused)
+        return;
 
         if (audioQueue.length === 0) {
             isPlaying = false;
@@ -407,56 +441,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
         isPlaying = true;
         enableAudioControls(); // Enable controls when audio starts playing
+        
+        // Shift current audio from queue and preemptively process next chunk.
         const currentAudio = audioQueue.shift();
+
+        highlightChunk(currentAudio.text);
+
         audioPlayer.src = currentAudio.url;
         audioPlayer.playbackRate = playbackSpeed.value;
 
-        const onLoadedMetadata = () => {
+        /* const onLoadedMetadata = () => {
             highlightWords(currentAudio.text, audioPlayer.duration);
             audioPlayer.removeEventListener('loadedmetadata', onLoadedMetadata);
         };
-        audioPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
 
+        audioPlayer.addEventListener('loadedmetadata', onLoadedMetadata); */
         audioPlayer.play();
-        console.log('Audio playback started.');
 
         audioPlayer.onended = async () => {
-            console.log('Audio ended event fired.');
+
+            unhighlightChunk(currentAudio.text);
+            
             const playedChunkId = currentAudio.text.id; // Define playedChunkId here
             if (activeBookId && books[activeBookId].autoDeleteChunks) {
                 const spansToRemove = textDisplay.querySelectorAll(`span[data-chunk-id="${playedChunkId}"]`);
                 spansToRemove.forEach(span => span.remove());
-                console.log(`Removed spans for chunk: ${playedChunkId}`);
 
                 // Update the stored text to reflect the deletion
                 const remainingText = allTextChunks.filter(chunk => chunk.id !== playedChunkId).map(chunk => chunk.text).join(' ');
                 books[activeBookId].text = remainingText;
                 saveBooks();
             }
-            console.log('Before incrementing currentChunkIndex.');
+
             currentChunkIndex++;
-            if (currentChunkIndex < allTextChunks.length) {
-                // Generate and add the next chunk to the queue
-                await processNextChunk();
-                // Then, play the next item in the queue
+
+            const nextChunkToFetch = currentChunkIndex + 2; // +2 because buffer size is 3
+            processAndQueueChunk(nextChunkToFetch);
+
+            if (audioQueue.length > 0) {
+                // If there's more audio ready, play it immediately.
                 playAudioQueue();
             } else {
+                // If the queue is empty, it means the network is slow.
+                // We just wait. Playback will resume when processAndQueueChunk adds the next item.
+                console.log("Buffer empty, waiting for network...");
                 isPlaying = false;
                 disableAudioControls();
-                clearAllHighlights();
-                if (autoReadCheckbox.checked && currentPageNum < pdfDoc.numPages) {
-                    renderPage(currentPageNum + 1).then(() => {
-                        startSpeechGeneration();
-                    });
-                }
             }
+            
         };
     }
 
     async function startSpeechGeneration() {
+
         const text = textDisplay.textContent.trim();
         allTextChunks = splitTextIntoChunks(text);
+        
+        // Reset trackers
         currentChunkIndex = 0;
+        lastChunkProcessed = -1; 
 
         if (allTextChunks.length === 0) {
             return;
@@ -468,34 +511,67 @@ document.addEventListener('DOMContentLoaded', () => {
         isPlaying = false;
         isPaused = false;
 
-        await processNextChunk();
-        playAudioQueue(); // Start playback of the first chunk
+        const initialBufferSize = Math.min(3, allTextChunks.length);
+        for (let i = 0; i < initialBufferSize; i++) {
+            processAndQueueChunk(i);
+        }
 
         loadingDiv.classList.add('hidden');
         audioOutput.classList.remove('hidden');
     }
 
-    async function processNextChunk() {
-        console.log('Processing next chunk.');
+    async function processNextChunk(preemptive = false) {
+
+        const chunkIndexToProcess = lastChunkProcessed + 1;
+
+        // Exit if we're at the end of the text
         if (currentChunkIndex >= allTextChunks.length) {
             loadingDiv.classList.add('hidden');
             generateBtn.disabled = false;
             return;
         }
 
-        const chunk = allTextChunks[currentChunkIndex];
-        console.log('Calling generateSpeech for chunk:', chunk);
+        // Update the tracker immediately
+        lastChunkProcessed = chunkIndexToProcess;
+
+        const chunk = allTextChunks[chunkIndexToProcess];
         const audioUrl = await generateSpeech(chunk);
-        console.log('generateSpeech returned audioUrl:', audioUrl);
+
+        console.log("Processing chunk:", chunk, "URL:", audioUrl);
 
         if (audioUrl) {
-            console.log('Pushing audio to queue.');
             audioQueue.push({ url: audioUrl, text: chunk });
         } else {
             // If audio generation fails, we should still try to process the next chunk
             // or handle the error appropriately. For now, just log.
             console.error('Failed to generate audio for chunk:', chunk);
         }
+    }
+
+    // This function FIRES the request but does not wait for it.
+    function processAndQueueChunk(chunkIndex) {
+        // Make sure we don't go out of bounds
+        if (chunkIndex >= allTextChunks.length) {
+            return;
+        }
+
+        const chunk = allTextChunks[chunkIndex];
+        
+        // generateSpeech returns a Promise. We use .then() to handle the result
+        // when it arrives, instead of stopping everything with await.
+        generateSpeech(chunk).then(audioUrl => {
+            if (audioUrl) {
+                console.log(`✅ Audio received for chunk index: ${chunkIndex}`);
+                audioQueue.push({ url: audioUrl, text: chunk });
+
+                // IMPORTANT: If we just received the VERY FIRST chunk, start playback now.
+                if (!isPlaying && audioQueue.length > 0) {
+                    playAudioQueue();
+                }
+            } else {
+                console.error(`❌ Failed to get audio for chunk index: ${chunkIndex}`);
+            }
+        });
     }
 
     function highlightWords(chunkObject, duration) {
@@ -547,7 +623,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const pageText = textContent.items.map(item => item.str).join(' ');
         
         allTextChunks = splitTextIntoChunks(pageText);
-        textDisplay.innerHTML = wrapWordsInSpans(allTextChunks);
+
+        /* textDisplay.innerHTML = wrapWordsInSpans(allTextChunks); */        
+
+        textDisplay.textContent = pageText;
+        
         currentChunkIndex = 0; // Reset chunk index
 
         pageNumSpan.textContent = `Page ${num} of ${pdfDoc.numPages}`;
@@ -588,7 +668,8 @@ document.addEventListener('DOMContentLoaded', () => {
         audioPlayer.src = '';
         pauseBtn.innerHTML = '<ion-icon name="pause-outline"></ion-icon>'; // Reset pause button icon
         disableAudioControls(); // Disable controls on stop
-        clearAllHighlights(); // Clear highlights on stop
+        /* clearAllHighlights(); // Clear highlights on stop */
+        textDisplay.textContent = allTextChunks.map(chunk => chunk.text).join(' '); // Revert to plain text
     });
 
     pdfFileInput.addEventListener('change', async (e) => {

@@ -6,9 +6,10 @@ import wave
 import fitz  # PyMuPDF
 import requests
 import ebooklib
+import hashlib
 from ebooklib import epub
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -21,6 +22,7 @@ import shutil
 # --- Configuration ---
 MODELS_DIR = "models"
 AUDIO_DIR = "static/audio"
+AUDIO_CACHE_DIR = "static/audio_cache"
 COQUI_DIR = os.path.join(MODELS_DIR, "coqui")
 PIPER_DIR = os.path.join(MODELS_DIR, "piper")
 KOKORO_DIR = os.path.join(MODELS_DIR, "kokoro")
@@ -83,10 +85,7 @@ def get_kokoro_voices() -> List[Voice]:
         voices.append(Voice(id=model_file, name=f"Kokoro: {model_file}"))
     return [Voice(id="default", name="Kokoro: Default")] # Placeholder
 
-def generate_audio(request: SynthesizeRequest) -> str:
-    output_filename = f"{uuid.uuid4()}.wav"
-    output_path = os.path.join(AUDIO_DIR, output_filename)
-
+def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
         if request.engine == "coqui":
             from TTS.api import TTS
@@ -125,14 +124,13 @@ def generate_audio(request: SynthesizeRequest) -> str:
         # Re-raise as HTTPException to send a clean error to the client
         raise HTTPException(status_code=500, detail=f"Failed to generate audio. Reason: {str(e)}")
 
-    return f"/static/audio/{output_filename}"
-
 # --- API Endpoints ---
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    # Ensure audio directory exists
+    # Ensure audio directories exist
     os.makedirs(AUDIO_DIR, exist_ok=True)
+    os.makedirs(AUDIO_CACHE_DIR, exist_ok=True)
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/config", response_class=HTMLResponse)
@@ -166,7 +164,7 @@ async def download_piper_voice(voice: PiperVoice):
                 f.write(chunk)
 
         # Download the model config file
-        config_url = f"{voice.URL}.json"
+        config_url = f"{voice_URL}.json"
         config_response = requests.get(config_url)
         config_response.raise_for_status()
         config_path = os.path.join(PIPER_DIR, f"{voice.key}.onnx.json")
@@ -192,12 +190,25 @@ async def list_voices(engine: str):
         return []
 
 @app.post("/api/synthesize")
-async def synthesize_speech(request: SynthesizeRequest):
+async def synthesize_speech(request: SynthesizeRequest, background_tasks: BackgroundTasks):
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
 
-    audio_url = generate_audio(request)
-    return JSONResponse(content={"audio_url": audio_url})
+    # 1. Create a Unique Identifier
+    hash_input = f"{request.text}-{request.voice}-{request.engine}"
+    unique_hash = hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
+    output_filename = f"{unique_hash}.wav"
+    output_path = os.path.join(AUDIO_CACHE_DIR, output_filename)
+    audio_url = f"/static/audio_cache/{output_filename}"
+    
+    # 2. Check if audio is already cached
+    if os.path.exists(output_path):
+        # 3. Cache Hit: Return URL immediately
+        return JSONResponse(content={"audio_url": audio_url, "status": "ready"})
+    else:
+        # 4. Cache Miss: Generate audio in the background
+        background_tasks.add_task(_generate_audio_file, request, output_path)
+        return JSONResponse(content={"audio_url": audio_url, "status": "generating"})
 
 @app.post("/api/read_pdf", response_model=PdfText)
 async def read_pdf(file: UploadFile = File(...)):

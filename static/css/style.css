@@ -8,9 +8,8 @@ button, a.button {
 }
 
 .highlight {
-    background-color: yellow;
-    padding: 2px 0;
-    border-radius: 3px;
+    background-color: #fde047; /* Or any color you prefer */
+    color: black;
 }
 
 /* Modal Styles */
