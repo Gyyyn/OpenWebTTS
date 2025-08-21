@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const bookId in books) {
             const book = books[bookId];
             const li = document.createElement('li');
-            li.className = `flex justify-between items-center cursor-pointer p-2 rounded ${bookId === activeBookId ? 'bg-blue-600' : 'hover:bg-gray-700'}`;
+            li.className = `flex text-sm justify-between items-center cursor-pointer p-2 rounded-lg ${bookId === activeBookId ? 'bg-indigo-100' : 'hover:bg-gray-200'}`;
             
             const titleSpan = document.createElement('span');
             titleSpan.className = `overflow-hidden`
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const renameBtn = document.createElement('button');
             renameBtn.innerHTML = '<ion-icon name="create-outline"></ion-icon>';
-            renameBtn.className = 'hover:text-gray-300';
+            renameBtn.className = 'hover:text-gray-500';
             renameBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 renameBook(bookId);
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
-            deleteBtn.className = 'hover:text-gray-300';
+            deleteBtn.className = 'hover:text-gray-500';
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 deleteBook(bookId);

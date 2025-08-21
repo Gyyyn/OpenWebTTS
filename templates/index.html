@@ -6,29 +6,43 @@
     <title>OpenWebTTS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
 </head>
 <body class="bg-gray-100 flex">
 
     <!-- Sidebar for Books -->
-    <div class="w-1/4 bg-gray-800 text-white p-4">
-        <h1 class="text-4xl font-bold mb-2 border-bottom">OpenWebTTS</h1>
+    <div class="bg-gray-100 border border-end w-1/4">
+        <div class="flex flex-col">
 
-        <button id="new-book-btn" class="mb-2 bg-blue-600 hover:bg-gray-500 w-full text-left rounded px-2 py-1">
-            <ion-icon name="add-circle-outline"></ion-icon>
-            <span class="ms-2">New Book</span>
-        </button>
-        <a href="/config" class="button mb-2 hover:bg-gray-500 w-full block text-left rounded px-2 py-1">
-            <ion-icon name="cog-outline"></ion-icon>
-            <span class="ms-2">Config</span>
-        </a>
+            <div class="p-4">
+                <h1 class="text-4xl text-center font-bold mb-6 border-bottom">OpenWebTTS</h1>
 
-        <hr class="mb-2" />
+                <button id="new-book-btn" class="mb-2 hover:bg-gray-200 w-full text-left rounded-lg px-2 py-1">
+                    <ion-icon name="add-circle-outline"></ion-icon>
+                    <span class="ms-2">New Book</span>
+                </button>
+                <a href="/config" class="button mb-2 hover:bg-gray-200 w-full block text-left rounded-lg px-2 py-1">
+                    <ion-icon name="cog-outline"></ion-icon>
+                    <span class="ms-2">Config</span>
+                </a>
 
-        <h2 class="text-2xl font-bold mb-4">Books</h2>
-        <ul id="book-list" class="space-y-2">
-            <!-- Book items will be added here dynamically -->
-        </ul>
+                <hr class="my-4" />
+
+                <div class="font-bold m-2 text-gray-400">Books</div>
+                <ul id="book-list" class="space-y-1">
+                    <!-- Book items will be added here dynamically -->
+                </ul>
+            </div>
+
+            <div class="border-top flex items-center">
+                <div class="p-4">
+                    <span class="bg-gray-400"><ion-icon name="person-circle-outline"></ion-icon></span>
+                </div>
+                <span>Anonymous</span>
+            </div>
+            
+        </div>
     </div>
 
     <!-- Main Content -->
@@ -39,7 +53,7 @@
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
                     <label for="engine" class="block text-sm font-medium text-gray-700">TTS Engine</label>
-                    <select id="engine" name="engine" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <select id="engine" name="engine" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
                         <option value="piper" >Piper</option>
                         <option value="coqui" disabled>Coqui TTS</option>
                         <option value="kokoro" disabled>Kokoro</option>
@@ -47,7 +61,7 @@
                 </div>
                 <div>
                     <label for="voice" class="block text-sm font-medium text-gray-700">Voice/Speaker</label>
-                    <select id="voice" name="voice" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <select id="voice" name="voice" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
                         <option value="">-- Select an engine first --</option>
                     </select>
                 </div>
@@ -56,61 +70,61 @@
             <div class="flex items-center mb-4">
                 
                 <div id="generate-section" class="flex">
-                    <button id="generate-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">
+                    <button id="generate-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
                         <span class="me-2">Generate Speech</span>
                         <ion-icon name="volume-high-outline"></ion-icon>
                     </button>
-                    <div id="loading" class=" h-4 w-4 hidden text-center mt-4">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                    <div id="loading" class="full hidden">
+                        <ion-icon class="animate-spin" name="refresh-outline"></ion-icon>
                     </div>
                 </div>
 
-                <div id="audio-output" class="hidden flex mt-6">
+                <div id="audio-output" class="hidden flex ps-4">
                     <audio id="audio-player" controls class="hidden w-full"></audio>
-                    <div class="flex items-center justify-between mt-4">
+                    <div class="flex items-center justify-between">
                         <div>
                             <label for="playback-speed" class="block text-sm font-medium text-gray-700">Speed</label>
                             <input type="range" id="playback-speed" min="0.5" max="2" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" disabled>
                         </div>
                         <div class="flex items-center">
-                            <button id="pause-btn" class="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600" disabled><ion-icon name="pause-outline"></ion-icon></button>
-                            <button id="stop-btn" class="ml-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600" disabled><ion-icon name="stop-outline"></ion-icon></button>
-                            <a id="download-link" href="#" download="speech.wav" class="button ml-4 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"><ion-icon name="download-outline"></ion-icon></a>
+                            <button id="pause-btn" class="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" disabled><ion-icon name="pause-outline"></ion-icon></button>
+                            <button id="stop-btn" class="ml-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600" disabled><ion-icon name="stop-outline"></ion-icon></button>
+                            <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"><ion-icon name="download-outline"></ion-icon></a>
                         </div>
                     </div>
                 </div>
-                <div class="ml-4 flex items-center">
-                    <input id="auto-read-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                <div class="ml-2 flex items-center">
+                    <input id="auto-read-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
                     <label for="auto-read-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Read Next Page</label>
                 </div>
-                <div class="ml-4 flex items-center">
-                    <input id="auto-delete-chunks-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                <div class="ml-2 flex items-center">
+                    <input id="auto-delete-chunks-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
                     <label for="auto-delete-chunks-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Delete Read Chunks</label>
                 </div>
             </div>
 
             <div class="mb-4">
                 <label for="text" class="block text-sm font-medium text-gray-700">Text to Synthesize</label>
-                <div id="text-display" contenteditable="true" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px]"></div>
+                <div id="text-display" contenteditable="true" class="shadow-lg mt-1 block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px]"></div>
                 <textarea id="text" name="text" rows="6" placeholder="Enter your text here..." class="hidden"></textarea>
             </div>
 
             <div class="mb-4">
                 <h3 class="text-m font-semibold text-gray-800">File Reader</h2>
                 <div id="pagination-controls" class="flex justify-between items-center mt-4">
-                    <button id="prev-page" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">
+                    <button id="prev-page" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400">
                         <ion-icon name="chevron-back-outline"></ion-icon>
                         <span class="ms-2">Previous</span>
                     </button>
                     <span id="page-num" class="text-sm text-gray-600"></span>
-                    <button id="next-page" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">
+                    <button id="next-page" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400">
                         <span class="me-2">Next</span>
                         <ion-icon name="chevron-forward-outline"></ion-icon>
                     </button>
                 </div>
-                <div id="pdf-viewer" class="mt-4 border rounded-lg"></div>
+                <div id="pdf-viewer" class="mt-4 border rounded-lg-lg"></div>
                 <h3 class="text-m font-semibold text-gray-800 mt-4">File Picker</h3>
-                <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+                <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
             </div>
 
         </div>
@@ -122,10 +136,10 @@
     <div id="book-modal" class="modal hidden">
         <div class="modal-content">
             <h2 id="modal-title" class="text-xl font-bold mb-4"></h2>
-            <input type="text" id="book-title-input" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="Enter book title">
+            <input type="text" id="book-title-input" class="w-full p-2 border border-gray-300 rounded-lg mb-4" placeholder="Enter book title">
             <div class="flex justify-end space-x-2">
-                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
-                <button id="modal-action-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"></button>
+                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                <button id="modal-action-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"></button>
             </div>
         </div>
     </div>

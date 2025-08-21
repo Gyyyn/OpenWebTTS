@@ -12,29 +12,41 @@
     <div class="container mx-auto p-6">
         <h1 class="text-4xl font-bold text-gray-800 mb-6">Config</h1>
 
-        <button class="mb-4 bg-gray-200 hover:bg-gray-300 font-bold py-2 px-4 rounded-md" onclick="(e) => window.history.back()">
+        <button id="back" class="mb-4 bg-gray-200 hover:bg-gray-300 font-bold py-2 px-4 rounded-lg">
             <ion-icon name="arrow-back-outline"></ion-icon>
             <span class="ms-2">Back</span>
         </button>
 
-        <div class="bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-2xl font-bold mb-4">Download Piper Models</h2>
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label for="piper-voice" class="block text-sm font-medium text-gray-700">Select a Voice</label>
-                    <select id="piper-voice" name="piper-voice" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                        <option value="">-- Loading voices --</option>
-                    </select>
+        <div class="grid grid-cols-2 gap-4">
+
+            <div class="bg-white p-6 rounded-lg shadow-md full">
+                <h2 class="text-2xl font-bold mb-4">Download Piper Models</h2>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="piper-voice" class="block text-sm font-medium text-gray-700">Select a Voice</label>
+                        <select id="piper-voice" name="piper-voice" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
+                            <option value="">-- Loading voices --</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="download-btn" class="justify-center full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                            <span class="me-2">Download</span>
+                            <ion-icon name="download-outline"></ion-icon>
+                        </button>
+                    </div>
                 </div>
+                <div id="download-status"></div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md full">
+                <h2 class="text-2xl font-bold mb-4">Gemini Voice</h2>
                 <div>
-                    <button id="download-btn" class="justify-center full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">
-                        <span class="me-2">Download</span>
-                        <ion-icon name="download-outline"></ion-icon>
-                    </button>
+                    <label for="google-voice" class="block text-sm font-medium text-gray-700">Google API Key</label>
+                    <input id="google-voice" name="google-voice" class="mt-1 block w-full pl-3 pr-10 py-2 bg-gray-100 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg" />
                 </div>
             </div>
-            <div id="download-status"></div>
         </div>
+
     </div>
 
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>

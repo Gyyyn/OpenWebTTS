@@ -45,6 +45,7 @@ class PdfText(BaseModel):
 
 class PiperVoice(BaseModel):
     key: str
+    URL: str
 
 # --- TTS Engine Functions ---
 
@@ -150,29 +151,29 @@ async def get_piper_voices_from_hf():
 @app.post("/api/download_piper_voice")
 async def download_piper_voice(voice: PiperVoice):
     try:
-        voice_key = voice.key
+        voice_url = voice.URL
         # Construct the download URL
-        url = f"https://huggingface.co/rhasspy/piper-voices/resolve/main/{voice_key}"
+        url = f"{voice_url}"
         
         # Download the model file
         response = requests.get(url, stream=True)
         response.raise_for_status()
         
         # Save the model to the piper directory
-        model_path = os.path.join(PIPER_DIR, f"{voice_key}.onnx")
+        model_path = os.path.join(PIPER_DIR, f"{voice.key}.onnx")
         with open(model_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
         # Download the model config file
-        config_url = f"{url}.json"
+        config_url = f"{voice.URL}.json"
         config_response = requests.get(config_url)
         config_response.raise_for_status()
-        config_path = os.path.join(PIPER_DIR, f"{voice_key}.onnx.json")
+        config_path = os.path.join(PIPER_DIR, f"{voice.key}.onnx.json")
         with open(config_path, "w") as f:
             f.write(config_response.text)
 
-        return JSONResponse(content={"message": f"Successfully downloaded {voice_key}"})
+        return JSONResponse(content={"message": f"Successfully downloaded {voice.key}"})
 
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Failed to download voice: {e}")
