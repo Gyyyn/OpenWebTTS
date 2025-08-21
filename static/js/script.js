@@ -365,13 +365,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        let apiKey = null;
+        if (engine === 'gemini') {
+            apiKey = localStorage.getItem('geminiApiKey');
+            if (!apiKey) {
+                alert('Please set your Gemini API Key in the Config page.');
+                return; // Stop execution if API key is missing
+            }
+        }
+
         try {
+            
+            const requestBody = { engine, voice, text: text.text };
+            if (apiKey) { // Only add apiKey if it's present (i.e., for Gemini engine)
+                requestBody.api_key = apiKey;
+            }
+
             const response = await fetch('/api/synthesize', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ engine, voice, text: text.text }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {

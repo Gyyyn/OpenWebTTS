@@ -8,6 +8,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const piperVoiceSelect = document.getElementById('piper-voice');
     const downloadBtn = document.getElementById('download-btn');
     const downloadStatus = document.getElementById('download-status');
+    const googleVoiceInput = document.getElementById('google-voice');
+    const GEMINI_API_KEY_STORAGE_KEY = 'geminiApiKey';
+
+    // Load saved API key on page load
+    if (localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY)) {
+        googleVoiceInput.value = localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY);
+    }
+
+    // Save API key on input change
+    googleVoiceInput.addEventListener('input', () => {
+        localStorage.setItem(GEMINI_API_KEY_STORAGE_KEY, googleVoiceInput.value);
+    });
 
     async function getPiperVoices() {
         try {

@@ -14,10 +14,12 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 from io import BytesIO
 import tempfile
 import shutil
+
+import gemini
 
 # --- Configuration ---
 MODELS_DIR = "models"
@@ -37,6 +39,7 @@ class SynthesizeRequest(BaseModel):
     engine: str
     voice: str
     text: str
+    api_key: Optional[str] = None
 
 class Voice(BaseModel):
     id: str
@@ -115,6 +118,16 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
             ]
             subprocess.run(command, check=True, capture_output=True, text=True)
 
+        elif request.engine == "gemini":
+            if not request.api_key:
+                raise ValueError("Gemini API key is required for Gemini engine.")
+            audio_content = gemini.text_to_speech(request.api_key, request.text, request.voice)
+            if audio_content:
+                with open(output_path, "wb") as f:
+                    f.write(audio_content)
+            else:
+                raise ValueError("Failed to get audio content from Gemini API.")
+
         else:
             raise ValueError("Unsupported TTS engine.")
 
@@ -186,6 +199,8 @@ async def list_voices(engine: str):
         return get_piper_voices()
     elif engine == "kokoro":
         return get_kokoro_voices()
+    elif engine == "gemini":
+        return gemini.list_voices()
     else:
         return []
 
