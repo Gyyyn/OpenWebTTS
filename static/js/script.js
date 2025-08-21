@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const newBookBtn = document.getElementById('new-book-btn');
     const autoReadCheckbox = document.getElementById('auto-read-checkbox');
     const autoDeleteChunksCheckbox = document.getElementById('auto-delete-chunks-checkbox');
+    const currentChunk = document.getElementById('current-chunk');
+    const bookView = document.getElementById('book-view');
 
     // Modal Elements
     const bookModal = document.getElementById('book-modal');
@@ -141,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     resetPdfView();
                 }
                 renderBooks();
+                resetBookView();
                 hideBookModal();
             },
             { showInput: false }
@@ -214,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
             allTextChunks = splitTextIntoChunks(books[bookId].text);
 
             textDisplay.textContent = books[bookId].text;
+            bookView.classList.remove('hidden');
 
             currentChunkIndex = 0; // Reset chunk index
 
@@ -268,6 +272,14 @@ document.addEventListener('DOMContentLoaded', () => {
         prevPageBtn.disabled = true;
         nextPageBtn.disabled = true;
         pdfDoc = null;
+    }
+
+    function resetBookView() {
+        textDisplay.textContent = '';
+        currentChunk.textContent = '';
+        currentChunk.classList.add('hidden');
+        bookPageTitle.textContent = 'New Book';
+        bookView.classList.add('hidden');
     }
 
     autoReadCheckbox.addEventListener('change', () => {
@@ -447,6 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentAudio = audioQueue.shift();
 
         highlightChunk(currentAudio.text);
+        currentChunk.textContent = currentAudio.text.text;
+        currentChunk.classList.remove('hidden');
 
         audioPlayer.src = currentAudio.url;
         audioPlayer.playbackRate = playbackSpeed.value;
@@ -462,6 +476,8 @@ document.addEventListener('DOMContentLoaded', () => {
         audioPlayer.onended = async () => {
 
             unhighlightChunk(currentAudio.text);
+            currentChunk.textContent = '';
+            currentChunk.classList.add('hidden');
             
             const playedChunkId = currentAudio.text.id; // Define playedChunkId here
             if (activeBookId && books[activeBookId].autoDeleteChunks) {

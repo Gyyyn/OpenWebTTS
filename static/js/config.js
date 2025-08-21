@@ -1,4 +1,5 @@
 const backButton = document.getElementById('back');
+const clearCacheButton = document.getElementById('clear-cache');
 
 backButton.addEventListener('click', () => {
     window.history.back();
@@ -93,6 +94,18 @@ document.addEventListener('DOMContentLoaded', () => {
             downloadBtn.disabled = false;
         }
     }
+
+    clearCacheButton.addEventListener('click', async () => {
+        
+        const response = await fetch('/api/clear_cache');
+
+        if (!response.ok) {
+            throw new Error('Failed to clear cache.');
+        }
+
+        alert('Cache cleared.');
+
+    });
 
     downloadBtn.addEventListener('click', downloadPiperVoice);
 

@@ -70,7 +70,7 @@ pip install -r requirements.txt
 
 You need to download the pre-trained models for the TTS engines you wish to use. Place them in the corresponding subdirectories inside the `models/` folder.
 
-#### Coqui TTS
+#### Coqui TTS (In development.)
 
 1.  Find a model from the [Coqui TTS releases](https://github.com/coqui-ai/TTS/releases) or train your own.
 2.  A Coqui model is typically a directory containing files like `model.pth`, `config.json`, and `speakers.json` (for multi-speaker models).
@@ -82,7 +82,7 @@ You need to download the pre-trained models for the TTS engines you wish to use.
 2.  A Piper model consists of two files: an `.onnx` file (the model itself) and a `.json` file (the model config).
 3.  Place both files inside `models/piper/`. For example: `models/piper/en_US-lessac-medium.onnx` and `models/piper/en_US-lessac-medium.onnx.json`.
 
-#### Kokoro
+#### Kokoro (In development)
 
 1.  Kokoro integration is done via its command-line interface.
 2.  Ensure the Kokoro executable or script is available in your system's `PATH` or provide a full path to it.
@@ -97,6 +97,26 @@ python app.py
 ```
 
 The application will be available at `http://127.0.0.1:8000`.
+
+### Desktop Mode (In development)
+
+You can also run OpenWebTTS as a desktop app using a lightweight webview window.
+
+```bash
+python app.py --desktop
+```
+
+Optional flags:
+
+- `--host` to bind to a different host (defaults to `127.0.0.1`)
+- `--port` to request a specific port (if taken, a free port is chosen)
+
+Notes:
+
+- Desktop mode requires `pywebview` and `PyGObject` (installed via `requirements.txt`). On Linux, you may need a GUI backend such as GTK or Qt.
+- For GTK backend on Linux, install system packages: `sudo pacman -S webkit2gtk` (Arch) or `sudo apt install libwebkit2gtk-4.0-37` (Debian/Ubuntu; package names may vary).
+- The Python GTK bindings (`PyGObject`) are automatically installed via pip in the virtual environment.
+- If you encounter issues opening the window, try running in browser mode without `--desktop`.
 
 ## Usage
 

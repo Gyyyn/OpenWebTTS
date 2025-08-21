@@ -46,8 +46,8 @@
     </div>
 
     <!-- Main Content -->
-    <div class="container mx-auto" style="min-height: 100vh;">
-        <div class="bg-white p-10">
+    <div class="container mx-auto bg-white" style="min-height: 100vh;">
+        <div id="book-view" class="hidden p-10">
 
             <h2 id="book-title" class="text-2xl mb-4">New Book</h2>
             <div class="grid grid-cols-2 gap-4 mb-4">
@@ -126,6 +126,14 @@
                 <div id="pdf-viewer" class="mt-4 border rounded-lg-lg"></div>
                 <h3 class="text-m font-semibold text-gray-800 mt-4">File Picker</h3>
                 <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+            </div>
+
+            <div class="fixed bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200 rounded-lg mx-4 my-2 shadow-xl">
+                <div id="current-chunk" class="hidden">
+                    <span>
+                        <!-- The current text chunk will appear here -->
+                    </span>
+                </div>
             </div>
 
         </div>

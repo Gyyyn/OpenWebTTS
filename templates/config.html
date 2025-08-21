@@ -47,6 +47,38 @@
             </div>
         </div>
 
+        <div class="grid grid-cols-2 gap-4 mt-4">
+
+            <div class="bg-white p-6 rounded-lg shadow-md full">
+                <h2 class="text-2xl font-bold mb-4">Choosing a model</h2>
+                <div>
+                    <p>Choosing a model that is compatible with your device is important for the best performance.</p>
+                    <p>Make sure the model doesn't exceed the memory limit of your device.</p>
+                    <p>If you have a powerful GPU choose Kokoro. If in doubt, choose Piper. If Piper is too slow, try Gemini.</p>
+                </div>
+                <hr class="my-4">
+                <div>
+                    <img src="/static/image/models.png" alt="Models" class="w-full h-auto">
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md full">
+                <h2 class="text-2xl font-bold mb-4">Cache</h2>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Warning!</h3>
+                    <p>This will delete <i>all</i> cached audio files. This action is irreversible.</p>
+                </div>
+                <hr class="my-4">
+                <div>
+                    <button id="clear-cache" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">
+                        <span class="me-2">Clear Cache</span>
+                        <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
     </div>
 
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>

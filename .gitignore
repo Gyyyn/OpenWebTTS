@@ -15,3 +15,7 @@ models/kokoro/*
 # Ignore audio files
 static/audio/*
 static/audio_cache/*
+
+# Ignore Flatpak build
+.flatpak-builder
+build-dir

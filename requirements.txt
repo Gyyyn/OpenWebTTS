@@ -1,8 +1,9 @@
 fastapi
 uvicorn[standard]
 python-multipart
-TTS
 piper-tts
 PyMuPDF
 requests
 ebooklib
+pywebview
+PyGObject

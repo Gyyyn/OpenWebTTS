@@ -18,21 +18,35 @@ from typing import List, Dict, Optional
 from io import BytesIO
 import tempfile
 import shutil
+import argparse
+import threading
+import time
+import socket
 
 import gemini
 
 # --- Configuration ---
-MODELS_DIR = "models"
-AUDIO_DIR = "static/audio"
-AUDIO_CACHE_DIR = "static/audio_cache"
+DATA_DIR = os.environ.get("OPENWEBTTS_DATA_DIR")
+
+if DATA_DIR:
+    MODELS_DIR = os.path.join(DATA_DIR, "models")
+    STATIC_DIR = os.path.join(DATA_DIR, "static")
+    TEMPLATES_DIR = os.path.join(DATA_DIR, "templates")
+else:
+    MODELS_DIR = "models"
+    STATIC_DIR = "static"
+    TEMPLATES_DIR = "templates"
+
+AUDIO_DIR = os.path.join(STATIC_DIR, "audio")
+AUDIO_CACHE_DIR = os.path.join(STATIC_DIR, "audio_cache")
 COQUI_DIR = os.path.join(MODELS_DIR, "coqui")
 PIPER_DIR = os.path.join(MODELS_DIR, "piper")
 KOKORO_DIR = os.path.join(MODELS_DIR, "kokoro")
 
 # --- FastAPI Setup ---
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # --- Pydantic Models ---
 class SynthesizeRequest(BaseModel):
@@ -90,13 +104,13 @@ def get_kokoro_voices() -> List[Voice]:
 
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
-        if request.engine == "coqui":
+        """ if request.engine == "coqui":
             from TTS.api import TTS
             model_path = os.path.join(COQUI_DIR, request.voice)
             tts = TTS(model_path=model_path)
-            tts.tts_to_file(text=request.text, file_path=output_path)
+            tts.tts_to_file(text=request.text, file_path=output_path) """
 
-        elif request.engine == "piper":
+        if request.engine == "piper":
             # Ensure the piper command is in the system's PATH
             model_path = os.path.join(PIPER_DIR, f"{request.voice}.onnx")
             command = [
@@ -177,7 +191,7 @@ async def download_piper_voice(voice: PiperVoice):
                 f.write(chunk)
 
         # Download the model config file
-        config_url = f"{voice_URL}.json"
+        config_url = f"{voice_url}.json"
         config_response = requests.get(config_url)
         config_response.raise_for_status()
         config_path = os.path.join(PIPER_DIR, f"{voice.key}.onnx.json")
@@ -276,10 +290,71 @@ async def read_epub(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read EPUB. Reason: {str(e)}")
 
+@app.get("/api/clear_cache")
+async def clear_cache():
+    try:
+        shutil.rmtree(AUDIO_CACHE_DIR)
+        os.makedirs(AUDIO_CACHE_DIR)
+        return JSONResponse(content={"message": "Cache cleared."})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear cache. Reason: {str(e)}")
 
 # --- Main Execution ---
 
+def _find_free_port(preferred_port: int) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("127.0.0.1", preferred_port))
+            return preferred_port
+        except OSError:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+
 if __name__ == "__main__":
-    print("Starting OpenWebTTS server...")
-    print(f"Access the UI at http://127.0.0.1:8000")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    parser = argparse.ArgumentParser(description="OpenWebTTS server")
+    parser.add_argument("--host", default="127.0.0.1", help="Host to bind the server to")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to")
+    parser.add_argument("--desktop", action="store_true", help="Launch as a desktop app using a webview")
+    args = parser.parse_args()
+
+    host = args.host
+    port = _find_free_port(args.port)
+
+    if not args.desktop:
+        print("Starting OpenWebTTS server...")
+        print(f"Access the UI at http://{host}:{port}")
+        uvicorn.run(app, host=host, port=port)
+    else:
+        try:
+            import webview
+        except Exception as e:
+            print("pywebview is required for desktop mode. Install with: pip install pywebview")
+            raise
+
+        print("Starting OpenWebTTS server in desktop mode...")
+        config = uvicorn.Config(app, host=host, port=port, log_level="info")
+        server = uvicorn.Server(config)
+
+        server_thread = threading.Thread(target=server.run, daemon=True)
+        server_thread.start()
+
+        # Wait briefly for the server to start
+        for _ in range(50):
+            if getattr(server, "started", False):
+                break
+            time.sleep(0.1)
+
+        url = f"http://{host}:{port}"
+        print(f"Opening desktop window at {url}")
+        try:
+            window = webview.create_window("OpenWebTTS", url)
+            webview.start()
+        finally:
+            # Signal server to exit and wait a moment
+            try:
+                server.should_exit = True
+            except Exception:
+                pass
+            time.sleep(0.2)
