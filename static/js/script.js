@@ -33,6 +33,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const playbackSpeed = document.getElementById('playback-speed');
     const pauseBtn = document.getElementById('pause-btn');
     const stopBtn = document.getElementById('stop-btn');
+    
+    // File Picker Modal Elements
+    const filePickerModal = document.getElementById('file-picker-modal');
+    const openFilePickerBtn = document.getElementById('open-file-picker-modal');
+    const closeFilePickerBtn = document.getElementById('close-file-picker-modal');
+
+    // Speech to Text Elements
+    const recordBtn = document.getElementById('record-btn');
+    const stopRecordBtn = document.getElementById('stop-record-btn');
+    const recordingIndicator = document.getElementById('recording-indicator');
+    const audioFileInput = document.getElementById('audio-file-input');
+    const transcribeFileBtn = document.getElementById('transcribe-file-btn');
 
     let pdfDoc = null;
     let currentPageNum = 1;
@@ -44,6 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let allTextChunks = [];
     let currentChunkIndex = 0;
     let lastChunkProcessed = -1;
+    
+    // Speech to Text variables
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
 
     // Set workerSrc for PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
@@ -149,6 +166,18 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             { showInput: false }
         );
+    }
+
+    function showFileModal() {
+        filePickerModal.classList.remove('hidden');
+        // Reset file input
+        pdfFileInput.value = '';
+    }
+
+    function hideFileModal() {
+        filePickerModal.classList.add('hidden');
+        // Reset file input
+        pdfFileInput.value = '';
     }
 
     function renameBook(bookId) {
@@ -726,6 +755,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             alert('Please select a valid PDF or EPUB file.');
         }
+        
+        // Hide the modal after file processing
+        hideFileModal();
     });
 
     prevPageBtn.addEventListener('click', () => {
@@ -743,9 +775,229 @@ document.addEventListener('DOMContentLoaded', () => {
 
     modalCancelBtn.addEventListener('click', hideBookModal);
 
+    // File Picker Modal Event Listeners
+    openFilePickerBtn.addEventListener('click', showFileModal);
+    closeFilePickerBtn.addEventListener('click', hideFileModal);
+    
+    // Close modal when clicking outside of it
+    filePickerModal.addEventListener('click', (e) => {
+        if (e.target === filePickerModal) {
+            hideFileModal();
+        }
+    });
+
     closeCurrentChunkButton.addEventListener('click', () => {
         currentChunk.textContent = '';
         currentChunk.classList.add('hidden');
+    });
+
+    // Speech to Text Functions
+    async function startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // Try to use WebM format first, fallback to other formats
+            let mimeType = 'audio/webm;codecs=opus';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'audio/webm';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/mp4';
+                    if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        mimeType = 'audio/wav';
+                    }
+                }
+            }
+            
+            mediaRecorder = new MediaRecorder(stream, { mimeType });
+            
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+            
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: mimeType });
+                await transcribeAudio(audioBlob);
+                
+                // Stop all tracks to release the microphone
+                stream.getTracks().forEach(track => track.stop());
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            
+            // Update UI
+            recordBtn.classList.add('hidden');
+            stopRecordBtn.classList.remove('hidden');
+            recordingIndicator.classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Error starting recording:', error);
+            alert('Failed to start recording. Please make sure you have granted microphone permissions.');
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && isRecording) {
+            mediaRecorder.stop();
+            isRecording = false;
+            
+            // Update UI
+            recordBtn.classList.remove('hidden');
+            stopRecordBtn.classList.add('hidden');
+            recordingIndicator.classList.add('hidden');
+        }
+    }
+
+    async function transcribeAudio(audioBlob) {
+        try {
+            // Show loading state
+            recordBtn.disabled = true;
+            recordBtn.innerHTML = '<ion-icon class="animate-spin" name="refresh-outline"></ion-icon> Processing...';
+            
+            const formData = new FormData();
+            // Determine file extension based on MIME type
+            let fileExtension = 'webm';
+            if (audioBlob.type.includes('mp4')) fileExtension = 'mp4';
+            else if (audioBlob.type.includes('wav')) fileExtension = 'wav';
+            formData.append('file', audioBlob, `recording.${fileExtension}`);
+            
+            const response = await fetch('/api/speech_to_text', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to transcribe audio.');
+            }
+            
+            const data = await response.json();
+            
+            // Insert the transcribed text into the text display
+            if (data.text && data.text.trim()) {
+                const currentText = textDisplay.textContent || '';
+                const newText = currentText + (currentText ? '\n\n' : '') + data.text;
+                textDisplay.textContent = newText;
+                
+                // Update the book's text content
+                if (activeBookId && books[activeBookId]) {
+                    books[activeBookId].text = newText;
+                    saveBooks();
+                    
+                    // Update text chunks for the new content
+                    allTextChunks = splitTextIntoChunks(newText);
+                    currentChunkIndex = 0;
+                }
+                
+                // Show success message
+                showNotification(`Transcription completed! Detected language: ${data.language || 'Unknown'}`, 'success');
+            } else {
+                showNotification('No speech detected in the audio.', 'warning');
+            }
+            
+        } catch (error) {
+            console.error('Error transcribing audio:', error);
+            showNotification(`Transcription failed: ${error.message}`, 'error');
+        } finally {
+            // Reset button state
+            recordBtn.disabled = false;
+            recordBtn.innerHTML = '<span class="me-2">Record Audio</span><ion-icon name="mic-outline"></ion-icon>';
+        }
+    }
+
+    async function transcribeAudioFile(audioFile) {
+        try {
+            // Show loading state
+            transcribeFileBtn.disabled = true;
+            transcribeFileBtn.innerHTML = '<ion-icon class="animate-spin" name="refresh-outline"></ion-icon> Processing...';
+            
+            const formData = new FormData();
+            formData.append('file', audioFile);
+            
+            const response = await fetch('/api/speech_to_text', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to transcribe audio file.');
+            }
+            
+            const data = await response.json();
+            
+            // Insert the transcribed text into the text display
+            if (data.text && data.text.trim()) {
+                const currentText = textDisplay.textContent || '';
+                const newText = currentText + (currentText ? '\n\n' : '') + data.text;
+                textDisplay.textContent = newText;
+                
+                // Update the book's text content
+                if (activeBookId && books[activeBookId]) {
+                    books[activeBookId].text = newText;
+                    saveBooks();
+                    
+                    // Update text chunks for the new content
+                    allTextChunks = splitTextIntoChunks(newText);
+                    currentChunkIndex = 0;
+                }
+                
+                // Show success message
+                showNotification(`File transcription completed! Detected language: ${data.language || 'Unknown'}`, 'success');
+            } else {
+                showNotification('No speech detected in the audio file.', 'warning');
+            }
+            
+        } catch (error) {
+            console.error('Error transcribing audio file:', error);
+            showNotification(`File transcription failed: ${error.message}`, 'error');
+        } finally {
+            // Reset button state
+            transcribeFileBtn.disabled = false;
+            transcribeFileBtn.innerHTML = '<span class="me-2">Transcribe File</span><ion-icon name="document-text-outline"></ion-icon>';
+        }
+    }
+
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+            type === 'success' ? 'bg-green-500 text-white' :
+            type === 'error' ? 'bg-red-500 text-white' :
+            type === 'warning' ? 'bg-yellow-500 text-white' :
+            'bg-blue-500 text-white'
+        }`;
+        notification.textContent = message;
+        
+        // Add to page
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+
+    // Speech to Text Event Listeners
+    recordBtn.addEventListener('click', startRecording);
+    stopRecordBtn.addEventListener('click', stopRecording);
+    
+    // Audio File Transcription Event Listeners
+    transcribeFileBtn.addEventListener('click', () => {
+        audioFileInput.click();
+    });
+    
+    audioFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        await transcribeAudioFile(file);
+        // Reset the input
+        audioFileInput.value = '';
     });
 
     // Initial load

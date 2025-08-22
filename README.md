@@ -8,6 +8,7 @@ OpenWebTTS is a local web-based application that provides a simple interface for
 - **Multiple Engine Support**: Seamlessly switch between Coqui, Piper, and Kokoro.
 - **Dynamic Voice Selection**: Automatically lists available voices/speakers for the selected engine.
 - **Real-time Generation**: Generate and play back audio without leaving the page.
+- **Speech-to-Text**: Record audio and convert it to text using OpenAI's Whisper model.
 - **Easy to Extend**: The architecture is modular, making it straightforward to add new TTS engines.
 
 ## Project Structure
@@ -97,6 +98,42 @@ python app.py
 ```
 
 The application will be available at `http://127.0.0.1:8000`.
+
+## Speech-to-Text Feature
+
+OpenWebTTS now includes speech-to-text functionality using OpenAI's Whisper model. This feature allows you to:
+
+- **Record Audio**: Click the "Record Audio" button to start recording speech through your microphone
+- **Automatic Transcription**: The recorded audio is automatically converted to text using the Whisper tiny model
+- **Language Detection**: The system automatically detects the language of the spoken content
+- **Text Integration**: Transcribed text is automatically added to the text input area for further processing
+
+### Requirements for Speech-to-Text
+
+- **Microphone Access**: Your browser must have permission to access your microphone
+- **Whisper Model**: The application will automatically download the Whisper tiny model on first use (approximately 39MB)
+- **Internet Connection**: Required for the initial model download
+
+### Supported Audio Formats
+
+The speech-to-text feature supports various audio formats including:
+- WebM (recommended)
+- MP4
+- WAV
+- MP3
+- M4A
+- FLAC
+- OGG
+- AAC
+
+### Usage
+
+1. Click the green "Record Audio" button to start recording
+2. Speak clearly into your microphone
+3. Click the red "Stop Recording" button when finished
+4. Wait for the transcription to complete
+5. The transcribed text will appear in the text input area
+6. You can then use the text-to-speech features to convert the transcribed text back to audio
 
 ### Desktop Mode (In development)
 

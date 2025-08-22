@@ -7,3 +7,4 @@ requests
 ebooklib
 pywebview
 PyGObject
+openai-whisper

@@ -83,8 +83,31 @@
     <div class="ml-[25%] bg-white" style="min-height: 100vh;">
         <div id="book-view" class="hidden p-10">
 
-            <h2 id="book-title" class="text-2xl mb-4">New Book</h2>
-            <div class="grid grid-cols-2 gap-4 mb-4">
+            <!-- Header Section -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+                <h2 id="book-title" class="text-xl sm:text-2xl font-semibold text-gray-800">New Book</h2>
+                
+                <button id="open-file-picker-modal" class="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                    <ion-icon name="folder-open-outline" class="mr-2"></ion-icon>
+                    <span class="hidden sm:inline">Import</span>
+                    <span class="sm:hidden">Import from File</span>
+                </button>
+            </div>
+
+            <!-- File Picker Modal -->
+            <div id="file-picker-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+                <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-m font-semibold text-gray-800">File Picker</h3>
+                        <button id="close-file-picker-modal" class="text-gray-400 hover:text-gray-700 focus:outline-none" title="Close">
+                            <ion-icon name="close-outline" size="large"></ion-icon>
+                        </button>
+                    </div>
+                    <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-4 mb-4 items-end">
                 <div>
                     <label for="engine" class="block text-sm font-medium text-gray-700">TTS Engine</label>
                     <select id="engine" name="engine" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
@@ -100,42 +123,75 @@
                         <option value="">-- Select an engine first --</option>
                     </select>
                 </div>
+                <div>
+                    <div class="ml-2 flex items-center">
+                        <input id="auto-read-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
+                        <label for="auto-read-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Read Next Page</label>
+                    </div>
+                    <div class="ml-2 flex items-center">
+                        <input id="auto-delete-chunks-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
+                        <label for="auto-delete-chunks-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Delete Read Chunks</label>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex items-center mb-4">
+            <div class="flex justify-between items-center mb-4">
                 
-                <div id="generate-section" class="flex">
-                    <button id="generate-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
-                        <span class="me-2">Generate Speech</span>
-                        <ion-icon name="volume-high-outline"></ion-icon>
-                    </button>
-                    <div id="loading" class="full hidden">
-                        <ion-icon class="animate-spin" name="refresh-outline"></ion-icon>
+                <!-- TTS Section -->
+                <div>
+                    <div id="generate-section" class="flex">
+                        <button id="generate-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                            <span class="me-2">Generate Speech</span>
+                            <ion-icon name="volume-high-outline"></ion-icon>
+                        </button>
+                        <div id="loading" class="full hidden">
+                            <ion-icon class="animate-spin" name="refresh-outline"></ion-icon>
+                        </div>
+                    </div>
+    
+                    <div id="audio-output" class="hidden flex ps-4">
+                        <audio id="audio-player" controls class="hidden w-full"></audio>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label for="playback-speed" class="block text-sm font-medium text-gray-700">Speed (0.5x - 2x)</label>
+                                <input type="range" id="playback-speed" min="0.5" max="2" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" disabled>
+                            </div>
+                            <div class="flex items-center">
+                                <button id="pause-btn" class="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" disabled><ion-icon name="pause-outline"></ion-icon></button>
+                                <button id="stop-btn" class="ml-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600" disabled><ion-icon name="stop-outline"></ion-icon></button>
+                                <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"><ion-icon name="download-outline"></ion-icon></a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="audio-output" class="hidden flex ps-4">
-                    <audio id="audio-player" controls class="hidden w-full"></audio>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <label for="playback-speed" class="block text-sm font-medium text-gray-700">Speed (0.5x - 2x)</label>
-                            <input type="range" id="playback-speed" min="0.5" max="2" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" disabled>
-                        </div>
-                        <div class="flex items-center">
-                            <button id="pause-btn" class="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" disabled><ion-icon name="pause-outline"></ion-icon></button>
-                            <button id="stop-btn" class="ml-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600" disabled><ion-icon name="stop-outline"></ion-icon></button>
-                            <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"><ion-icon name="download-outline"></ion-icon></a>
-                        </div>
+
+
+                <!-- Speech to Text Section -->
+                <div id="speech-to-text-section" class="flex ml-4">
+                    <button id="record-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+                        <span class="me-2">Record Audio</span>
+                        <ion-icon name="mic-outline"></ion-icon>
+                    </button>
+                    <button id="stop-record-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg hidden">
+                        <span class="me-2">Stop Recording</span>
+                        <ion-icon name="stop-outline"></ion-icon>
+                    </button>
+                    <div id="recording-indicator" class="hidden ml-2 flex items-center">
+                        <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span class="ml-2 text-sm text-gray-600">Recording...</span>
+                    </div>
+                    
+                    <!-- Audio File Transcription -->
+                    <div class="ml-4 flex items-center">
+                        <input type="file" id="audio-file-input" accept="audio/*" class="hidden">
+                        <button id="transcribe-file-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+                            <span class="me-2">Transcribe File</span>
+                            <ion-icon name="document-text-outline"></ion-icon>
+                        </button>
                     </div>
                 </div>
-                <div class="ml-2 flex items-center">
-                    <input id="auto-read-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
-                    <label for="auto-read-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Read Next Page</label>
-                </div>
-                <div class="ml-2 flex items-center">
-                    <input id="auto-delete-chunks-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
-                    <label for="auto-delete-chunks-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Delete Read Chunks</label>
-                </div>
+
             </div>
 
             <div class="mb-4">
@@ -158,8 +214,6 @@
                     </button>
                 </div>
                 <div id="pdf-viewer" class="mt-4 border rounded-lg-lg"></div>
-                <h3 class="text-m font-semibold text-gray-800 mt-4">File Picker</h3>
-                <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
             </div>
 
             <div id="current-chunk" class="hidden fixed bottom-0 right-0 bg-white p-4 border-t border-gray-200 rounded-lg mx-4 my-2 shadow-xl ms-10 w-2/3">

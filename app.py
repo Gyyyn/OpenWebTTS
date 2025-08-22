@@ -22,6 +22,7 @@ import argparse
 import threading
 import time
 import socket
+import whisper
 
 import gemini
 
@@ -65,6 +66,10 @@ class PdfText(BaseModel):
 class PiperVoice(BaseModel):
     key: str
     URL: str
+
+class SpeechToTextResponse(BaseModel):
+    text: str
+    language: Optional[str] = None
 
 # --- TTS Engine Functions ---
 
@@ -298,6 +303,61 @@ async def clear_cache():
         return JSONResponse(content={"message": "Cache cleared."})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to clear cache. Reason: {str(e)}")
+
+@app.post("/api/speech_to_text", response_model=SpeechToTextResponse)
+async def speech_to_text(file: UploadFile = File(...)):
+    """
+    Convert speech to text using OpenAI's Whisper model.
+    Accepts audio files in various formats (wav, mp3, m4a, etc.)
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+    
+    # Check if file is an audio file
+    audio_extensions = {'.wav', '.mp3', '.m4a', '.flac', '.ogg', '.webm', '.aac', '.mp4'}
+    file_extension = os.path.splitext(file.filename.lower())[1]
+    
+    if file_extension not in audio_extensions:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid file type. Supported formats: {', '.join(audio_extensions)}"
+        )
+    
+    try:
+        # Read the uploaded file
+        audio_content = await file.read()
+        
+        # Create a temporary file to save the audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_audio_file:
+            temp_audio_file.write(audio_content)
+            temp_audio_path = temp_audio_file.name
+        
+        try:
+            # Load the Whisper model (tiny model for faster processing)
+            model = whisper.load_model("tiny")
+            
+            # Transcribe the audio
+            result = model.transcribe(temp_audio_path)
+            
+            # Extract the transcribed text and detected language
+            transcribed_text = result["text"].strip()
+            detected_language = result.get("language", None)
+            
+            return SpeechToTextResponse(
+                text=transcribed_text,
+                language=detected_language
+            )
+            
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_audio_path):
+                os.unlink(temp_audio_path)
+                
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to transcribe audio. Reason: {str(e)}"
+        )
 
 # --- Main Execution ---
 
