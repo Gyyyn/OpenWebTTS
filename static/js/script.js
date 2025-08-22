@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const autoReadCheckbox = document.getElementById('auto-read-checkbox');
     const autoDeleteChunksCheckbox = document.getElementById('auto-delete-chunks-checkbox');
     const currentChunk = document.getElementById('current-chunk');
+    const closeCurrentChunkButton = document.getElementById('close-current-chunk');
     const bookView = document.getElementById('book-view');
 
     // Modal Elements
@@ -276,9 +277,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetBookView() {
         textDisplay.textContent = '';
-        currentChunk.textContent = '';
+        currentChunk.childNodes[1].childNodes[1].textContent = '';
         currentChunk.classList.add('hidden');
-        bookPageTitle.textContent = 'New Book';
+        bookPageTitletextContent = 'New Book';
         bookView.classList.add('hidden');
     }
 
@@ -422,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Network error, keep polling, but log it for debugging
                             console.warn('Polling for audio file, network error:', error);
                         }
-                    }, 500); // Poll every 500ms
+                    }, 500); // Polling rate
                 });
             } else {
                 return data.audio_url;
@@ -459,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentAudio = audioQueue.shift();
 
         highlightChunk(currentAudio.text);
-        currentChunk.textContent = currentAudio.text.text;
+        currentChunk.childNodes[1].childNodes[1].textContent = currentAudio.text.text;
         currentChunk.classList.remove('hidden');
 
         audioPlayer.src = currentAudio.url;
@@ -476,7 +477,6 @@ document.addEventListener('DOMContentLoaded', () => {
         audioPlayer.onended = async () => {
 
             unhighlightChunk(currentAudio.text);
-            currentChunk.textContent = '';
             currentChunk.classList.add('hidden');
             
             const playedChunkId = currentAudio.text.id; // Define playedChunkId here
@@ -631,9 +631,9 @@ document.addEventListener('DOMContentLoaded', () => {
         audioQueue = [];
         audioPlayer.pause();
         audioPlayer.src = '';
+        generateBtn.disabled = false;
         pauseBtn.innerHTML = '<ion-icon name="pause-outline"></ion-icon>'; // Reset pause button icon
         disableAudioControls(); // Disable controls on stop
-        /* clearAllHighlights(); // Clear highlights on stop */
         textDisplay.textContent = allTextChunks.map(chunk => chunk.text).join(' '); // Revert to plain text
     });
 
@@ -742,6 +742,11 @@ document.addEventListener('DOMContentLoaded', () => {
     generateBtn.addEventListener('click', startSpeechGeneration);
 
     modalCancelBtn.addEventListener('click', hideBookModal);
+
+    closeCurrentChunkButton.addEventListener('click', () => {
+        currentChunk.textContent = '';
+        currentChunk.classList.add('hidden');
+    });
 
     // Initial load
     renderBooks();

@@ -3,12 +3,20 @@ button, a.button {
     align-items: center;
 }
 
+#book-list li > div {
+    opacity: 0;
+}
+
+#book-list li:hover > div {
+    opacity: 1;
+}
+
 #pdf-viewer canvas {
     max-width: 100%;
 }
 
 .highlight {
-    background-color: #fde047; /* Or any color you prefer */
+    background-color: #fff5bf;
     color: black;
 }
 
