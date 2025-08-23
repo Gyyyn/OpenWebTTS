@@ -19,3 +19,6 @@ static/audio_cache/*
 # Ignore Flatpak build
 .flatpak-builder
 build-dir
+
+# Saved users
+users/

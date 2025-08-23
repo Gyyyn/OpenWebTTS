@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
     const pageNumSpan = document.getElementById('page-num');
-    const bookList = document.getElementById('book-list');
+    const localBookList = document.getElementById('local-book-list');
+    const onlineBookList = document.getElementById('online-book-list');
     const newBookBtn = document.getElementById('new-book-btn');
     const autoReadCheckbox = document.getElementById('auto-read-checkbox');
     const autoDeleteChunksCheckbox = document.getElementById('auto-delete-chunks-checkbox');
@@ -34,6 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const playbackSpeed = document.getElementById('playback-speed');
     const pauseBtn = document.getElementById('pause-btn');
     const stopBtn = document.getElementById('stop-btn');
+
+    // Login Modal Elements
+    const loginModal = document.getElementById('login-modal');
+    const addAccountBtn = document.getElementById('add-account-btn');
+    const loginModalCancelBtn = document.getElementById('login-modal-cancel-btn');
+    const loginUsernameInput = document.getElementById('login-username-input');
+    const loginPasswordInput = document.getElementById('login-password-input');
+    const loginActionBtn = document.getElementById('login-modal-action-btn');
+    const createAccountBtn = document.getElementById('create-account-btn');
+    const currentUserDisplay = document.getElementById('current-user');
+    const saveBookBtn = document.getElementById('save-book-btn');
+    const logoutBtn = document.getElementById('logout-btn');
     
     // File Picker Modal Elements
     const filePickerModal = document.getElementById('file-picker-modal');
@@ -49,8 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let pdfDoc = null;
     let currentPageNum = 1;
-    let books = JSON.parse(localStorage.getItem('books')) || {};
-    let activeBookId = localStorage.getItem('activeBookId') || null;
+    let localBooks = JSON.parse(localStorage.getItem('books')) || {};
+    let onlineBooks = [];
+    let activeBook = null;
     let audioQueue = [];
     let isPlaying = false;
     let isPaused = false;
@@ -62,62 +76,93 @@ document.addEventListener('DOMContentLoaded', () => {
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
+    let currentUser = null;
 
     // Set workerSrc for PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
-    function saveBooks() {
-        localStorage.setItem('books', JSON.stringify(books));
+    function saveLocalBooks() {
+        localStorage.setItem('books', JSON.stringify(localBooks));
     }
 
-    function setActiveBook(bookId) {
-        activeBookId = bookId;
-        localStorage.setItem('activeBookId', bookId);
-        renderBooks();
-        loadBookContent(bookId);
-        updateCheckbox(autoReadCheckbox, 'autoRead');
-        updateCheckbox(autoDeleteChunksCheckbox, 'autoDeleteChunks');
+    function setActiveBook(book) {
+        activeBook = book;
+        renderLocalBooks();
+        renderOnlineBooks();
+        loadBookContent(book);
+        if (book && book.source === 'local') {
+            updateCheckbox(autoReadCheckbox, 'autoRead');
+            updateCheckbox(autoDeleteChunksCheckbox, 'autoDeleteChunks');
+        }
     }
 
-    function renderBooks() {
-        bookList.innerHTML = '';
-        for (const bookId in books) {
-            const book = books[bookId];
-            const li = document.createElement('li');
-            li.className = `flex text-sm justify-between items-center cursor-pointer p-2 rounded-lg ${bookId === activeBookId ? 'bg-indigo-100' : 'hover:bg-gray-200'}`;
-            
-            const titleSpan = document.createElement('span');
-            titleSpan.className = `overflow-hidden`
-            titleSpan.textContent = book.title;
-            li.addEventListener('click', () => {
-                setActiveBook(bookId);
-            });
+    function renderOnlineBooks() {
+        onlineBookList.innerHTML = '';
+        onlineBooks.forEach(book => {
+            const li = createBookListItem(book, 'online');
+            onlineBookList.appendChild(li);
+        });
+    }
 
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'flex items-center space-x-2';
+    function renderLocalBooks() {
+        localBookList.innerHTML = '';
+        for (const bookId in localBooks) {
+            const book = { ...localBooks[bookId], id: bookId };
+            const li = createBookListItem(book, 'local');
+            localBookList.appendChild(li);
+        }
+    }
 
-            const renameBtn = document.createElement('button');
-            renameBtn.innerHTML = '<ion-icon name="create-outline"></ion-icon>';
-            renameBtn.className = 'hover:text-gray-500';
+    function createBookListItem(book, source) {
+        const li = document.createElement('li');
+        const isActive = activeBook && activeBook.id === book.id && activeBook.source === source;
+        li.className = `flex text-sm justify-between items-center cursor-pointer p-2 rounded-lg ${isActive ? 'bg-indigo-100' : 'hover:bg-gray-200'}`;
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = `overflow-hidden`;
+        titleSpan.textContent = book.title;
+        li.addEventListener('click', () => {
+            setActiveBook({ ...book, source });
+        });
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'flex items-center space-x-2';
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
+        deleteBtn.className = 'hover:text-gray-500';
+
+        const renameBtn = document.createElement('button');
+        renameBtn.innerHTML = '<ion-icon name="create-outline"></ion-icon>';
+        renameBtn.className = 'hover:text-gray-500';
+
+        if (source === 'local') {
             renameBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                renameBook(bookId);
+                renameBook(book.id);
             });
 
-            const deleteBtn = document.createElement('button');
-            deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
-            deleteBtn.className = 'hover:text-gray-500';
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                deleteBook(bookId);
+                deleteBook(book.id);
+            });
+        } else { // Online book
+            renameBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                renameOnlineBook(book);
             });
 
-            li.appendChild(titleSpan);
-            actionsDiv.appendChild(renameBtn);
-            actionsDiv.appendChild(deleteBtn);
-            li.appendChild(actionsDiv);
-            bookList.appendChild(li);
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteOnlineBook(book.id);
+            });
         }
+
+        actionsDiv.appendChild(renameBtn);
+        actionsDiv.appendChild(deleteBtn);
+        li.appendChild(titleSpan);
+        li.appendChild(actionsDiv);
+        return li;
     }
 
     function showBookModal(title, actionText, actionCallback, options = {}) {
@@ -143,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function deleteBook(bookId) {
-        const book = books[bookId];
+        const book = localBooks[bookId];
         if (!book) return;
 
         showBookModal(
@@ -151,22 +196,21 @@ document.addEventListener('DOMContentLoaded', () => {
             'Delete',
             () => {
 
-                if (books[bookId].pdfId) {
-                    deletePdf(books[bookId].pdfId);
+                if (localBooks[bookId].pdfId) {
+                    deletePdf(localBooks[bookId].pdfId);
                 }
 
-                delete books[bookId];
-                saveBooks();
+                delete localBooks[bookId];
+                saveLocalBooks();
 
-                if (activeBookId === bookId) {
-                    activeBookId = null;
-                    localStorage.removeItem('activeBookId');
+                if (activeBook && activeBook.id === bookId) {
+                    activeBook = null;
                     textDisplay.innerHTML = '';
                     resetPdfView();
                 }
 
                 hideBookModal();
-                renderBooks();
+                renderLocalBooks();
                 resetBookView();
             },
             { showInput: false }
@@ -186,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renameBook(bookId) {
-        const book = books[bookId];
+        const book = localBooks[bookId];
         if (!book) return;
 
         showBookModal(
@@ -196,9 +240,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newTitle = bookTitleInput.value;
                 if (newTitle !== null && newTitle.trim() !== '' && newTitle !== book.title) {
                     book.title = newTitle.trim();
-                    saveBooks();
-                    renderBooks();
-                    if (activeBookId === bookId) {
+                    saveLocalBooks();
+                    renderLocalBooks();
+                    if (activeBook && activeBook.id === bookId) {
                         bookPageTitle.innerHTML = newTitle.trim();
                     }
                 }
@@ -246,49 +290,44 @@ document.addEventListener('DOMContentLoaded', () => {
         textDisplay.textContent = allTextChunks.map(chunk => chunk.text).join(' ');
     }
 
-    async function loadBookContent(bookId) {
-        if (books[bookId]) {
-            bookPageTitle.innerHTML = books[bookId].title;
-            allTextChunks = splitTextIntoChunks(books[bookId].text);
+    async function loadBookContent(book) {
+        if (book) {
+            bookPageTitle.innerHTML = book.title;
+            const content = book.source === 'online' ? book.content : localBooks[book.id].text;
+            allTextChunks = splitTextIntoChunks(content);
 
-            textDisplay.textContent = books[bookId].text;
+            textDisplay.textContent = content;
             bookView.classList.remove('hidden');
 
             currentChunkIndex = 0; // Reset chunk index
 
-            if (books[bookId].pdfId) {
+            if (book.source === 'local' && localBooks[book.id].pdfId) {
                 pdfViewerWrapper.classList.remove('hidden');
-                const pdfData = await loadPdf(books[bookId].pdfId);
+                const pdfData = await loadPdf(localBooks[book.id].pdfId);
                 if (pdfData) {
                     pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
                     const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
                     renderPage(lastPage);
                 } else {
-                    pdfViewer.innerHTML = '';
-                    pageNumSpan.textContent = '';
-                    prevPageBtn.disabled = true;
-                    nextPageBtn.disabled = true;
+                    resetPdfView();
                 }
             } else {
-                pdfViewer.innerHTML = '';
-                pageNumSpan.textContent = '';
-                prevPageBtn.disabled = true;
-                nextPageBtn.disabled = true;
+                resetPdfView();
             }
         }
     }
 
     function createNewBook() {
         showBookModal(
-            'New Book',
+            'New Temporary Book',
             'Create',
             () => {
                 const bookTitle = bookTitleInput.value;
                 if (bookTitle) {
                     const bookId = `book-${Date.now()}`;
-                    books[bookId] = { title: bookTitle, text: '', autoRead: false, autoDeleteChunks: false, pdfId: null };
-                    saveBooks();
-                    setActiveBook(bookId);
+                    localBooks[bookId] = { title: bookTitle, text: '', autoRead: false, autoDeleteChunks: false, pdfId: null };
+                    saveLocalBooks();
+                    setActiveBook({ ...localBooks[bookId], id: bookId, source: 'local' });
                 }
                 hideBookModal();
             },
@@ -297,8 +336,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateCheckbox(checkboxElement, bookProperty) {
-        if (activeBookId && books[activeBookId]) {
-            checkboxElement.checked = books[activeBookId][bookProperty];
+        if (activeBook && activeBook.source === 'local') {
+            checkboxElement.checked = localBooks[activeBook.id][bookProperty];
         }
     }
 
@@ -319,27 +358,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     autoReadCheckbox.addEventListener('change', () => {
-        if (activeBookId && books[activeBookId]) {
-            books[activeBookId].autoRead = autoReadCheckbox.checked;
-            saveBooks();
+        if (activeBook && activeBook.source === 'local') {
+            localBooks[activeBook.id].autoRead = autoReadCheckbox.checked;
+            saveLocalBooks();
         }
     });
 
     autoDeleteChunksCheckbox.addEventListener('change', () => {
-        if (activeBookId && books[activeBookId]) {
-            books[activeBookId].autoDeleteChunks = autoDeleteChunksCheckbox.checked;
-            saveBooks();
+        if (activeBook && activeBook.source === 'local') {
+            localBooks[activeBook.id].autoDeleteChunks = autoDeleteChunksCheckbox.checked;
+            saveLocalBooks();
         }
     });
 
     newBookBtn.addEventListener('click', createNewBook);
 
     textDisplay.addEventListener('input', () => {
-        if (activeBookId && books[activeBookId]) {
-            const plainText = textDisplay.textContent; // Get plain text from contenteditable
-            books[activeBookId].text = plainText; // Save plain text
-            allTextChunks = splitTextIntoChunks(plainText); // Re-chunk the text
-            saveBooks();
+        if (activeBook) {
+            const plainText = textDisplay.textContent;
+            if (activeBook.source === 'local') {
+                localBooks[activeBook.id].text = plainText;
+                saveLocalBooks();
+            } else { // Online book
+                // For online books, just enable the save button to indicate changes
+                saveBookBtn.classList.remove('hidden');
+                saveBookBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600'); // Indicate unsaved changes
+            }
+            allTextChunks = splitTextIntoChunks(plainText);
         }
     });
 
@@ -515,14 +560,14 @@ document.addEventListener('DOMContentLoaded', () => {
             currentChunk.classList.add('hidden');
             
             const playedChunkId = currentAudio.text.id; // Define playedChunkId here
-            if (activeBookId && books[activeBookId].autoDeleteChunks) {
+            if (activeBook && activeBook.source === 'local' && localBooks[activeBook.id].autoDeleteChunks) {
                 const spansToRemove = textDisplay.querySelectorAll(`span[data-chunk-id="${playedChunkId}"]`);
                 spansToRemove.forEach(span => span.remove());
 
                 // Update the stored text to reflect the deletion
                 const remainingText = allTextChunks.filter(chunk => chunk.id !== playedChunkId).map(chunk => chunk.text).join(' ');
-                books[activeBookId].text = remainingText;
-                saveBooks();
+                localBooks[activeBook.id].text = remainingText;
+                saveLocalBooks();
             }
 
             currentChunkIndex++;
@@ -636,9 +681,9 @@ document.addEventListener('DOMContentLoaded', () => {
         prevPageBtn.disabled = num <= 1;
         nextPageBtn.disabled = num >= pdfDoc.numPages;
 
-        if (activeBookId && books[activeBookId]) {
-            books[activeBookId].text = pageText;
-            saveBooks();
+        if (activeBook && activeBook.source === 'local') {
+            localBooks[activeBook.id].text = pageText;
+            saveLocalBooks();
         }
     }
 
@@ -676,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (!activeBookId) {
+        if (!activeBook) {
             alert('Please create or select a book first.');
             return;
         }
@@ -685,39 +730,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileExtension = fileName.split('.').pop().toLowerCase();
 
         // Update the title of the active book to match the file name
-        books[activeBookId].title = fileName.replace(`.${fileExtension}`, '');
-        bookPageTitle.innerHTML = books[activeBookId].title; // Update displayed title
+        if (activeBook.source === 'local') {
+            localBooks[activeBook.id].title = fileName.replace(`.${fileExtension}`, '');
+            bookPageTitle.innerHTML = localBooks[activeBook.id].title; // Update displayed title
+        }
 
         if (fileExtension === 'pdf') {
             const reader = new FileReader();
             reader.onload = async (event) => {
                 const arrayBuffer = event.target.result;
 
-                // Clear previous PDF data if any
-                if (books[activeBookId].pdfId) {
-                    await deletePdf(books[activeBookId].pdfId);
+                if (activeBook.source === 'local') {
+                    // Clear previous PDF data if any
+                    if (localBooks[activeBook.id].pdfId) {
+                        await deletePdf(localBooks[activeBook.id].pdfId);
+                    }
+
+                    localBooks[activeBook.id].pdfId = activeBook.id; // Use activeBook.id as pdfId
+                    localBooks[activeBook.id].text = ''; // Clear text for PDF books
+                    saveLocalBooks();
+                    allTextChunks = []; // Reset chunks
+                    currentChunkIndex = 0; // Reset chunk index
+                    
+                    await savePdf(activeBook.id, arrayBuffer);
+
+                    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
+                    renderPage(lastPage);
                 }
-
-                books[activeBookId].pdfId = activeBookId; // Use activeBookId as pdfId
-                books[activeBookId].text = ''; // Clear text for PDF books
-                saveBooks();
-                allTextChunks = []; // Reset chunks
-                currentChunkIndex = 0; // Reset chunk index
-                
-                await savePdf(activeBookId, arrayBuffer);
-
-                pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
-                renderPage(lastPage);
             };
             reader.readAsArrayBuffer(file);
         } else if (fileExtension === 'epub') {
-            // Clear previous PDF data if any
-            if (books[activeBookId].pdfId) {
-                await deletePdf(books[activeBookId].pdfId);
+            if (activeBook.source === 'local') {
+                // Clear previous PDF data if any
+                if (localBooks[activeBook.id].pdfId) {
+                    await deletePdf(localBooks[activeBook.id].pdfId);
+                }
+                localBooks[activeBook.id].pdfId = null; // No pdfId for epub
+                saveLocalBooks();
             }
-            books[activeBookId].pdfId = null; // No pdfId for epub
-            saveBooks();
 
             loadingDiv.classList.remove('hidden');
             generateBtn.disabled = true;
@@ -737,8 +788,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const data = await response.json();
-                books[activeBookId].text = data.text;
-                saveBooks();
+                if (activeBook.source === 'local') {
+                    localBooks[activeBook.id].text = data.text;
+                    saveLocalBooks();
+                }
                 allTextChunks = splitTextIntoChunks(data.text);
                 textDisplay.textContent = data.text;
                 currentChunkIndex = 0; // Reset chunk index
@@ -749,10 +802,12 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Error reading EPUB:', error);
                 alert(`An error occurred: ${error.message}`);
-                // Revert changes if error
-                books[activeBookId].text = ''; 
-                books[activeBookId].pdfId = null;
-                saveBooks();
+                if (activeBook.source === 'local') {
+                    // Revert changes if error
+                    localBooks[activeBook.id].text = ''; 
+                    localBooks[activeBook.id].pdfId = null;
+                    saveLocalBooks();
+                }
                 textDisplay.innerHTML = '';
             } finally {
                 loadingDiv.classList.add('hidden');
@@ -888,9 +943,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 textDisplay.textContent = newText;
                 
                 // Update the book's text content
-                if (activeBookId && books[activeBookId]) {
-                    books[activeBookId].text = newText;
-                    saveBooks();
+                if (activeBook && activeBook.source === 'local') {
+                    localBooks[activeBook.id].text = newText;
+                    saveLocalBooks();
                     
                     // Update text chunks for the new content
                     allTextChunks = splitTextIntoChunks(newText);
@@ -941,9 +996,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 textDisplay.textContent = newText;
                 
                 // Update the book's text content
-                if (activeBookId && books[activeBookId]) {
-                    books[activeBookId].text = newText;
-                    saveBooks();
+                if (activeBook && activeBook.source === 'local') {
+                    localBooks[activeBook.id].text = newText;
+                    saveLocalBooks();
                     
                     // Update text chunks for the new content
                     allTextChunks = splitTextIntoChunks(newText);
@@ -1006,13 +1061,299 @@ document.addEventListener('DOMContentLoaded', () => {
         audioFileInput.value = '';
     });
 
-    // Initial load
-    renderBooks();
-    if (activeBookId) {
-        loadBookContent(activeBookId);
-        updateCheckbox(autoReadCheckbox, 'autoRead');
-        updateCheckbox(autoDeleteChunksCheckbox, 'autoDeleteChunks');
+    function showLoginModal() {
+        loginModal.classList.remove('hidden');
     }
+
+    function hideLoginModal() {
+        loginModal.classList.add('hidden');
+    }
+
+    addAccountBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showLoginModal();
+    });
+
+    loginModalCancelBtn.addEventListener('click', hideLoginModal);
+
+    loginModal.addEventListener('click', (e) => {
+        if (e.target === loginModal) {
+            hideLoginModal();
+        }
+    });
+
+    // Initial load
+    renderLocalBooks();
     updateVoices();
     disableAudioControls(); // Disable controls on initial load
+
+    // User Management
+    function updateCurrentUserUI(username) {
+        currentUserDisplay.textContent = username;
+        const userDetails = document.querySelector('#current-user + span');
+        if (username === 'Anonymous') {
+            userDetails.textContent = 'Not signed in';
+            logoutBtn.classList.add('hidden');
+        } else {
+            userDetails.textContent = 'Signed in';
+            logoutBtn.classList.remove('hidden');
+        }
+    }
+
+    async function fetchAndRenderOnlineBooks() {
+        if (!currentUser) return;
+        try {
+            const response = await fetch(`/api/users/${currentUser}/books`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch online books.');
+            }
+            const data = await response.json();
+            onlineBooks = data.books || [];
+            renderOnlineBooks();
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
+
+    async function handleLogin() {
+        const username = loginUsernameInput.value.trim();
+        const password = loginPasswordInput.value.trim();
+        if (!username || !password) {
+            showNotification('Username and password cannot be empty.', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/users/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Login failed.');
+            }
+
+            const data = await response.json();
+            currentUser = data.username;
+            sessionStorage.setItem('currentUser', currentUser);
+            updateCurrentUserUI(currentUser);
+            hideLoginModal();
+            showNotification('Login successful!', 'success');
+            fetchAndRenderOnlineBooks();
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
+
+    function handleLogout() {
+        currentUser = null;
+        sessionStorage.removeItem('currentUser');
+        onlineBooks = [];
+        renderOnlineBooks();
+        updateCurrentUserUI('Anonymous');
+        showNotification('You have been logged out.', 'info');
+    }
+
+    async function handleCreateAccount() {
+        const username = loginUsernameInput.value.trim();
+        const password = loginPasswordInput.value.trim();
+        if (!username || !password) {
+            showNotification('Username and password cannot be empty.', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/users/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to create account.');
+            }
+
+            const data = await response.json();
+            showNotification(data.message, 'success');
+            handleLogin();
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
+
+    async function handleSaveBook() {
+        if (!currentUser) {
+            showNotification('You must be logged in to save a book.', 'warning');
+            return;
+        }
+
+        if (!activeBook) {
+            showNotification('No active book to save.', 'warning');
+            return;
+        }
+
+        let bookData = {};
+        let isUpdatingOnlineBook = activeBook.source === 'online';
+
+        if (isUpdatingOnlineBook) {
+            bookData.content = textDisplay.textContent;
+        } else { // Saving a local book to online
+            bookData.title = activeBook.title;
+            bookData.content = localBooks[activeBook.id].text;
+        }
+
+        try {
+            const url = isUpdatingOnlineBook 
+                ? `/api/users/${currentUser}/books/${activeBook.id}`
+                : `/api/users/${currentUser}/books`;
+
+            const method = isUpdatingOnlineBook ? 'PATCH' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(bookData),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to save the book.');
+            }
+
+            const data = await response.json();
+            showNotification(data.message, 'success');
+            
+            // Update UI
+            saveBookBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+            fetchAndRenderOnlineBooks();
+
+            if (!isUpdatingOnlineBook) {
+                // If a local book was saved, remove it from local list
+                delete localBooks[activeBook.id];
+                saveLocalBooks();
+                renderLocalBooks();
+                activeBook = null;
+            }
+
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
+
+    async function deleteOnlineBook(bookId) {
+        showBookModal(
+            `Delete Book?`,
+            'Delete',
+            async () => {
+                try {
+                    const response = await fetch(`/api/users/${currentUser}/books/${bookId}`, {
+                        method: 'DELETE',
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to delete the book.');
+                    }
+
+                    const data = await response.json();
+                    showNotification(data.message, 'success');
+
+                    // Remove from UI
+                    onlineBooks = onlineBooks.filter(book => book.id !== bookId);
+                    renderOnlineBooks();
+
+                    if (activeBook && activeBook.id === bookId) {
+                        activeBook = null;
+                        resetBookView();
+                    }
+
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                }
+                hideBookModal();
+            },
+            { showInput: false }
+        );
+    }
+
+    function renameOnlineBook(book) {
+        showBookModal(
+            'Rename Book',
+            'Rename',
+            async () => {
+                const newTitle = bookTitleInput.value;
+                if (newTitle && newTitle.trim() !== '' && newTitle !== book.title) {
+                    try {
+                        const response = await fetch(`/api/users/${currentUser}/books/${book.id}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ title: newTitle.trim() }),
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.detail || 'Failed to rename the book.');
+                        }
+
+                        const data = await response.json();
+                        showNotification(data.message, 'success');
+
+                        // Update UI
+                        const bookToUpdate = onlineBooks.find(b => b.id === book.id);
+                        if (bookToUpdate) {
+                            bookToUpdate.title = newTitle.trim();
+                            renderOnlineBooks();
+                            if (activeBook && activeBook.id === book.id) {
+                                bookPageTitle.innerHTML = newTitle.trim();
+                            }
+                        }
+
+                    } catch (error) {
+                        showNotification(error.message, 'error');
+                    }
+                }
+                hideBookModal();
+            },
+            { showInput: true, inputValue: book.title }
+        );
+    }
+
+    // Check for logged in user on page load
+    const savedUser = sessionStorage.getItem('currentUser');
+    if (savedUser) {
+        currentUser = savedUser;
+        updateCurrentUserUI(currentUser);
+        fetchAndRenderOnlineBooks();
+    }
+
+    loginActionBtn.addEventListener('click', handleLogin);
+    createAccountBtn.addEventListener('click', handleCreateAccount);
+    logoutBtn.addEventListener('click', handleLogout);
+    saveBookBtn.addEventListener('click', handleSaveBook);
+
+    // Show save book button when text is loaded
+    const originalLoadBookContent = loadBookContent;
+    loadBookContent = async (book) => {
+        await originalLoadBookContent(book);
+        if (currentUser) {
+            saveBookBtn.classList.remove('hidden');
+        }
+    };
+
+    pdfFileInput.addEventListener('change', async (e) => {
+        if (currentUser) {
+            saveBookBtn.classList.remove('hidden');
+        }
+    });
 });

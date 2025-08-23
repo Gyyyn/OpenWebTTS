@@ -29,8 +29,12 @@
 
                 <hr class="my-4" />
 
-                <div class="font-bold m-2 text-gray-400">Books</div>
-                <ul id="book-list" class="space-y-1">
+                <div class="font-bold m-2 text-gray-400">My Books</div>
+                <ul id="online-book-list" class="space-y-1 mb-4">
+                    <!-- Populated for logged-in users -->
+                </ul>
+                <div class="font-bold m-2 text-gray-400">Temporary Books</div>
+                <ul id="local-book-list" class="space-y-1">
                     <!-- Book items will be added here dynamically -->
                 </ul>
             </div>
@@ -49,9 +53,15 @@
                     <div class="absolute bg-white border border-gray-200 bottom-4 group-focus-within:block group-hover:block mb-4 right-0 rounded-lg shadow-lg w-48 z-10 hidden" id="account-switcher-menu">
                         <ul class="py-1">
                             <li>
-                                <a href="#" class="flex items-center px-4 py-2 hover:bg-gray-100 text-gray-700">
+                                <a href="#" id="add-account-btn" class="flex items-center px-4 py-2 hover:bg-gray-100 text-gray-700">
                                     <ion-icon name="person-circle-outline" class="mr-2"></ion-icon>
                                     Add Account
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" id="logout-btn" class="hidden flex items-center px-4 py-2 hover:bg-gray-100 text-gray-700">
+                                    <ion-icon name="log-out-outline" class="mr-2"></ion-icon>
+                                    Logout
                                 </a>
                             </li>
                         </ul>
@@ -73,11 +83,17 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
                 <h2 id="book-title" class="text-xl sm:text-2xl font-semibold text-gray-800">New Book</h2>
                 
-                <button id="open-file-picker-modal" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
-                    <ion-icon name="folder-open-outline" class="mr-2"></ion-icon>
-                    <span class="hidden sm:inline">Import</span>
-                    <span class="sm:hidden">Import from File</span>
-                </button>
+                <div class="flex">
+                    <button id="open-file-picker-modal" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                        <ion-icon name="folder-open-outline" class="mr-2"></ion-icon>
+                        <span class="hidden sm:inline">Import</span>
+                        <span class="sm:hidden">Import from File</span>
+                    </button>
+                    <button id="save-book-btn" class="hidden ms-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                        <ion-icon name="save-outline" class="mr-2"></ion-icon>
+                        <span>Save Book</span>
+                    </button>
+                </div>
             </div>
 
             <!-- File Picker Modal -->
@@ -143,9 +159,9 @@
                                 <input type="range" id="playback-speed" min="0.5" max="2" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" disabled>
                             </div>
                             <div class="flex items-center">
-                                <button id="pause-btn" class="ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200" disabled><ion-icon name="pause-outline"></ion-icon></button>
-                                <button id="stop-btn" class="ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200" disabled><ion-icon name="stop-outline"></ion-icon></button>
-                                <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200"><ion-icon name="download-outline"></ion-icon></a>
+                                <button id="pause-btn" class="ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors" disabled><ion-icon name="pause-outline"></ion-icon></button>
+                                <button id="stop-btn" class="ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors" disabled><ion-icon name="stop-outline"></ion-icon></button>
+                                <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors"><ion-icon name="download-outline"></ion-icon></a>
                             </div>
                         </div>
                     </div>
@@ -155,11 +171,11 @@
 
                 <!-- Speech to Text Section -->
                 <div id="speech-to-text-section" class="flex ml-4">
-                    <button id="record-btn" class="bg-gray-100 rounded-xl hover:bg-violet-200 font-bold py-2 px-4">
+                    <button id="record-btn" class="bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors font-bold py-2 px-4">
                         <span class="me-2">Record Audio</span>
                         <ion-icon name="mic-outline"></ion-icon>
                     </button>
-                    <button id="stop-record-btn" class="hidden ml-2 bg-gray-100 rounded-xl hover:bg-violet-200 font-bold py-2 px-4">
+                    <button id="stop-record-btn" class="hidden ml-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors font-bold py-2 px-4">
                         <span class="me-2">Stop Recording</span>
                         <ion-icon name="stop-outline"></ion-icon>
                     </button>
@@ -171,7 +187,7 @@
                     <!-- Audio File Transcription -->
                     <div class="ml-2 flex items-center">
                         <input type="file" id="audio-file-input" accept="audio/*" class="hidden">
-                        <button id="transcribe-file-btn" class="bg-gray-100 rounded-xl hover:bg-violet-200 font-bold py-2 px-4">
+                        <button id="transcribe-file-btn" class="bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors font-bold py-2 px-4">
                             <span class="me-2">Transcribe File</span>
                             <ion-icon name="document-text-outline"></ion-icon>
                         </button>
@@ -189,12 +205,12 @@
             <div id="pdf-viewer-wrapper" class="hidden mb-4">
                 <h3 class="text-m font-semibold text-gray-800">File Reader</h2>
                 <div id="pagination-controls" class="flex justify-between items-center mt-4">
-                    <button id="prev-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200">
+                    <button id="prev-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
                         <ion-icon name="chevron-back-outline"></ion-icon>
                         <span class="ms-2">Previous</span>
                     </button>
                     <span id="page-num" class="text-sm text-gray-600"></span>
-                    <button id="next-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200">
+                    <button id="next-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
                         <span class="me-2">Next</span>
                         <ion-icon name="chevron-forward-outline"></ion-icon>
                     </button>
@@ -218,13 +234,27 @@
 
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 class="text-xl font-bold mb-4">Login</h2>
+            <input type="text" id="login-username-input" class="w-full p-2 border border-gray-300 rounded-lg mb-4" placeholder="Username or Email">
+            <input type="password" id="login-password-input" class="w-full p-2 border border-gray-300 rounded-lg mb-4" placeholder="Password">
+            <div class="flex justify-end space-x-2">
+                <button id="login-modal-cancel-btn" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">Cancel</button>
+                <button id="create-account-btn" class="px-4 py-2 bg-gray-200 text-black rounded-lg hover:bg-gray-300">Create Account</button>
+                <button id="login-modal-action-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Login</button>
+            </div>
+        </div>
+    </div>
+
     <!-- New Book/Rename Modal -->
     <div id="book-modal" class="modal hidden">
         <div class="modal-content">
             <h2 id="modal-title" class="text-xl font-bold mb-4"></h2>
             <input type="text" id="book-title-input" class="w-full p-2 border border-gray-300 rounded-lg mb-4" placeholder="Enter book title">
             <div class="flex justify-end space-x-2">
-                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200">Cancel</button>
+                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">Cancel</button>
                 <button id="modal-action-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"></button>
             </div>
         </div>
