@@ -1,3 +1,7 @@
+a.link:hover {
+    text-decoration: dashed;
+}
+
 button, a.button {
     display: flex;
     align-items: center;

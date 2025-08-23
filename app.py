@@ -23,8 +23,8 @@ import threading
 import time
 import socket
 import whisper
-
-import gemini
+import functions.gemini
+from functions.kokoro import kokoro_process_audio
 
 # --- Configuration ---
 DATA_DIR = os.environ.get("OPENWEBTTS_DATA_DIR")
@@ -43,6 +43,23 @@ AUDIO_CACHE_DIR = os.path.join(STATIC_DIR, "audio_cache")
 COQUI_DIR = os.path.join(MODELS_DIR, "coqui")
 PIPER_DIR = os.path.join(MODELS_DIR, "piper")
 KOKORO_DIR = os.path.join(MODELS_DIR, "kokoro")
+
+# --- Functions ---
+
+def check_model_directories():
+    directories = [COQUI_DIR, PIPER_DIR, KOKORO_DIR]
+    
+    missing_directories = [directory for directory in directories if not os.path.exists(directory)]
+    
+    if missing_directories:
+        print(f"Directories do not exist: {missing_directories}")
+        print("Creating the necessary directories...")
+        
+        for directory in missing_directories:
+            os.makedirs(directory, exist_ok=True)
+        return True
+    
+    return False
 
 # --- FastAPI Setup ---
 app = FastAPI()
@@ -64,6 +81,10 @@ class PdfText(BaseModel):
     text: str
 
 class PiperVoice(BaseModel):
+    key: str
+    URL: str
+
+class KokoroVoice(BaseModel):
     key: str
     URL: str
 
@@ -96,16 +117,14 @@ def get_piper_voices() -> List[Voice]:
     return voices
 
 def get_kokoro_voices() -> List[Voice]:
-    # Kokoro voices are managed by the CLI, so we might have a placeholder
-    # or a config file to list them. Here, we'll assume a simple convention.
     voices = []
     if not os.path.exists(KOKORO_DIR):
         return voices
-    # This is a placeholder. You might need to adapt this based on how
-    # you manage Kokoro models.
-    for model_file in os.listdir(KOKORO_DIR):
-        voices.append(Voice(id=model_file, name=f"Kokoro: {model_file}"))
-    return [Voice(id="default", name="Kokoro: Default")] # Placeholder
+    for file_name in os.listdir(KOKORO_DIR):
+        if file_name.endswith(".pt"):
+            voice_id = file_name.replace(".pt", "")
+            voices.append(Voice(id=voice_id, name=f"Kokoro: {voice_id}"))
+    return voices
 
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
@@ -127,15 +146,7 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
             subprocess.run(command, input=request.text, text=True, check=True, encoding='utf-8')
 
         elif request.engine == "kokoro":
-            # This is a placeholder command. You MUST adapt it to your Kokoro CLI's syntax.
-            # Example: kokoro --model models/kokoro/your_model --text "Hello" --out speech.wav
-            command = [
-                "kokoro", # Assuming 'kokoro' is in the system PATH
-                "--model", os.path.join(KOKORO_DIR, request.voice),
-                "--text", request.text,
-                "--out", output_path
-            ]
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            kokoro_process_audio(request.voice, False, request.text, output_path)
 
         elif request.engine == "gemini":
             if not request.api_key:
@@ -180,6 +191,9 @@ async def get_piper_voices_from_hf():
 
 @app.post("/api/download_piper_voice")
 async def download_piper_voice(voice: PiperVoice):
+
+    check_model_directories()
+
     try:
         voice_url = voice.URL
         # Construct the download URL
@@ -202,6 +216,29 @@ async def download_piper_voice(voice: PiperVoice):
         config_path = os.path.join(PIPER_DIR, f"{voice.key}.onnx.json")
         with open(config_path, "w") as f:
             f.write(config_response.text)
+
+        return JSONResponse(content={"message": f"Successfully downloaded {voice.key}"})
+
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Failed to download voice: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+
+@app.post("/api/download_kokoro_voice")
+async def download_piper_voice(voice: KokoroVoice):
+
+    check_model_directories()
+
+    try:        
+        # Download the model file
+        response = requests.get(voice.URL, stream=True)
+        response.raise_for_status()
+        
+        # Save the model to the piper directory
+        model_path = os.path.join(KOKORO_DIR, f"{voice.key}")
+        with open(model_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
 
         return JSONResponse(content={"message": f"Successfully downloaded {voice.key}"})
 

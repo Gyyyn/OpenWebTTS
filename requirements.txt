@@ -1,7 +1,11 @@
+beautifulsoup4
+bcrypt
+soundfile
 fastapi
 uvicorn[standard]
 python-multipart
 piper-tts
+kokoro
 PyMuPDF
 requests
 ebooklib

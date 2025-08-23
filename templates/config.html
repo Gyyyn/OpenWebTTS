@@ -6,21 +6,24 @@
     <title>OpenWebTTS - Config</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
 </head>
 <body class="bg-gray-100">
 
     <div class="container mx-auto p-6">
         <h1 class="text-4xl font-bold text-gray-800 mb-6">Config</h1>
 
-        <button id="back" class="mb-4 bg-gray-200 hover:bg-gray-300 font-bold py-2 px-4 rounded-lg">
+        <button id="back" class="mb-4 bg-gray-200 hover:bg-indigo-200 font-bold py-2 px-4 rounded-xl">
             <ion-icon name="arrow-back-outline"></ion-icon>
             <span class="ms-2">Back</span>
         </button>
 
+        <h2 class="text-2xl mb-4">Models</h2>
+
         <div class="grid grid-cols-2 gap-4">
 
             <div class="bg-white p-6 rounded-lg shadow-md full">
-                <h2 class="text-2xl font-bold mb-4">Download Piper Models</h2>
+                <h3 class="text-xl font-bold mb-4">Download Piper Models</h2>
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label for="piper-voice" class="block text-sm font-medium text-gray-700">Select a Voice</label>
@@ -29,7 +32,24 @@
                         </select>
                     </div>
                     <div class="flex items-end">
-                        <button id="download-btn" class="justify-center full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                        <button id="download-btn-piper" class="justify-center full bg-gray-100 hover:bg-indigo-200 rounded-xl font-bold py-2 px-4">
+                            <span class="me-2">Download</span>
+                            <ion-icon name="download-outline"></ion-icon>
+                        </button>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <h3 class="text-xl font-bold mb-4">Download Kokoro Models</h2>
+                <div class="mb-2">
+                    <p>Choose your voice from <a class="link p-1 bg-indigo-100 text-indigo-600 rounded-lg" href="https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md" target="_blank">here</a>, get the download link from <a class="link p-1 bg-indigo-100 text-indigo-600 rounded-lg" href="https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices" target="_blank">here</a> and paste it below.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="kokoro-voice" class="block text-sm font-medium text-gray-700">Voice Link</label>
+                        <input id="kokoro-voice" name="kokoro-voice" class="mt-1 block w-full pl-3 pr-10 py-2 bg-gray-100 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl" />
+                    </div>
+                    <div class="flex items-end">
+                        <button id="download-btn-kokoro" class="justify-center full bg-gray-100 hover:bg-indigo-200 rounded-xl font-bold py-2 px-4">
                             <span class="me-2">Download</span>
                             <ion-icon name="download-outline"></ion-icon>
                         </button>
@@ -39,18 +59,24 @@
             </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md full">
-                <h2 class="text-2xl font-bold mb-4">Gemini Voice</h2>
+                <h3 class="text-xl font-bold mb-4">Gemini Voice</h2>
+                <div>
+                    <p><i>Warning!</i> Setting you API key here could incurr charges if you exceed your free tokens. Use with care.</p>
+                </div>
+                <hr class="my-4">
                 <div>
                     <label for="google-voice" class="block text-sm font-medium text-gray-700">Google API Key</label>
-                    <input id="google-voice" name="google-voice" class="mt-1 block w-full pl-3 pr-10 py-2 bg-gray-100 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg" />
+                    <input id="google-voice" name="google-voice" class="mt-1 block w-full pl-3 pr-10 py-2 bg-gray-100 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl" />
                 </div>
             </div>
         </div>
 
+        <h2 class="text-2xl my-4">Info</h2>
+
         <div class="grid grid-cols-2 gap-4 mt-4">
 
             <div class="bg-white p-6 rounded-lg shadow-md full">
-                <h2 class="text-2xl font-bold mb-4">Choosing a model</h2>
+                <h3 class="text-xl font-bold mb-4">Choosing a model</h2>
                 <div>
                     <p>Choosing a model that is compatible with your device is important for the best performance.</p>
                     <p>Make sure the model doesn't exceed the memory limit of your device.</p>
@@ -63,14 +89,14 @@
             </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md full">
-                <h2 class="text-2xl font-bold mb-4">Cache</h2>
+                <h3 class="text-xl font-bold mb-4">Cache</h2>
                 <div>
                     <h3 class="text-lg font-bold mb-2">Warning!</h3>
                     <p>This will delete <i>all</i> cached audio files. This action is irreversible.</p>
                 </div>
                 <hr class="my-4">
                 <div>
-                    <button id="clear-cache" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">
+                    <button id="clear-cache" class="bg-red-100 hover:bg-red-200 rounded-xl font-bold py-2 px-4">
                         <span class="me-2">Clear Cache</span>
                         <ion-icon name="trash-outline"></ion-icon>
                     </button>

@@ -7,7 +7,10 @@ backButton.addEventListener('click', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     const piperVoiceSelect = document.getElementById('piper-voice');
-    const downloadBtn = document.getElementById('download-btn');
+    const kokoroVoiceSelect = document.getElementById('kokoro-voice');
+    const downloadBtnPiper = document.getElementById('download-btn-piper');
+    const downloadBtnKokoro = document.getElementById('download-btn-kokoro');
+
     const downloadStatus = document.getElementById('download-status');
     const googleVoiceInput = document.getElementById('google-voice');
     const GEMINI_API_KEY_STORAGE_KEY = 'geminiApiKey';
@@ -50,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }        
 
-        downloadBtn.disabled = true;
+        downloadBtnPiper.disabled = true;
         downloadStatus.textContent = 'Downloading...';
 
         // Build URL to send.
@@ -91,7 +94,44 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error downloading voice:', error);
             downloadStatus.textContent = `An error occurred: ${error.message}`;
         } finally {
-            downloadBtn.disabled = false;
+            downloadBtnPiper.disabled = false;
+        }
+    }
+
+    async function downloadKokoroVoice() {
+
+        // Example URL: https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_heart.pt
+        const voiceDownloadURL = kokoroVoiceSelect.value;
+        const voiceKey = voiceDownloadURL.split('voices/')[1];
+        if (!voiceDownloadURL) {
+            alert('Please select a voice to download.');
+            return;
+        }        
+
+        downloadBtnKokoro.disabled = true;
+        downloadStatus.textContent = 'Downloading...';
+
+        try {
+            const response = await fetch('/api/download_kokoro_voice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ URL: voiceDownloadURL, key: voiceKey }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to download voice.');
+            }
+
+            const data = await response.json();
+            downloadStatus.textContent = data.message;
+        } catch (error) {
+            console.error('Error downloading voice:', error);
+            downloadStatus.textContent = `An error occurred: ${error.message}`;
+        } finally {
+            downloadBtnKokoro.disabled = false;
         }
     }
 
@@ -107,7 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     });
 
-    downloadBtn.addEventListener('click', downloadPiperVoice);
+    downloadBtnPiper.addEventListener('click', downloadPiperVoice);
+    downloadBtnKokoro.addEventListener('click', downloadKokoroVoice);
 
     // Initial load
     getPiperVoices();

@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioPlayer = document.getElementById('audio-player');
     const pdfFileInput = document.getElementById('pdf-file');
     const pdfViewer = document.getElementById('pdf-viewer');
+    const pdfViewerWrapper = document.getElementById('pdf-viewer-wrapper');
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
     const pageNumSpan = document.getElementById('page-num');
@@ -149,20 +150,24 @@ document.addEventListener('DOMContentLoaded', () => {
             `Delete Book: ${book.title}?`,
             'Delete',
             () => {
+
                 if (books[bookId].pdfId) {
                     deletePdf(books[bookId].pdfId);
                 }
+
                 delete books[bookId];
                 saveBooks();
+
                 if (activeBookId === bookId) {
                     activeBookId = null;
                     localStorage.removeItem('activeBookId');
                     textDisplay.innerHTML = '';
                     resetPdfView();
                 }
+
+                hideBookModal();
                 renderBooks();
                 resetBookView();
-                hideBookModal();
             },
             { showInput: false }
         );
@@ -252,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentChunkIndex = 0; // Reset chunk index
 
             if (books[bookId].pdfId) {
+                pdfViewerWrapper.classList.remove('hidden');
                 const pdfData = await loadPdf(books[bookId].pdfId);
                 if (pdfData) {
                     pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
