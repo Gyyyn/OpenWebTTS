@@ -2,6 +2,9 @@
 
 OpenWebTTS is a local web-based application that provides a simple interface for generating speech using multiple Text-to-Speech (TTS)  or Speech-to-Text (STT) engines.
 
+<img width="2278" height="1525" alt="image" src="https://github.com/user-attachments/assets/869f16f5-1a51-4368-9720-7e7ba8e623da" />
+
+
 ## Features
 
 - **Simple Web Interface**: A clean UI for text input and audio generation.
