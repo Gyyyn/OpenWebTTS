@@ -76,25 +76,8 @@
     </div>
 
     <!-- Main Content -->
-    <div class="ml-[25%] bg-white" style="min-height: 100vh;">
-        <div id="book-view" class="hidden p-10">
-
-            <!-- Header Section -->
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-                <h2 id="book-title" class="text-xl sm:text-2xl font-semibold text-gray-800">New Book</h2>
-                
-                <div class="flex">
-                    <button id="open-file-picker-modal" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
-                        <ion-icon name="folder-open-outline" class="mr-2"></ion-icon>
-                        <span class="hidden sm:inline">Import</span>
-                        <span class="sm:hidden">Import from File</span>
-                    </button>
-                    <button id="save-book-btn" class="hidden ms-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
-                        <ion-icon name="save-outline" class="mr-2"></ion-icon>
-                        <span>Save Book</span>
-                    </button>
-                </div>
-            </div>
+    <div class="ml-[25%] min-h-[100vh]">
+        <div id="book-view" class="flex h-[100vh] items-center hidden">
 
             <!-- File Picker Modal -->
             <div id="file-picker-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
@@ -109,23 +92,24 @@
                 </div>
             </div>
             
-            <div class="grid grid-cols-3 gap-4 mb-4 items-end">
+            <div class="fixed flex items-end px-10 py-4 top-0 w-full" style="background-image: linear-gradient(180deg,rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.5) 80%, rgba(255, 255, 255, 0) 100%);">
                 <div>
                     <label for="engine" class="block text-sm font-medium text-gray-700">TTS Engine</label>
                     <select id="engine" name="engine" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
                         <option value="piper" >Piper</option>
                         <option value="kokoro">Kokoro</option>
+                        <option value="kitten">Kitten</option>
                         <option value="coqui" disabled>Coqui TTS</option>
                         <option value="gemini" >Gemini Voice</option>
                     </select>
                 </div>
-                <div>
+                <div class="ms-2">
                     <label for="voice" class="block text-sm font-medium text-gray-700">Voice/Speaker</label>
                     <select id="voice" name="voice" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
                         <option value="">-- Select an engine first --</option>
                     </select>
                 </div>
-                <div>
+                <div class="ms-2">
                     <div class="ml-2 flex items-center">
                         <input id="auto-read-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
                         <label for="auto-read-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Read Next Page</label>
@@ -137,7 +121,7 @@
                 </div>
             </div>
 
-            <div class="flex justify-between items-center mb-4">
+            <div class="w-[75%] bottom-0 fixed flex items-center justify-between p-10" style="background-image: linear-gradient(0deg,rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.5) 80%, rgba(255, 255, 255, 0) 100%);">
                 
                 <!-- TTS Section -->
                 <div class="flex flex-column items-end">
@@ -165,17 +149,30 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="flex">
+                        <button id="open-file-picker-modal" class="ms-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                            <ion-icon name="folder-open-outline" class="mr-2"></ion-icon>
+                            <span class="hidden sm:inline">Import</span>
+                            <span class="sm:hidden">Import from File</span>
+                        </button>
+                        <button id="save-book-btn" class="hidden ms-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                            <ion-icon name="save-outline" class="mr-2"></ion-icon>
+                            <span>Save Book</span>
+                        </button>
+                    </div>
+
                 </div>
 
 
 
                 <!-- Speech to Text Section -->
-                <div id="speech-to-text-section" class="flex ml-4">
-                    <button id="record-btn" class="bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors font-bold py-2 px-4">
+                <div id="speech-to-text-section" class="flex">
+                    <button id="record-btn" class="ms-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors py-2 px-4">
                         <span class="me-2">Record Audio</span>
                         <ion-icon name="mic-outline"></ion-icon>
                     </button>
-                    <button id="stop-record-btn" class="hidden ml-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors font-bold py-2 px-4">
+                    <button id="stop-record-btn" class="hidden ml-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors py-2 px-4">
                         <span class="me-2">Stop Recording</span>
                         <ion-icon name="stop-outline"></ion-icon>
                     </button>
@@ -187,7 +184,7 @@
                     <!-- Audio File Transcription -->
                     <div class="ml-2 flex items-center">
                         <input type="file" id="audio-file-input" accept="audio/*" class="hidden">
-                        <button id="transcribe-file-btn" class="bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors font-bold py-2 px-4">
+                        <button id="transcribe-file-btn" class="bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors py-2 px-4">
                             <span class="me-2">Transcribe File</span>
                             <ion-icon name="document-text-outline"></ion-icon>
                         </button>
@@ -196,13 +193,16 @@
 
             </div>
 
-            <div class="mb-4">
-                <label for="text" class="block text-sm font-medium text-gray-700">Text to Synthesize</label>
-                <div id="text-display" contenteditable="true" class="shadow-xl mt-1 block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px]"></div>
-                <textarea id="text" name="text" rows="6" placeholder="Enter your text here..." class="hidden"></textarea>
+            <div id="textbox-viewer-wrapper" class="w-full m-5 rounded-xl shadow-lg bg-white">
+                <div class="p-10">
+                    <h2 id="book-title" class="mb-4 text-xl sm:text-2xl font-semibold text-gray-800">New Book</h2>
+                    <label for="text" class="block text-sm font-medium text-gray-700">Text to Synthesize</label>
+                    <div id="text-display" contenteditable="true" class="mt-1 block w-full p-2 border border-gray-300 rounded-xl shadow-sm focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px]"></div>
+                    <textarea id="text" name="text" rows="6" placeholder="Enter your text here..." class="hidden"></textarea>
+                </div>
             </div>
 
-            <div id="pdf-viewer-wrapper" class="hidden mb-4">
+            <div id="pdf-viewer-wrapper" class="hidden bg-white rounded-xl mx-auto p-10 mb-4">
                 <h3 class="text-m font-semibold text-gray-800">File Reader</h2>
                 <div id="pagination-controls" class="flex justify-between items-center mt-4">
                     <button id="prev-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
@@ -215,7 +215,7 @@
                         <ion-icon name="chevron-forward-outline"></ion-icon>
                     </button>
                 </div>
-                <div id="pdf-viewer" class="mt-4 border rounded-xl"></div>
+                <div id="pdf-viewer" class="mt-4 border rounded-xl max-w-[50%]"></div>
             </div>
 
             <div id="current-chunk" class="hidden fixed bottom-0 right-0 bg-white p-4 border-t border-gray-200 rounded-lg mx-4 my-2 shadow-xl ms-10 w-2/3">

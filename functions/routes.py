@@ -21,6 +21,7 @@ from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, 
 # Import other function modules
 import functions.gemini
 from functions.kokoro import kokoro_process_audio
+from functions.kitten import kitten_process_audio
 from functions.users import UserManager
 
 router = APIRouter()
@@ -99,6 +100,25 @@ def get_kokoro_voices() -> List[Voice]:
             voices.append(Voice(id=voice_id, name=f"Kokoro: {voice_id}"))
     return voices
 
+def get_kitten_voices() -> List[Voice]:
+    # Kitten doesn't need model files.
+    output = []
+    voices = [
+        "expr-voice-2-m",
+        "expr-voice-2-f",
+        "expr-voice-3-m",
+        "expr-voice-3-f", 
+        "expr-voice-4-m",
+        "expr-voice-4-f",
+        "expr-voice-5-m",
+        "expr-voice-5-f"
+    ]
+
+    for voice in voices:
+        output.append(Voice(id=voice, name=f"Kitten: {voice}"))
+
+    return output
+
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
         if request.engine == "piper":
@@ -120,6 +140,8 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
                     f.write(audio_content)
             else:
                 raise ValueError("Failed to get audio content from Gemini API.")
+        elif request.engine == "kitten":
+            kitten_process_audio(request.voice, False, request.text, output_path)
         else:
             raise ValueError("Unsupported TTS engine.")
     except Exception as e:
@@ -195,6 +217,8 @@ async def list_voices(engine: str):
         return get_piper_voices()
     elif engine == "kokoro":
         return get_kokoro_voices()
+    elif engine == "kitten":
+        return get_kitten_voices()
     elif engine == "gemini":
         return functions.gemini.list_voices()
     else:

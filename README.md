@@ -24,6 +24,7 @@ OpenWebTTS/
 │   ├── gemini.py          # Gemini API
 │   ├── piper.py           # Piper TTS
 │   ├── whisper.py         # OpenAI's Whisper STT
+|   ├── kitten.py          # Kitten TTS
 │   └── kokoro.py          # Kokoro functions
 |
 ├── models/                # Place your TTS models here
@@ -58,7 +59,7 @@ OpenWebTTS/
 
 ### 2. Create a Virtual Environment
 
-It is highly recommended to use a virtual environment to avoid conflicts with system-wide packages. **Note:** Make sure you're using the correct python version (3.9 recommended) to create the venv.
+It is highly recommended to use a virtual environment to avoid conflicts with system-wide packages. **Note:** Make sure you're using the correct python version (3.11 recommended) to create the venv.
 
 ```bash
 # Navigate to the project directory
@@ -80,6 +81,7 @@ Install all the required Python libraries using the `requirements.txt` file. **N
 
 ```bash
 pip install -r requirements.txt
+pip install https://github.com/KittenML/KittenTTS/releases/download/0.1/kittentts-0.1.0-py3-none-any.whl
 ```
 
 ### 4. Download and Place TTS Models
@@ -116,8 +118,7 @@ Once you have installed the dependencies and placed your models, you can start t
 python app.py
 ```
 
-The application will be available at `http://127.0.0.1:8000`. If you want the app to be available to your lan, pass the `--
-host=0.0.0.0` flag.
+The application will be available at `http://127.0.0.1:8000`. If you want the app to be available to your LAN, pass the `--host=0.0.0.0` flag.
 
 ### Desktop Mode (Experimental)
 

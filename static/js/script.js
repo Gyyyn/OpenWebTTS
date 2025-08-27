@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pdfFileInput = document.getElementById('pdf-file');
     const pdfViewer = document.getElementById('pdf-viewer');
     const pdfViewerWrapper = document.getElementById('pdf-viewer-wrapper');
+    const textboxViewerWrapper = document.getElementById('textbox-viewer-wrapper');
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
     const pageNumSpan = document.getElementById('page-num');
@@ -303,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (book.source === 'local' && localBooks[book.id].pdfId) {
                 pdfViewerWrapper.classList.remove('hidden');
+                textboxViewerWrapper.classList.add('hidden');
                 const pdfData = await loadPdf(localBooks[book.id].pdfId);
                 if (pdfData) {
                     pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
@@ -342,6 +344,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetPdfView() {
+        pdfViewerWrapper.classList.add('hidden');
+        textboxViewerWrapper.classList.remove('hidden');
         pdfViewer.innerHTML = '';
         pageNumSpan.textContent = '';
         prevPageBtn.disabled = true;
@@ -355,6 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentChunk.classList.add('hidden');
         bookPageTitletextContent = 'New Book';
         bookView.classList.add('hidden');
+        textboxViewerWrapper.classList.remove('hidden');
     }
 
     autoReadCheckbox.addEventListener('change', () => {
