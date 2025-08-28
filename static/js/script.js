@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const engineSelect = document.getElementById('engine');
     const voiceSelect = document.getElementById('voice');
     const generateBtn = document.getElementById('generate-btn');
+    const generateBtnText = document.getElementById('generate-btn-text');
+    const generateBtnIcon = document.getElementById('generate-btn-icon');
     const textInput = document.getElementById('text');
     const textDisplay = document.getElementById('text-display');
     const bookPageTitle = document.getElementById('book-title');
@@ -35,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const modalActionBtn = document.getElementById('modal-action-btn');
     const playbackSpeed = document.getElementById('playback-speed');
-    const pauseBtn = document.getElementById('pause-btn');
     const stopBtn = document.getElementById('stop-btn');
 
     // Login Modal Elements
@@ -93,6 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setActiveBook(book) {
+        // Make sure we stop playback and generation if we switch books.
+        resetBookView();
+        stopAudioQueue()
         activeBook = book;
         renderLocalBooks();
         renderOnlineBooks();
@@ -193,6 +197,21 @@ document.addEventListener('DOMContentLoaded', () => {
         bookModal.classList.add('hidden');
         bookTitleInput.value = ''; // Clear input on hide
     }
+
+    // Add event listener for keydown events on the document
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            // Trigger the modalActionBtn click event
+            if (!bookModal.classList.contains('hidden')) {
+                modalActionBtn.click();
+            }
+        } else if (event.key === 'Escape') {
+            // Trigger the modalCancelBtn click event
+            if (!bookModal.classList.contains('hidden')) {
+                modalCancelBtn.click();
+            }
+        }
+    });
 
     function deleteBook(bookId) {
         const book = localBooks[bookId];
@@ -365,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
         textDisplay.textContent = '';
         currentChunk.childNodes[1].childNodes[1].textContent = '';
         currentChunk.classList.add('hidden');
-        bookPageTitletextContent = 'New Book';
+        bookPageTitle.textContent = 'New Book';
         bookView.classList.add('hidden');
         textboxViewerWrapper.classList.remove('hidden');
     }
@@ -430,13 +449,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function enableAudioControls() {
-        pauseBtn.disabled = false;
         stopBtn.disabled = false;
         playbackSpeed.disabled = false;
+        generateBtn.disabled = false;
     }
 
     function disableAudioControls() {
-        pauseBtn.disabled = true;
         stopBtn.disabled = true;
         playbackSpeed.disabled = true;
     }
@@ -547,10 +565,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         isPlaying = true;
+        isPaused = false; // Ensure isPaused is false when playing
         enableAudioControls(); // Enable controls when audio starts playing
 
+        generateBtnText.textContent = 'Pause';
+        generateBtnIcon.name = 'pause-outline';
+        generateBtnText.classList.remove('hidden');
+        generateBtnIcon.classList.remove('hidden');
+        loadingDiv.classList.add('hidden');
+        generateBtn.disabled = false;
+
+        const shouldAutoDelete = (activeBook && activeBook.source === 'local') && localBooks[activeBook.id].autoDeleteChunks;
+
         // Debug
-        console.log(currentChunkIndex, audioQueue);
+        console.debug(currentChunkIndex, audioQueue);
         
         // Get current audio chunk.
         const currentAudio = audioQueue[currentChunkIndex];
@@ -558,7 +586,9 @@ document.addEventListener('DOMContentLoaded', () => {
         highlightChunk(currentAudio.text);
 
         // Ahh code
-        if (currentChunk && currentChunk.childNodes[1] && currentChunk.childNodes[1].childNodes[1]) {
+        // NOTE: If we are auto deleting, there's no need to display the current reading chunk, since
+        // it will always be at the top anyways.
+        if (!shouldAutoDelete && currentChunk && currentChunk.childNodes[1] && currentChunk.childNodes[1].childNodes[1]) {
             currentChunk.childNodes[1].childNodes[1].textContent = currentAudio.text.text;
             currentChunk.classList.remove('hidden');
         }
@@ -573,16 +603,25 @@ document.addEventListener('DOMContentLoaded', () => {
             currentChunk.classList.add('hidden');
             
             const playedChunkId = currentAudio.text.id; // Define playedChunkId here
-            if (activeBook && activeBook.source === 'local' && localBooks[activeBook.id].autoDeleteChunks) {
+            
+            if (shouldAutoDelete) {
                 const spansToRemove = textDisplay.querySelectorAll(`span[data-chunk-id="${playedChunkId}"]`);
                 spansToRemove.forEach(span => span.remove());
 
                 console.log("Remove chunk: ", playedChunkId);
 
                 // Update the stored text to reflect the deletion
-                const remainingText = allTextChunks.filter(chunk => chunk.id !== playedChunkId).map(chunk => chunk.text).join(' ');
+                const playedChunkIndex = allTextChunks.findIndex(chunk => chunk.id === playedChunkId);
+                const remainingText = allTextChunks
+                    .slice(playedChunkIndex + 1)
+                    .map(chunk => chunk.text)
+                    .join(' ');
+                
                 localBooks[activeBook.id].text = remainingText;
-                saveLocalBooks();
+                saveLocalBooks();                
+
+                // Update textbox to reflect the change
+                textDisplay.textContent = remainingText;
             }
 
             currentChunkIndex++;
@@ -599,13 +638,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Buffer empty, waiting for network...");
                 isPlaying = false;
                 disableAudioControls();
+                generateBtnText.textContent = 'Generate Speech';
+                generateBtnIcon.name = 'volume-high-outline';
+                generateBtn.disabled = false;
             }
             
         };
     }
 
-    async function startSpeechGeneration() {
+    async function stopAudioQueue() {
+        currentChunk.classList.add('hidden');
+        isPlaying = false;
+        isPaused = false;
+        audioQueue = [];
+        audioPlayer.pause();
+        audioPlayer.src = '';
+        generateBtn.disabled = false;
+        generateBtnText.classList.remove('hidden'); // Show button text
+        generateBtnIcon.classList.remove('hidden'); // Show button icon
+        loadingDiv.classList.add('hidden'); // Hide loading indicator
+        generateBtnText.textContent = 'Generate Speech'; // Reset button text
+        generateBtnIcon.name = 'volume-high-outline'; // Reset button icon
+        disableAudioControls(); // Disable controls on stop
+        textDisplay.textContent = localBooks[activeBook.id].text // Revert to plain text
+    }
 
+    async function startSpeechGeneration() {
         const text = textDisplay.textContent.trim();
         allTextChunks = splitTextIntoChunks(text);
         
@@ -617,8 +675,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        loadingDiv.classList.remove('hidden');
         generateBtn.disabled = true;
+        generateBtnText.classList.add('hidden'); // Hide button text
+        generateBtnIcon.classList.add('hidden'); // Hide button icon
+        loadingDiv.classList.remove('hidden'); // Show loading indicator
+
         audioQueue = []; // Clear previous queue
         isPlaying = false;
         isPaused = false;
@@ -628,7 +689,6 @@ document.addEventListener('DOMContentLoaded', () => {
             processAndQueueChunk(i);
         }
 
-        loadingDiv.classList.add('hidden');
         audioOutput.classList.remove('hidden');
     }
 
@@ -645,7 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // when it arrives, instead of stopping everything with await.
         generateSpeech(chunk).then(audioUrl => {
             if (audioUrl) {
-                console.log(`✅ Audio received for chunk index: ${chunkIndex}`);
+                console.debug(`✅ Audio received for chunk index: ${chunkIndex}`);
                 audioQueue[chunkIndex] = { url: audioUrl, text: chunk };
 
                 // IMPORTANT: If we just received the VERY FIRST chunk, start playback now.
@@ -656,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     playAudioQueue();
                 }
             } else {
-                console.error(`❌ Failed to get audio for chunk index: ${chunkIndex}`);
+                console.debug(`❌ Failed to get audio for chunk index: ${chunkIndex}`);
             }
         });
     }
@@ -733,31 +793,7 @@ async function renderPage(num) {
         audioPlayer.playbackRate = playbackSpeed.value;
     });
 
-    pauseBtn.addEventListener('click', () => {
-        if (isPlaying) {
-            if (isPaused) {
-                isPaused = false;
-                pauseBtn.innerHTML = '<ion-icon name="pause-outline"></ion-icon>';
-                audioPlayer.play();
-            } else {
-                isPaused = true;
-                pauseBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
-                audioPlayer.pause();
-            }
-        }
-    });
-
-    stopBtn.addEventListener('click', () => {
-        isPlaying = false;
-        isPaused = false;
-        audioQueue = [];
-        audioPlayer.pause();
-        audioPlayer.src = '';
-        generateBtn.disabled = false;
-        pauseBtn.innerHTML = '<ion-icon name="pause-outline"></ion-icon>'; // Reset pause button icon
-        disableAudioControls(); // Disable controls on stop
-        textDisplay.textContent = allTextChunks.map(chunk => chunk.text).join(' '); // Revert to plain text
-    });
+    stopBtn.addEventListener('click', stopAudioQueue);
 
     pdfFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -894,7 +930,23 @@ async function renderPage(num) {
     });
 
     engineSelect.addEventListener('change', updateVoices);
-    generateBtn.addEventListener('click', startSpeechGeneration);
+    generateBtn.addEventListener('click', () => {
+        if (isPlaying) {
+            if (isPaused) {
+                isPaused = false;
+                generateBtnText.textContent = 'Pause';
+                generateBtnIcon.name = 'pause-outline';
+                audioPlayer.play();
+            } else {
+                isPaused = true;
+                generateBtnText.textContent = 'Play';
+                generateBtnIcon.name = 'play-outline';
+                audioPlayer.pause();
+            }
+        } else {
+            startSpeechGeneration();
+        }
+    });
 
     modalCancelBtn.addEventListener('click', hideBookModal);
 
@@ -1141,6 +1193,180 @@ async function renderPage(num) {
     loginModal.addEventListener('click', (e) => {
         if (e.target === loginModal) {
             hideLoginModal();
+        }
+    });
+
+    // Command Palette Elements
+    const commandPaletteModal = document.getElementById('command-palette-modal');
+    const commandPaletteInput = document.getElementById('command-palette-input');
+    const commandList = document.getElementById('command-list');
+
+    const commands = [
+        {
+            name: 'New Book',
+            description: 'Create a new temporary book',
+            action: () => { createNewBook(); hideCommandPalette(); }
+        },
+        {
+            name: 'Import File',
+            description: 'Import a PDF or EPUB file',
+            action: () => { showFileModal(); hideCommandPalette(); }
+        },
+        {
+            name: 'Generate Speech',
+            description: 'Generate speech for the current text',
+            action: () => { startSpeechGeneration(); hideCommandPalette(); }
+        },
+        {
+            name: 'Stop Playback',
+            description: 'Stop current audio playback',
+            action: () => { stopAudioQueue(); hideCommandPalette(); }
+        },
+        {
+            name: 'Record Audio',
+            description: 'Start recording audio for transcription',
+            action: () => { startRecording(); hideCommandPalette(); }
+        },
+        {
+            name: 'Transcribe Audio File',
+            description: 'Transcribe an audio file',
+            action: () => { audioFileInput.click(); hideCommandPalette(); }
+        },
+        {
+            name: 'Login/Create Account',
+            description: 'Login or create a new user account',
+            action: () => { showLoginModal(); hideCommandPalette(); }
+        },
+        {
+            name: 'Save Book (Online)',
+            description: 'Save the current book to your online account',
+            action: () => { handleSaveBook(); hideCommandPalette(); }
+        },
+        {
+            name: 'Toggle Two-Page View',
+            description: 'Toggle between single and two-page PDF view',
+            action: () => { toggleTwoPageBtn.click(); hideCommandPalette(); }
+        },
+        {
+            name: 'Zoom In PDF',
+            description: 'Increase zoom level of PDF',
+            action: () => { zoomInBtn.click(); hideCommandPalette(); }
+        },
+        {
+            name: 'Zoom Out PDF',
+            description: 'Decrease zoom level of PDF',
+            action: () => { zoomOutBtn.click(); hideCommandPalette(); }
+        },
+        {
+            name: 'Previous PDF Page',
+            description: 'Go to the previous page in PDF viewer',
+            action: () => { prevPageBtn.click(); hideCommandPalette(); }
+        },
+        {
+            name: 'Next PDF Page',
+            description: 'Go to the next page in PDF viewer',
+            action: () => { nextPageBtn.click(); hideCommandPalette(); }
+        },
+    ];
+
+    let filteredCommands = [];
+    let selectedCommandIndex = -1;
+
+    function showCommandPalette() {
+        commandPaletteModal.classList.remove('hidden');
+        commandPaletteInput.value = '';
+        filterCommands('');
+        commandPaletteInput.focus();
+        selectedCommandIndex = -1; // Reset selection
+    }
+
+    function hideCommandPalette() {
+        commandPaletteModal.classList.add('hidden');
+    }
+
+    function filterCommands(query) {
+        const lowerCaseQuery = query.toLowerCase();
+        filteredCommands = commands.filter(command =>
+            command.name.toLowerCase().includes(lowerCaseQuery) ||
+            command.description.toLowerCase().includes(lowerCaseQuery)
+        );
+        renderCommands();
+    }
+
+    function renderCommands() {
+        commandList.innerHTML = '';
+        if (filteredCommands.length === 0) {
+            const li = document.createElement('li');
+            li.className = 'p-2 text-gray-500';
+            li.textContent = 'No commands found.';
+            commandList.appendChild(li);
+            return;
+        }
+
+        filteredCommands.forEach((command, index) => {
+            const li = document.createElement('li');
+            li.className = `p-2 cursor-pointer hover:bg-indigo-100 rounded-lg ${index === selectedCommandIndex ? 'bg-indigo-200' : ''}`;
+            li.innerHTML = `
+                <div class="font-medium text-gray-800">${command.name}</div>
+                <div class="text-sm text-gray-500">${command.description}</div>
+            `;
+            li.addEventListener('click', () => {
+                command.action();
+            });
+            commandList.appendChild(li);
+        });
+
+        // Scroll to selected item if it's out of view
+        if (selectedCommandIndex >= 0 && selectedCommandIndex < filteredCommands.length) {
+            const selectedItem = commandList.children[selectedCommandIndex];
+            if (selectedItem) {
+                selectedItem.scrollIntoView({ block: 'nearest' });
+            }
+        }
+    }
+
+    // Event Listeners for Command Palette
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            if (commandPaletteModal.classList.contains('hidden')) {
+                showCommandPalette();
+            } else {
+                hideCommandPalette();
+            }
+        }
+
+        if (!commandPaletteModal.classList.contains('hidden')) {
+            if (e.key === 'Escape') {
+                hideCommandPalette();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedCommandIndex = Math.max(0, selectedCommandIndex - 1);
+                renderCommands();
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedCommandIndex = Math.min(filteredCommands.length - 1, selectedCommandIndex + 1);
+                renderCommands();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedCommandIndex !== -1) {
+                    filteredCommands[selectedCommandIndex].action();
+                } else if (filteredCommands.length > 0 && commandPaletteInput.value.trim() !== '') {
+                    // If there's a query and no selection, but results exist, pick the first one
+                    filteredCommands[0].action();
+                }
+            }
+        }
+    });
+
+    commandPaletteInput.addEventListener('input', (e) => {
+        filterCommands(e.target.value);
+        selectedCommandIndex = -1; // Reset selection on input change
+    });
+
+    commandPaletteModal.addEventListener('click', (e) => {
+        if (e.target === commandPaletteModal) {
+            hideCommandPalette();
         }
     });
 

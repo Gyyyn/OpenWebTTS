@@ -26,9 +26,12 @@ button, a.button {
 }
 
 .highlight {
-    background-color: #fff5bf;
-    color: black;
+    background-color: #f7f80054;
+    padding: 0 4px;
+    border-radius: 5px;
+    margin-right: -4px;
 }
+
 
 /* Modal Styles */
 .modal {

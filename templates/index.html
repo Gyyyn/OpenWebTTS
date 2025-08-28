@@ -81,7 +81,7 @@
 
     <!-- Main Content -->
     <div class="ml-[260px] min-h-[100dvh]">
-        <div id="book-view" class="flex flex-col h-[100vh] items-center hidden">
+        <div id="book-view" class="bg-white 2xl:bg-gray-100 flex flex-col h-[100vh] items-center hidden">
 
             <!-- File Picker Modal -->
             <div id="file-picker-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
@@ -135,13 +135,13 @@
                     <!-- TTS Section -->
                     <div class="flex items-end">
                         <div id="generate-section" class="flex">
-                            <button id="generate-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
-                                <span class="me-2">Generate Speech</span>
-                                <ion-icon name="volume-high-outline"></ion-icon>
+                            <button id="generate-btn" class="shadow-xl shadow-indigo-600/50 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center">
+                                <span id="generate-btn-text" class="me-2">Generate Speech</span>
+                                <ion-icon id="generate-btn-icon" name="volume-high-outline"></ion-icon>
+                                <div id="loading" class="full hidden">
+                                    <ion-icon class="animate-spin text-xl" name="refresh-outline"></ion-icon>
+                                </div>
                             </button>
-                            <div id="loading" class="full hidden">
-                                <ion-icon class="animate-spin" name="refresh-outline"></ion-icon>
-                            </div>
                         </div>
         
                         <div id="audio-output" class="hidden flex ps-4">
@@ -151,11 +151,10 @@
                                     <label for="playback-speed" class="block text-sm font-medium text-gray-700">Speed (0.5x - 2x)</label>
                                     <input type="range" id="playback-speed" min="0.5" max="2" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" disabled>
                                 </div>
-                                <div class="flex items-center">
-                                    <button id="pause-btn" class="ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors" disabled><ion-icon name="pause-outline"></ion-icon></button>
-                                    <button id="stop-btn" class="ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors" disabled><ion-icon name="stop-outline"></ion-icon></button>
-                                    <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors"><ion-icon name="download-outline"></ion-icon></a>
-                                </div>
+                                    <div class="flex items-center">
+                                        <button id="stop-btn" class="ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors" disabled><ion-icon name="stop-outline"></ion-icon></button>
+                                        <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors"><ion-icon name="download-outline"></ion-icon></a>
+                                    </div>
                             </div>
                         </div>
 
@@ -212,7 +211,7 @@
 
             </div>
 
-            <div id="textbox-viewer-wrapper" class="md:w-[80] m-5 rounded-xl md:shadow-lg bg-white">
+            <div id="textbox-viewer-wrapper" class="w-full 2xl:w-[80%] m-5 2xl:rounded-xl 2xl:shadow-lg bg-white">
                 <div class="p-10">
                     <h2 id="book-title" class="mb-4 text-xl sm:text-2xl font-semibold text-gray-800">New Book</h2>
                     <label for="text" class="block text-sm font-medium text-gray-700">Text to Synthesize</label>
@@ -221,7 +220,7 @@
                 </div>
             </div>
 
-            <div id="pdf-viewer-wrapper" class="hidden bg-white rounded-xl mx-auto p-10 mb-4">
+            <div id="pdf-viewer-wrapper" class="hidden bg-white 2xl:rounded-xl mx-auto 2xl:p-10 mb-4">
                 <div id="pagination-controls" class="flex justify-between items-center">
                     <button id="prev-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
                         <ion-icon name="chevron-back-outline"></ion-icon>
@@ -269,14 +268,29 @@
             <h2 id="modal-title" class="text-xl font-bold mb-4"></h2>
             <input type="text" id="book-title-input" class="w-full p-2 border border-gray-300 rounded-lg mb-4" placeholder="Enter book title">
             <div class="flex justify-end space-x-2">
-                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">Cancel</button>
-                <button id="modal-action-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"></button>
+                <button id="modal-cancel-btn" class="flex items-center px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
+                    Cancel <span class="ml-1 text-xs border rounded">ESC</span>
+                </button>
+                <button id="modal-action-btn" class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                    <span class="ml-1"><span class="ml-1 text-xs border rounded">ENTER</span></span>
+                </button>
             </div>
         </div>
     </div>
 
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- Command Palette Modal -->
+    <div id="command-palette-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white rounded-lg shadow-lg p-4 w-full max-w-lg mx-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Command Palette</h3>
+            <input type="text" id="command-palette-input" class="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Type a command...">
+            <ul id="command-list" class="max-h-60 overflow-y-auto">
+                <!-- Command items will be added here dynamically -->
+            </ul>
+        </div>
+    </div>
+
     <script type="module" src="/static/js/script.js"></script>
 </body>
 </html>
