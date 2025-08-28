@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
     const pageNumSpan = document.getElementById('page-num');
+    const toggleTwoPageBtn = document.getElementById('two-page-view-checkbox');
     const localBookList = document.getElementById('local-book-list');
     const onlineBookList = document.getElementById('online-book-list');
     const newBookBtn = document.getElementById('new-book-btn');
@@ -78,6 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioChunks = [];
     let isRecording = false;
     let currentUser = null;
+    let isTwoPageView = true;
+    let currentScale = 0.75; // Initial scale
+
+    const zoomInBtn = document.getElementById('zoom-in-btn');
+    const zoomOutBtn = document.getElementById('zoom-out-btn');
 
     // Set workerSrc for PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
@@ -351,9 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
         prevPageBtn.disabled = true;
         nextPageBtn.disabled = true;
         pdfDoc = null;
+        generateBtn.disabled = false;
     }
 
     function resetBookView() {
+        generateBtn.disabled = false;
         textDisplay.textContent = '';
         currentChunk.childNodes[1].childNodes[1].textContent = '';
         currentChunk.classList.add('hidden');
@@ -540,23 +548,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         isPlaying = true;
         enableAudioControls(); // Enable controls when audio starts playing
+
+        // Debug
+        console.log(currentChunkIndex, audioQueue);
         
-        // Shift current audio from queue and preemptively process next chunk.
-        const currentAudio = audioQueue.shift();
+        // Get current audio chunk.
+        const currentAudio = audioQueue[currentChunkIndex];
 
         highlightChunk(currentAudio.text);
-        currentChunk.childNodes[1].childNodes[1].textContent = currentAudio.text.text;
-        currentChunk.classList.remove('hidden');
+
+        // Ahh code
+        if (currentChunk && currentChunk.childNodes[1] && currentChunk.childNodes[1].childNodes[1]) {
+            currentChunk.childNodes[1].childNodes[1].textContent = currentAudio.text.text;
+            currentChunk.classList.remove('hidden');
+        }
 
         audioPlayer.src = currentAudio.url;
         audioPlayer.playbackRate = playbackSpeed.value;
-
-        /* const onLoadedMetadata = () => {
-            highlightWords(currentAudio.text, audioPlayer.duration);
-            audioPlayer.removeEventListener('loadedmetadata', onLoadedMetadata);
-        };
-
-        audioPlayer.addEventListener('loadedmetadata', onLoadedMetadata); */
         audioPlayer.play();
 
         audioPlayer.onended = async () => {
@@ -569,6 +577,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const spansToRemove = textDisplay.querySelectorAll(`span[data-chunk-id="${playedChunkId}"]`);
                 spansToRemove.forEach(span => span.remove());
 
+                console.log("Remove chunk: ", playedChunkId);
+
                 // Update the stored text to reflect the deletion
                 const remainingText = allTextChunks.filter(chunk => chunk.id !== playedChunkId).map(chunk => chunk.text).join(' ');
                 localBooks[activeBook.id].text = remainingText;
@@ -580,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextChunkToFetch = currentChunkIndex + 2; // +2 because buffer size is 3
             processAndQueueChunk(nextChunkToFetch);
 
-            if (audioQueue.length > 0) {
+            if (audioQueue[currentChunkIndex]) {
                 // If there's more audio ready, play it immediately.
                 playAudioQueue();
             } else {
@@ -636,10 +646,13 @@ document.addEventListener('DOMContentLoaded', () => {
         generateSpeech(chunk).then(audioUrl => {
             if (audioUrl) {
                 console.log(`✅ Audio received for chunk index: ${chunkIndex}`);
-                audioQueue.push({ url: audioUrl, text: chunk });
+                audioQueue[chunkIndex] = { url: audioUrl, text: chunk };
 
                 // IMPORTANT: If we just received the VERY FIRST chunk, start playback now.
                 if (!isPlaying && audioQueue.length > 0) {
+                    playAudioQueue();
+                // If the chunk we just proccesed is the current chunk then we were waiting for it.
+                } else if (!isPlaying && (currentChunkIndex == chunkIndex)) {
                     playAudioQueue();
                 }
             } else {
@@ -653,44 +666,68 @@ document.addEventListener('DOMContentLoaded', () => {
         allWordElements.forEach(span => span.classList.remove('highlight'));
     }
 
-    async function renderPage(num) {
-        currentPageNum = num;
-        const page = await pdfDoc.getPage(num);
-        const viewport = page.getViewport({ scale: 1.5 });
+async function renderPage(num) {
+    currentPageNum = num;
+    pdfViewer.innerHTML = ''; // Clear previous content
+
+    const renderSinglePage = async (pageNumber, container) => {
+        const page = await pdfDoc.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: currentScale });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-        
-        pdfViewer.innerHTML = '';
-        pdfViewer.appendChild(canvas);
+        container.appendChild(canvas);
 
         const renderContext = {
-            canvasContext: context,
+            canvasContext: context, // Corrected variable name
             viewport: viewport,
         };
         await page.render(renderContext).promise;
 
+        // Get text content for the page
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        
-        allTextChunks = splitTextIntoChunks(pageText);
+        return textContent.items.map(item => item.str).join(' ');
+    };
 
-        textDisplay.textContent = pageText;
-        
-        currentChunkIndex = 0; // Reset chunk index
+    if (isTwoPageView) {
+        // Two-page view
+        const page1Text = await renderSinglePage(num, pdfViewer);
+        let page2Text = '';
 
-        pageNumSpan.textContent = `Page ${num} of ${pdfDoc.numPages}`;
-        localStorage.setItem(pdfDoc.fingerprint, num);
-
-        prevPageBtn.disabled = num <= 1;
-        nextPageBtn.disabled = num >= pdfDoc.numPages;
-
-        if (activeBook && activeBook.source === 'local') {
-            localBooks[activeBook.id].text = pageText;
-            saveLocalBooks();
+        if (num + 1 <= pdfDoc.numPages) {
+            page2Text = await renderSinglePage(num + 1, pdfViewer);
         }
+
+        // Combine text content from both pages
+        const combinedText = page1Text + ' ' + page2Text;
+        allTextChunks = splitTextIntoChunks(combinedText);
+        textDisplay.textContent = combinedText;
+
+        // Update page number display and button states
+        pageNumSpan.textContent = `Pages ${num}-${Math.min(num + 1, pdfDoc.numPages)} of ${pdfDoc.numPages}`;
+        nextPageBtn.disabled = num >= pdfDoc.numPages - 1;
+
+    } else {
+        // Single-page view
+        const pageText = await renderSinglePage(num, pdfViewer);
+        allTextChunks = splitTextIntoChunks(pageText);
+        textDisplay.textContent = pageText;
+
+        // Update page number display and button states
+        pageNumSpan.textContent = `Page ${num} of ${pdfDoc.numPages}`;
+        nextPageBtn.disabled = num >= pdfDoc.numPages;
     }
+
+    currentChunkIndex = 0; // Reset chunk index
+    localStorage.setItem(pdfDoc.fingerprint, num);
+    prevPageBtn.disabled = num <= 1;
+
+    if (activeBook && activeBook.source === 'local') {
+        localBooks[activeBook.id].text = textDisplay.textContent;
+        saveLocalBooks();
+    }
+}
 
     playbackSpeed.addEventListener('input', () => {
         audioPlayer.playbackRate = playbackSpeed.value;
@@ -828,12 +865,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     prevPageBtn.addEventListener('click', () => {
         if (currentPageNum <= 1) return;
-        renderPage(currentPageNum - 1);
+        renderPage(currentPageNum - 2);
     });
 
     nextPageBtn.addEventListener('click', () => {
-        if (currentPageNum >= pdfDoc.numPages) return;
-        renderPage(currentPageNum + 1);
+        if (isTwoPageView) {
+            if (currentPageNum >= pdfDoc.numPages) return;
+            renderPage(currentPageNum + 2);
+        } else {
+             if (currentPageNum >= pdfDoc.numPages) return;
+            renderPage(currentPageNum + 1);
+        }
+    });
+
+    toggleTwoPageBtn.addEventListener('click', () => {
+        isTwoPageView = !isTwoPageView;
+        renderPage(currentPageNum);
+    });
+
+    zoomInBtn.addEventListener('click', () => {
+        currentScale += 0.25;
+        renderPage(currentPageNum);
+    });
+
+    zoomOutBtn.addEventListener('click', () => {
+        currentScale = Math.max(0.25, currentScale - 0.25);
+        renderPage(currentPageNum);
     });
 
     engineSelect.addEventListener('change', updateVoices);

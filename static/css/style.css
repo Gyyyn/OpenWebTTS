@@ -1,4 +1,10 @@
-a.link:hover {
+#pdf-viewer {
+    display: flex;
+    flex-direction: row;
+}
+
+#pdf-viewer canvas {
+    width: 50%; /* Each canvas takes up 50% of the container */
     text-decoration: dashed;
 }
 
