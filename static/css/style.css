@@ -13,12 +13,14 @@ button, a.button {
     align-items: center;
 }
 
-#book-list li > div {
+#sidebar li span + div {
     opacity: 0;
+    width: 0;
 }
 
-#book-list li:hover > div {
+#sidebar li:hover span + div {
     opacity: 1;
+    width: inherit;
 }
 
 #pdf-viewer canvas {

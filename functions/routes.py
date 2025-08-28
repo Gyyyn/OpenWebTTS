@@ -317,7 +317,9 @@ async def speech_to_text(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to transcribe audio. Reason: {str(e)}")
 
 
+# -----------------------
 # --- User Management ---
+# -----------------------
 user_manager = UserManager(USERS_DIR)
 
 class UserCreate(BaseModel):
@@ -331,6 +333,13 @@ class UserLogin(BaseModel):
 class BookData(BaseModel):
     title: str
     content: str
+
+class PodcastGenerate(BaseModel):
+    title: str
+    text: str
+    engine: str
+    voice: str
+    api_key: Optional[str] = None
 
 class BookUpdate(BaseModel):
     title: Optional[str] = None
@@ -350,6 +359,9 @@ async def login_route(user: UserLogin):
         raise HTTPException(status_code=401, detail=data)
     return {"message": "Login successful", "username": data["username"]}
 
+# -----------------------------
+# --- Users Book Management ---
+# -----------------------------
 @router.get("/api/users/{username}/books")
 async def get_books_route(username: str):
     books = user_manager.get_books(username)
@@ -362,12 +374,27 @@ async def add_book_route(username: str, book: BookData):
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "Book added successfully.", "book_id": book_id}
 
+# --------------------------------
+# --- Users Podcast Management ---
+# --------------------------------
+@router.get("/api/users/{username}/podcasts")
+async def get_podcasts_route(username: str):
+    podcasts = user_manager.get_podcasts(username)
+    return {"podcasts": podcasts}
+
 @router.delete("/api/users/{username}/books/{book_id}")
 async def delete_book_route(username: str, book_id: str):
     success = user_manager.delete_book(username, book_id)
     if not success:
         raise HTTPException(status_code=404, detail="Book not found or user does not exist.")
     return {"message": "Book deleted successfully."}
+
+@router.delete("/api/users/{username}/podcasts/{podcast_id}")
+async def delete_podcast_route(username: str, podcast_id: str):
+    success = user_manager.delete_podcast(username, podcast_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Podcast not found or user does not exist.")
+    return {"message": "Podcast deleted successfully."}
 
 @router.patch("/api/users/{username}/books/{book_id}")
 async def edit_book_route(username: str, book_id: str, book_update: BookUpdate):
@@ -378,3 +405,50 @@ async def edit_book_route(username: str, book_id: str, book_update: BookUpdate):
     if not success:
         raise HTTPException(status_code=404, detail="Book not found.")
     return {"message": "Book updated successfully."}
+
+async def _generate_and_update_podcast_audio(username: str, podcast_id: str, request: SynthesizeRequest, output_path: str, audio_url: str):
+    try:
+        _generate_audio_file(request, output_path)
+        user_manager.update_podcast(username, podcast_id, {"status": "ready", "audio_url": audio_url})
+    except Exception as e:
+        print(f"Error generating podcast audio for {username}/{podcast_id}: {e}")
+        user_manager.update_podcast(username, podcast_id, {"status": "failed", "error": str(e)})
+
+@router.post("/api/users/{username}/podcast")
+async def generate_podcast_route(username: str, podcast: PodcastGenerate, background_tasks: BackgroundTasks):
+    if not podcast.text.strip():
+        raise HTTPException(status_code=400, detail="Podcast text cannot be empty.")
+
+    # Create a SynthesizeRequest for audio generation
+    synthesize_request = SynthesizeRequest(
+        engine=podcast.engine,
+        voice=podcast.voice,
+        text=podcast.text,
+        api_key=podcast.api_key
+    )
+
+    # Generate a unique hash for the audio file
+    hash_input = f"{podcast.text}-{podcast.voice}-{podcast.engine}"
+    unique_hash = hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
+    output_filename = f"{unique_hash}.wav"
+    output_path = os.path.join(AUDIO_CACHE_DIR, output_filename)
+    audio_url = f"/static/audio_cache/{output_filename}"
+
+    # Add initial podcast entry with 'Generating' status
+    podcast_data = podcast.dict()
+    podcast_data["status"] = "generating"
+    podcast_data["audio_url"] = audio_url # Add the audio_url even if not ready yet
+    success, podcast_id = user_manager.add_podcast(username, podcast_data)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found or failed to add podcast.")
+    
+    # Schedule the audio generation as a background task
+    background_tasks.add_task(_generate_and_update_podcast_audio, username, podcast_id, synthesize_request, output_path, audio_url)
+
+    return JSONResponse(content={
+        "message": "Podcast generation started.",
+        "podcast_id": podcast_id,
+        "status": "generating",
+        "audio_url": audio_url
+    })

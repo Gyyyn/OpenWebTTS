@@ -1,10 +1,17 @@
 // Import IndexedDB functions
 import { savePdf, loadPdf, deletePdf } from './db.js';
 
+// Import podcast generation
+import { getPodcasts, generatePodcast, deletePodcast } from './podcast.js';
+
+// Import Speech Generation functions
+import { generateSpeech } from "./speechGen.js";
+
 document.addEventListener('DOMContentLoaded', () => {
     const engineSelect = document.getElementById('engine');
     const voiceSelect = document.getElementById('voice');
     const generateBtn = document.getElementById('generate-btn');
+    const generatePodcastBtn = document.getElementById('create-offline-podcast-btn');
     const generateBtnText = document.getElementById('generate-btn-text');
     const generateBtnIcon = document.getElementById('generate-btn-icon');
     const textInput = document.getElementById('text');
@@ -67,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPageNum = 1;
     let localBooks = JSON.parse(localStorage.getItem('books')) || {};
     let onlineBooks = [];
+    let onlinePodcasts = []; // New array to store online podcasts
     let activeBook = null;
     let audioQueue = [];
     let isPlaying = false;
@@ -115,6 +123,162 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function renderOnlinePodcasts() {
+        const podcastList = document.getElementById('podcast-list'); // Get the podcast list element
+        podcastList.innerHTML = '';
+        onlinePodcasts.forEach(podcast => {
+            const li = document.createElement('li');
+            li.className = 'relative text-xs p-2 rounded-lg hover:bg-gray-200'; // Added relative for absolute positioning of player
+
+            const mainContentDiv = document.createElement('div');
+            mainContentDiv.className = 'flex justify-between items-center whitespace-nowrap overflow-hidden text-ellipsis';
+            mainContentDiv.addEventListener('click', () => {
+                const playerDiv = li.querySelector(`#podcast-audio-player-${podcast.id}`);
+                if (playerDiv) {
+                    playerDiv.classList.toggle('hidden');
+                }
+                setActiveBook(podcast);
+            });
+
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'overflow-hidden cursor-pointer'; // Added cursor-pointer
+            titleSpan.textContent = `${podcast.title} (${podcast.status})`;
+            mainContentDiv.appendChild(titleSpan);
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'ps-2 flex items-center space-x-2';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
+            deleteBtn.className = 'hover:text-gray-500';
+            deleteBtn.title = 'Delete Podcast';
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+
+                showBookModal(
+                    `Delete Podcast: ${podcast.title}?`,
+                    'Delete',
+                    async () => {
+        
+                        const result = await deletePodcast(currentUser, podcast.id);
+                        if (result.success) {
+                            showNotification(`Podcast '${podcast.title}' deleted.`, 'success');
+                            fetchAndRenderPodcasts(); // Re-render the list
+                        } else {
+                            showNotification(`Failed to delete podcast: ${result.error}`, 'error');
+                        }
+
+                        hideBookModal();
+
+                    },
+                    { showInput: false }
+                );
+            });
+            actionsDiv.appendChild(deleteBtn);
+            mainContentDiv.appendChild(actionsDiv);
+            li.appendChild(mainContentDiv);
+
+            // Collapsible Audio Player
+            const audioPlayerContainer = document.createElement('div');
+            audioPlayerContainer.id = `podcast-audio-player-${podcast.id}`;
+            audioPlayerContainer.className = 'hidden mt-2 p-2 bg-gray-100 rounded-lg'; // Initially hidden
+
+            if (podcast.status === 'ready' && podcast.audio_url) {
+                const audioElem = document.createElement('audio');
+                audioElem.src = podcast.audio_url;
+                audioElem.preload = 'none'; // Only load metadata or nothing
+
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'flex items-center space-x-2';
+
+                const playPauseBtn = document.createElement('button');
+                playPauseBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                playPauseBtn.className = 'text-lg hover:text-gray-700';
+                
+                const progressSlider = document.createElement('input');
+                progressSlider.type = 'range';
+                progressSlider.min = '0';
+                progressSlider.max = '100';
+                progressSlider.value = '0';
+                progressSlider.className = 'max-w-[50%] flex-grow h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-indigo-600';
+
+                const timeDisplay = document.createElement('span');
+                timeDisplay.className = 'text-xs text-gray-600 w-20 text-right';
+                timeDisplay.textContent = '0:00 / 0:00';
+
+                playPauseBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent li click from being triggered
+
+                    // Ensure other players are paused
+                    document.querySelectorAll('audio').forEach(otherAudio => {
+                        if (otherAudio !== audioElem && !otherAudio.paused) {
+                            otherAudio.pause();
+                            const otherPlayerContainer = otherAudio.closest('[id^="podcast-audio-player-"]');
+                            if (otherPlayerContainer) {
+                                const otherPlayBtn = otherPlayerContainer.querySelector('button');
+                                if (otherPlayBtn) {
+                                    otherPlayBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                                }
+                            }
+                        }
+                    });
+
+                    if (audioElem.paused) {
+                        audioElem.play();
+                        playPauseBtn.innerHTML = '<ion-icon name="pause-outline"></ion-icon>';
+                        // Also ensure the player is visible if play is clicked
+                        audioPlayerContainer.classList.remove('hidden');
+                    } else {
+                        audioElem.pause();
+                        playPauseBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                    }
+                });
+
+                audioElem.addEventListener('timeupdate', () => {
+                    const progress = (audioElem.currentTime / audioElem.duration) * 100;
+                    progressSlider.value = isNaN(progress) ? 0 : progress;
+                    
+                    const formatTime = (seconds) => {
+                        const minutes = Math.floor(seconds / 60);
+                        const secs = Math.floor(seconds % 60);
+                        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+                    };
+                    timeDisplay.textContent = `${formatTime(audioElem.currentTime)} / ${formatTime(audioElem.duration)}`;
+                });
+
+                audioElem.addEventListener('ended', () => {
+                    playPauseBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                    progressSlider.value = 0;
+                    timeDisplay.textContent = '0:00 / 0:00';
+                });
+
+                audioElem.addEventListener('loadedmetadata', () => {
+                    const formatTime = (seconds) => {
+                        const minutes = Math.floor(seconds / 60);
+                        const secs = Math.floor(seconds % 60);
+                        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+                    };
+                    timeDisplay.textContent = `0:00 / ${formatTime(audioElem.duration)}`;
+                });
+
+                progressSlider.addEventListener('input', () => {
+                    const seekTime = (progressSlider.value / 100) * audioElem.duration;
+                    audioElem.currentTime = seekTime;
+                });
+
+                controlsDiv.appendChild(playPauseBtn);
+                controlsDiv.appendChild(progressSlider);
+                controlsDiv.appendChild(timeDisplay);
+                audioPlayerContainer.appendChild(controlsDiv);
+            } else {
+                audioPlayerContainer.innerHTML = '<span class="text-gray-500">Podcast audio not ready.</span>';
+            }
+            
+            li.appendChild(audioPlayerContainer);
+            podcastList.appendChild(li);
+        });
+    }
+
     function renderLocalBooks() {
         localBookList.innerHTML = '';
         for (const bookId in localBooks) {
@@ -127,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createBookListItem(book, source) {
         const li = document.createElement('li');
         const isActive = activeBook && activeBook.id === book.id && activeBook.source === source;
-        li.className = `flex text-sm justify-between items-center cursor-pointer p-2 rounded-lg ${isActive ? 'bg-indigo-100' : 'hover:bg-gray-200'}`;
+        li.className = `flex text-xs justify-between items-center cursor-pointer p-2 rounded-lg whitespace-nowrap overflow-hidden text-ellipsis ${isActive ? 'bg-indigo-100' : 'hover:bg-gray-200'}`;
 
         const titleSpan = document.createElement('span');
         titleSpan.className = `overflow-hidden`;
@@ -137,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'flex items-center space-x-2';
+        actionsDiv.className = 'ps-2 flex items-center space-x-2';
 
         const deleteBtn = document.createElement('button');
         deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
@@ -477,76 +641,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return chunks;
     }
 
-    async function generateSpeech(text) {
-        const engine = engineSelect.value;
-        const voice = voiceSelect.value;
-
-        if (!text) {
-            return;
-        }
-        if (!voice) {
-            alert('Please select a voice.');
-            return;
-        }
-
-        let apiKey = null;
-        if (engine === 'gemini') {
-            apiKey = localStorage.getItem('geminiApiKey');
-            if (!apiKey) {
-                alert('Please set your Gemini API Key in the Config page.');
-                return; // Stop execution if API key is missing
-            }
-        }
-
-        try {
-            
-            const requestBody = { engine, voice, text: text.text };
-            if (apiKey) { // Only add apiKey if it's present (i.e., for Gemini engine)
-                requestBody.api_key = apiKey;
-            }
-
-            const response = await fetch('/api/synthesize', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to generate speech.');
-            }
-
-            const data = await response.json();
-
-            if (data.status === 'generating') {
-                // Poll the audio URL until it's ready
-                return new Promise((resolve, reject) => {
-                    const poll = setInterval(async () => {
-                        try {
-                            const headResponse = await fetch(data.audio_url, { method: 'HEAD' });
-                            if (headResponse.ok) {
-                                clearInterval(poll);
-                                resolve(data.audio_url);
-                            }
-                        } catch (error) {
-                            // Network error, keep polling, but log it for debugging
-                            console.warn('Polling for audio file, network error:', error);
-                        }
-                    }, 500); // Polling rate
-                });
-            } else {
-                return data.audio_url;
-            }
-
-        } catch (error) {
-            console.error('Error generating speech:', error);
-            alert(`An error occurred: ${error.message}`);
-            return null; // Ensure we return null on failure
-        }
-    }
-
     async function playAudioQueue() {
 
         if (isPaused)
@@ -703,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // generateSpeech returns a Promise. We use .then() to handle the result
         // when it arrives, instead of stopping everything with await.
-        generateSpeech(chunk).then(audioUrl => {
+        generateSpeech(chunk, engineSelect.value, voiceSelect.value).then(audioUrl => {
             if (audioUrl) {
                 console.debug(`✅ Audio received for chunk index: ${chunkIndex}`);
                 audioQueue[chunkIndex] = { url: audioUrl, text: chunk };
@@ -1432,6 +1526,7 @@ async function renderPage(num) {
             hideLoginModal();
             showNotification('Login successful!', 'success');
             fetchAndRenderOnlineBooks();
+            fetchAndRenderPodcasts(); // Fetch and render podcasts after login
         } catch (error) {
             showNotification(error.message, 'error');
         }
@@ -1441,7 +1536,9 @@ async function renderPage(num) {
         currentUser = null;
         sessionStorage.removeItem('currentUser');
         onlineBooks = [];
+        onlinePodcasts = []; // Clear podcasts on logout
         renderOnlineBooks();
+        renderOnlinePodcasts(); // Clear rendered podcasts
         updateCurrentUserUI('Anonymous');
         showNotification('You have been logged out.', 'info');
     }
@@ -1623,12 +1720,75 @@ async function renderPage(num) {
         currentUser = savedUser;
         updateCurrentUserUI(currentUser);
         fetchAndRenderOnlineBooks();
+        fetchAndRenderPodcasts();
     }
 
     loginActionBtn.addEventListener('click', handleLogin);
     createAccountBtn.addEventListener('click', handleCreateAccount);
     logoutBtn.addEventListener('click', handleLogout);
     saveBookBtn.addEventListener('click', handleSaveBook);
+
+    generatePodcastBtn.addEventListener('click', () => {
+        if (!currentUser) {
+            showNotification('You must be logged in to generate a podcast.', 'warning');
+            return;
+        }
+
+        const podcastText = textDisplay.textContent.trim();
+        if (!podcastText) {
+            showNotification('Please provide text for the podcast.', 'warning');
+            return;
+        }
+
+        showBookModal(
+            'Generate Podcast', 
+            'Generate', 
+            async () => {
+                const podcastTitle = bookTitleInput.value.trim();
+                if (!podcastTitle) {
+                    showNotification('Podcast title cannot be empty.', 'warning');
+                    return;
+                }
+
+                hideBookModal();
+                generatePodcastBtn.disabled = true;
+                generatePodcastBtn.innerHTML = '<ion-icon class="animate-spin" name="refresh-outline"></ion-icon> Generating...';
+
+                const engine = engineSelect.value;
+                const voice = voiceSelect.value;
+                // For Gemini, you might need an API key. For now, we'll pass null or fetch it if needed.
+                const apiKey = null; // Replace with actual API key retrieval if necessary
+
+                const result = await generatePodcast(currentUser, podcastTitle, podcastText, engine, voice, apiKey);
+
+                if (result.success) {
+                    showNotification(`Podcast '${podcastTitle}' generation started with ID: ${result.podcast_id}`, 'success');
+                    fetchAndRenderPodcasts(); // Re-fetch and render podcasts to show the new one
+                } else {
+                    showNotification(`Failed to start podcast generation: ${result.error}`, 'error');
+                }
+                generatePodcastBtn.disabled = false;
+                generatePodcastBtn.innerHTML = '<ion-icon name="mic-outline" class="mr-2"></ion-icon><span class="me-2">Create Offline Podcast</span>';
+            },
+            { showInput: true, inputValue: activeBook ? activeBook.title : '' } // Pre-fill with active book title if available
+        );
+    });
+
+    async function fetchAndRenderPodcasts() {
+        if (!currentUser) return;
+        try {
+            const result = await getPodcasts(currentUser);
+            
+            if (result.success) {
+                onlinePodcasts = result.podcasts || [];
+                renderOnlinePodcasts();
+            } else {
+                showNotification(`Failed to fetch podcasts: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
 
     // Show save book button when text is loaded
     const originalLoadBookContent = loadBookContent;
