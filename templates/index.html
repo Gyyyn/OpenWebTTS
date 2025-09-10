@@ -12,46 +12,51 @@
 <body class="bg-gray-100">
 
     <!-- Sidebar for Books -->
-    <div id="sidebar" class="fixed left-0 top-0 h-full w-[260px] bg-gray-100 border-r border-gray-300 overflow-y-auto z-10">
+    <div id="sidebar" class="fixed left-0 top-0 h-full bg-gray-100 border-r border-gray-300 overflow-y-auto z-10">
         <div class="flex flex-col h-full justify-between">
 
             <div class="p-4">
                 
-                <div class="flex items-center mb-4">
-                    <img src="./static/image/icon.png" alt="OpenWebTTS Icon" class="max-h-[32px] max-w-[32px]">
-                    <h1 class="font-bold ms-2 text-center text-lg">OpenWebTTS</h1>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="hide-on-collapse flex items-center">
+                        <img src="./static/image/icon.png" alt="OpenWebTTS Icon" class="max-h-[32px] max-w-[32px]">
+                        <h1 class="font-bold ms-2 text-center text-lg">OpenWebTTS</h1>
+                    </div>
+                    <button id="collapse-sidebar-btn" class="cursor-[w-resize] rotate-180 hover:bg-gray-200 text-left rounded-lg px-2 py-1">
+                        <ion-icon name="log-in-outline"></ion-icon>
+                    </button>
                 </div>
 
                 <button id="new-book-btn" class="mb-2 hover:bg-gray-200 w-full text-left rounded-lg px-2 py-1">
                     <ion-icon name="add-circle-outline"></ion-icon>
-                    <span class="ms-2">New Book</span>
+                    <span class="ms-2 hide-on-collapse">New Book</span>
                 </button>
                 <a href="/config" class="button mb-2 hover:bg-gray-200 w-full block text-left rounded-lg px-2 py-1">
                     <ion-icon name="cog-outline"></ion-icon>
-                    <span class="ms-2">Config</span>
+                    <span class="ms-2 hide-on-collapse">Config</span>
                 </a>
 
                 <hr class="my-2" />
 
-                <div class="m-2 text-gray-400">My Books</div>
+                <div class="m-2 text-gray-400 hide-on-collapse">My Books</div>
                 <ul id="online-book-list" class="space-y-1">
                     <!-- Populated for logged-in users -->
                 </ul>
-                <div class="m-2 text-gray-400">My Podcasts</div>
+                <div class="m-2 text-gray-400 hide-on-collapse">My Podcasts</div>
                 <ul id="podcast-list" class="space-y-1">
                     <!-- Populated for logged-in users -->
                 </ul>
 
-                <hr class="my-2">
+                <hr class="my-2 hide-on-collapse">
 
-                <div class="m-2 text-gray-400">Temporary Books</div>
+                <div class="m-2 text-gray-400 hide-on-collapse">Temporary Books</div>
                 <ul id="local-book-list" class="space-y-1">
                     <!-- Book items will be added here dynamically -->
                 </ul>
             </div>
 
             <div class="border-t flex items-center justify-between px-4 py-3 bg-white shadow-inner">
-                <div class="flex items-center space-x-3">
+                <div class="hide-on-collapse flex items-center space-x-3">
                     <span class="text-3xl text-gray-400">
                         <ion-icon name="person-circle-outline"></ion-icon>
                     </span>
@@ -61,18 +66,18 @@
                     </div>
                 </div>
                 <div class="relative group">
-                    <div class="absolute bg-white border border-gray-200 bottom-4 group-focus-within:block group-hover:block mb-4 right-0 rounded-lg shadow-lg w-48 z-10 hidden" id="account-switcher-menu">
+                    <div class="absolute bg-white border border-gray-200 bottom-4 group-focus-within:block group-hover:block mb-4 end-0 rounded-lg shadow-lg w-48 z-10 hidden" id="account-switcher-menu">
                         <ul class="py-1">
                             <li>
                                 <a href="#" id="add-account-btn" class="flex items-center px-4 py-2 hover:bg-gray-100 text-gray-700">
-                                    <ion-icon name="person-circle-outline" class="mr-2"></ion-icon>
-                                    Add Account
+                                    <ion-icon name="person-add-outline" class="mr-2"></ion-icon>
+                                    <span class="hide-on-collapse">Add Account</span>
                                 </a>
                             </li>
                             <li>
                                 <a href="#" id="logout-btn" class="hidden flex items-center px-4 py-2 hover:bg-gray-100 text-gray-700">
                                     <ion-icon name="log-out-outline" class="mr-2"></ion-icon>
-                                    Logout
+                                    <span class="hide-on-collapse">Logout</span>
                                 </a>
                             </li>
                         </ul>
@@ -87,7 +92,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="ml-[260px] min-h-[100dvh]">
+    <div id="main" class="ml-[260px] min-h-[100dvh]">
         <div id="book-view" class="bg-white 2xl:bg-gray-100 flex flex-col h-[100vh] items-center hidden">
 
             <!-- File Picker Modal -->
@@ -100,10 +105,16 @@
                         </button>
                     </div>
                     <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+                    <hr class="my-4">
+                    <div class="flex flex-col justify-between items-start mb-4">
+                        <h3 class="text-m font-semibold text-gray-800">URL</h3>
+                        <input type="input" id="web-page-url" class="mt-1 block w-full pl-3 pr-10 py-2 bg-gray-100 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl">
+                    </div>
                 </div>
             </div>
             
-            <div class="flex items-center px-6 py-4 w-full" style="background-image: linear-gradient(180deg,rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.5) 80%, rgba(255, 255, 255, 0) 100%);">
+            <div class="flex items-end px-6 py-4 w-full" style="background-image: linear-gradient(180deg,rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.5) 80%, rgba(255, 255, 255, 0) 100%);">
+                <!-- Main Model Selector -->
                 <div>
                     <label for="engine" class="block text-sm font-medium text-gray-700">TTS Engine</label>
                     <select id="engine" name="engine" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
@@ -120,22 +131,37 @@
                         <option value="">-- Select an engine first --</option>
                     </select>
                 </div>
-                <div class="ms-2">
-                    <div class="ml-2 flex items-center">
-                        <input id="auto-read-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
-                        <label for="auto-read-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Read Next Page</label>
+                <!-- Extra Configs Dropdown -->
+                <div class="relative group ms-2">
+                    <div class="absolute bg-white border border-gray-200 top-10 group-focus-within:block group-hover:block mb-4 right-0 rounded-lg shadow-lg z-10 hidden" id="account-switcher-menu">
+                        <ul class="py-1">
+                            <li>
+                                <div class="ml-2 flex items-center">
+                                    <input id="auto-read-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
+                                    <label for="auto-read-checkbox" class="ml-2 mb-2 block text-xs text-gray-900">Auto-Read Next Page</label>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="ml-2 flex items-center">
+                                    <input id="auto-delete-chunks-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
+                                    <label for="auto-delete-chunks-checkbox" class="ml-2 mb-2 block text-xs text-gray-900">Auto-Delete Read Chunks</label>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="ml-2 flex items-center">
+                                    <input checked id="two-page-view-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
+                                    <label for="two-page-view-checkbox" class="ml-2 mb-2 block text-xs text-gray-900">Two-Page View</label>
+                                </div>
+                            </li>
+                        </ul>
                     </div>
-                    <div class="ml-2 flex items-center">
-                        <input id="auto-delete-chunks-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
-                        <label for="auto-delete-chunks-checkbox" class="ml-2 block text-sm text-gray-900">Auto-Delete Read Chunks</label>
-                    </div>
-                    <div class="ml-2 flex items-center">
-                        <input checked id="two-page-view-checkbox" type="checkbox" class="h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg">
-                        <label for="two-page-view-checkbox" class="ml-2 block text-sm text-gray-900">Two-Page View</label>
-                    </div>
+                    <button class="p-3 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                        <ion-icon name="chevron-down-outline"></ion-icon>
+                    </button>
                 </div>
+                <!-- Podcast Generation Button -->
                 <div class="ms-2">
-                    <button id="create-offline-podcast-btn" class="ms-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                    <button id="create-offline-podcast-btn" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
                         <ion-icon name="mic-outline" class="mr-2"></ion-icon>
                         <span>Create Offline Podcast</span>
                     </button>
@@ -224,17 +250,9 @@
 
             </div>
 
-            <div id="textbox-viewer-wrapper" class="w-full 2xl:w-[80%] m-5 2xl:rounded-xl 2xl:shadow-lg bg-white">
-                <div class="p-10">
-                    <h2 id="book-title" class="mb-4 text-xl sm:text-2xl font-semibold text-gray-800">New Book</h2>
-                    <label for="text" class="block text-sm font-medium text-gray-700">Text to Synthesize</label>
-                    <div id="text-display" contenteditable="true" class="shadow-xl 2xl:shadow-none block w-full p-2 border border-gray-300 rounded-xl shadow-sm focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px]"></div>
-                    <textarea id="text" name="text" rows="6" placeholder="Enter your text here..." class="hidden"></textarea>
-                </div>
-            </div>
+            <div class="px-6 mb-20">
 
-            <div id="pdf-viewer-wrapper" class="hidden bg-white 2xl:rounded-xl mx-auto 2xl:p-10 mb-4">
-                <div id="pagination-controls" class="flex justify-between items-center">
+                <div id="pagination-controls" class="flex justify-between items-center mb-2">
                     <button id="prev-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
                         <ion-icon name="chevron-back-outline"></ion-icon>
                         <span class="ms-2">Previous</span>
@@ -253,7 +271,22 @@
                         <ion-icon name="chevron-forward-outline"></ion-icon>
                     </button>
                 </div>
-                <div id="pdf-viewer" class="flex"></div>
+
+                <div id="textbox-viewer-wrapper" class="2xl:w-[80%] 2xl:rounded-xl 2xl:shadow-lg 2xl:p-4 2xl:mx-auto bg-white">
+                    <div>
+                        <h2 id="book-title" class="mb-4 text-xl sm:text-2xl font-semibold text-gray-800">New Book</h2>
+                        <label for="text" class="block text-sm font-medium text-gray-700">Text to Synthesize</label>
+                        <div id="text-display" contenteditable="true" class="shadow-xl 2xl:shadow-none block w-full p-2 border border-gray-300 rounded-xl shadow-sm focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px]"></div>
+                        <textarea id="text" name="text" rows="6" placeholder="Enter your text here..." class="hidden"></textarea>
+                    </div>
+                </div>
+    
+                <div id="pdf-viewer-wrapper" class="hidden bg-white 2xl:rounded-xl mx-auto">
+                    <div id="pdf-viewer" class="flex"></div>
+                </div>
+
+                <!-- Extra space for the floating toolbar -->
+                <div class="h-[200px]"></div>
             </div>
 
         </div>

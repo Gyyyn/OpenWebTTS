@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 # Import config and router
-from config import STATIC_DIR
+from config import STATIC_DIR, DATA_DIR
 from functions.routes import router
 
 # --- FastAPI Setup ---
@@ -35,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind the server to")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to")
     parser.add_argument("--desktop", action="store_true", help="Launch as a desktop app using a webview")
+    parser.add_argument("--debug", action="store_true", help="Toggle various debug features")
     args = parser.parse_args()
 
     host = args.host
@@ -66,9 +67,17 @@ if __name__ == "__main__":
 
         url = f"http://{host}:{port}"
         print(f"Opening desktop window at {url}")
+
+        server_debug = False
+
+        if (args.debug == "true"):
+            server_debug = True
+
         try:
-            window = webview.create_window("OpenWebTTS", url)
-            webview.start()
+            window = webview.create_window("OpenWebTTS", url, width=1280, height=900, resizable=True, text_select=True, fullscreen=False)
+            window.icon = f"{DATA_DIR}maskable_icon_x128.png"
+
+            webview.start(debug=server_debug, private_mode=False)
         finally:
             # Signal server to exit and wait a moment
             try:

@@ -23,6 +23,7 @@ import functions.gemini
 from functions.kokoro import kokoro_process_audio
 from functions.kitten import kitten_process_audio
 from functions.users import UserManager
+from functions.webpage import extract_readable_content
 
 router = APIRouter()
 
@@ -316,6 +317,23 @@ async def speech_to_text(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to transcribe audio. Reason: {str(e)}")
 
+def get_folder_size(folder_path):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(folder_path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+    return total_size
+
+@router.get("/api/cache_size")
+async def get_cache_size():
+    try:
+        size_in_bytes = get_folder_size(AUDIO_CACHE_DIR)
+        size_in_mb = size_in_bytes / (1024 * 1024)
+        return JSONResponse(content={"cache_size_mb": f"{size_in_mb:.2f} MB"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get cache size. Reason: {str(e)}")
 
 # -----------------------
 # --- User Management ---
@@ -341,9 +359,27 @@ class PodcastGenerate(BaseModel):
     voice: str
     api_key: Optional[str] = None
 
+class ReadWebsiteRequest(BaseModel):
+    url: str
+
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+
+@router.post("/api/read_website", response_model=PdfText)
+async def read_website(request: ReadWebsiteRequest):
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(request.url, headers=headers)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        content = extract_readable_content(response.text)
+        return PdfText(text=content)
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch website content: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read website. Reason: {str(e)}")
 
 @router.post("/api/users/create")
 async def create_user_route(user: UserCreate):

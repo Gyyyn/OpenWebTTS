@@ -64,3 +64,19 @@ button, a.button {
 .modal.hidden {
     display: none;
 }
+
+/* Sidebar */
+#sidebar {
+    width: 260px;
+}
+
+#sidebar.collapsed {
+    width: 64px;
+}
+.collapsed .hide-on-collapse {
+    display: none !important;
+}
+
+#sidebar.collapsed .mini-audio-player {
+    display: none;
+}

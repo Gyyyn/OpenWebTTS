@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const kokoroVoiceSelect = document.getElementById('kokoro-voice');
     const downloadBtnPiper = document.getElementById('download-btn-piper');
     const downloadBtnKokoro = document.getElementById('download-btn-kokoro');
+    const cacheSizeDisplay = document.getElementById('cache-size-display');
 
     const downloadStatus = document.getElementById('download-status');
     const googleVoiceInput = document.getElementById('google-voice');
@@ -69,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Example URL
         // https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/amy/medium
-        const voiceDownloadURL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/" + 
+        const voiceDownloadURL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/" +
             voiceDetails.langCode + "/" + voiceDetails.langCodeFull + "/" +
             voiceDetails.voiceName + "/" + voiceDetails.voiceQuality + "/" +
             voiceKey + '.onnx';
@@ -135,6 +136,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function getCacheSize() {
+        try {
+            const response = await fetch('/api/cache_size');
+            if (!response.ok) {
+                throw new Error('Failed to fetch cache size.');
+            }
+            const data = await response.json();
+            cacheSizeDisplay.textContent = data.cache_size_mb;
+        } catch (error) {
+            console.error('Error fetching cache size:', error);
+            cacheSizeDisplay.textContent = 'Error loading size.';
+        }
+    }
+
     clearCacheButton.addEventListener('click', async () => {
         
         const response = await fetch('/api/clear_cache');
@@ -144,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         alert('Cache cleared.');
+        getCacheSize(); // Refresh cache size after clearing
 
     });
 
@@ -152,4 +168,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     getPiperVoices();
+    getCacheSize(); // Call getCacheSize on initial load
 });

@@ -60,7 +60,7 @@
             </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md full">
-                <h3 class="text-xl font-bold mb-4">Gemini Voice</h2>
+                <h3 class="text-xl font-bold mb-4">Gemini Voice (WIP)</h2>
                 <div>
                     <p><i>Warning!</i> Setting you API key here could incurr charges if you exceed your free tokens. Use with care.</p>
                 </div>
@@ -69,6 +69,14 @@
                     <label for="google-voice" class="block text-sm font-medium text-gray-700">Google API Key</label>
                     <input id="google-voice" name="google-voice" class="mt-1 block w-full pl-3 pr-10 py-2 bg-gray-100 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl" />
                 </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md full">
+                <h3 class="text-xl font-bold mb-4">OpenAI Compatibility (WIP)</h2>
+                <div>
+                    <p>Set which voice will be mapped to which OpenAI voice.</p>
+                </div>
+                <hr class="my-4">
             </div>
         </div>
 
@@ -96,6 +104,9 @@
                     <p>This will delete <i>all</i> cached audio files. This action is irreversible.</p>
                 </div>
                 <hr class="my-4">
+                <div class="mb-4">
+                    <p>Current cache size: <span id="cache-size-display">Loading...</span></p>
+                </div>
                 <div>
                     <button id="clear-cache" class="bg-red-100 hover:bg-red-200 rounded-xl font-bold py-2 px-4">
                         <span class="me-2">Clear Cache</span>
