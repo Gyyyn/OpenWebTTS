@@ -11,12 +11,14 @@ from fastapi.staticfiles import StaticFiles
 # Import config and router
 from config import STATIC_DIR, DATA_DIR
 from functions.routes import router
+from functions.openai_api import openai_api_router
 
 # --- FastAPI Setup ---
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 app.include_router(router)
+app.include_router(openai_api_router)
 
 # --- Main Execution ---
 def _find_free_port(preferred_port: int) -> int:
