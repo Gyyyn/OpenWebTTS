@@ -126,7 +126,7 @@ The application will be available at `http://127.0.0.1:8000`. If you want the ap
 
 ### Desktop Mode (Experimental)
 
-You can also run OpenWebTTS as a desktop app using a lightweight webview window. This requires a webview backend such as `webkit2gtk`. This is still experimental, so if you experience any issues try running it as a web app instead.
+You can also run OpenWebTTS as a desktop app using a lightweight webview window. This requires a webview backend such as `webkit2gtk` as well as `PyGObject`, which can be install via `pip install PyGObject`, or using apt (recommended for Debian-based distros) `sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0`. This is still experimental, so if you experience any issues try running it as a web app instead.
 
 ```bash
 python app.py --desktop
