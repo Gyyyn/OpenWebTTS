@@ -2,8 +2,7 @@
 
 OpenWebTTS is a local web-based application that provides a simple interface for generating speech using multiple Text-to-Speech (TTS)  or Speech-to-Text (STT) engines.
 
-<img width="2278" height="1525" alt="image" src="https://github.com/user-attachments/assets/869f16f5-1a51-4368-9720-7e7ba8e623da" />
-
+<img width="2373" height="1445" alt="image" src="https://github.com/user-attachments/assets/5bcdd59d-f30e-4b56-9b14-a58c1a29ab36" />
 
 ## Features
 
@@ -28,7 +27,9 @@ OpenWebTTS/
 │   ├── piper.py           # Piper TTS
 │   ├── whisper.py         # OpenAI's Whisper STT
 |   ├── kitten.py          # Kitten TTS
-│   └── kokoro.py          # Kokoro functions
+│   ├── kokoro.py          # Kokoro functions
+|   ├── openai_api.py      # OpenAI compatible API endpoints
+|   └── webpage.py         # Webpage extraction
 |
 ├── models/                # Place your TTS models here
 |   ├── coqui/
