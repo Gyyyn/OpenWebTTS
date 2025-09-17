@@ -168,7 +168,7 @@
                 </div>
             </div>
 
-            <div class="bg-white border border-indigo-200 bottom-0 fixed flex flex-col items-center justify-between m-4 p-4 rounded-xl w-[80%] shadow-xl">
+            <div class="backdrop-blur-lg z-10 border border-indigo-200 bottom-0 fixed flex flex-col items-center justify-between m-4 p-4 rounded-xl w-[80%] shadow-xl">
                 
                 <div class="flex items-center justify-between w-full">
                     <!-- TTS Section -->
@@ -185,15 +185,15 @@
         
                         <div id="audio-output" class="hidden flex ps-4">
                             <audio id="audio-player" controls class="hidden w-full"></audio>
+                            <div class="flex items-center">
+                                <button id="stop-btn" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors" disabled><ion-icon name="stop"></ion-icon></button>
+                                <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors"><ion-icon name="download-outline"></ion-icon></a>
+                            </div>
                             <div class="flex items-center justify-between">
-                                <div>
-                                    <label for="playback-speed" class="block text-sm font-medium text-gray-700">Speed (0.5x - 2x)</label>
-                                    <input type="range" id="playback-speed" min="0.5" max="2" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" disabled>
+                                <div class="ml-2">
+                                    <label for="playback-speed" class="block text-sm font-medium text-gray-700">Speed: <span id="playback-speed-display" class="mx-1 font-bold"></span>(0.7x - 2.6x)</label>
+                                    <input type="range" id="playback-speed" min="0.8" max="2.6" step="0.3" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" disabled>
                                 </div>
-                                    <div class="flex items-center">
-                                        <button id="stop-btn" class="ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors" disabled><ion-icon name="stop-outline"></ion-icon></button>
-                                        <a id="download-link" href="#" download="speech.wav" class="button ml-2 px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors"><ion-icon name="download-outline"></ion-icon></a>
-                                    </div>
                             </div>
                         </div>
 
@@ -219,7 +219,7 @@
                         </button>
                         <button id="stop-record-btn" class="hidden ml-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors py-2 px-4">
                             <span class="me-2">Stop Recording</span>
-                            <ion-icon name="stop-outline"></ion-icon>
+                            <ion-icon name="stop"></ion-icon>
                         </button>
                         <div id="recording-indicator" class="hidden ml-2 flex items-center">
                             <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
@@ -281,8 +281,9 @@
                     </div>
                 </div>
     
-                <div id="pdf-viewer-wrapper" class="hidden bg-white 2xl:rounded-xl mx-auto">
+                <div id="pdf-viewer-wrapper" class="hidden relative bg-white 2xl:rounded-xl mx-auto">
                     <div id="pdf-viewer" class="flex"></div>
+                    <div id="highlight-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
                 </div>
 
                 <!-- Extra space for the floating toolbar -->

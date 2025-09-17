@@ -34,6 +34,13 @@ button, a.button {
     margin-right: -4px;
 }
 
+.pdf-highlight {
+    position: absolute;
+    border-radius: inherit;
+    margin-right: inherit;
+    padding: inherit;
+}
+
 
 /* Modal Styles */
 .modal {

@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBtnPiper = document.getElementById('download-btn-piper');
     const downloadBtnKokoro = document.getElementById('download-btn-kokoro');
     const cacheSizeDisplay = document.getElementById('cache-size-display');
+    const chunkSizeSlider = document.getElementById('chunk-size-slider');
+    const chunkSizeDisplay = document.getElementById('chunk-size-display');
 
     const downloadStatus = document.getElementById('download-status');
     const googleVoiceInput = document.getElementById('google-voice');
@@ -165,6 +167,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     downloadBtnPiper.addEventListener('click', downloadPiperVoice);
     downloadBtnKokoro.addEventListener('click', downloadKokoroVoice);
+
+    let prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
+
+    if (prefs.chunkSize) {
+        chunkSizeSlider.value = parseInt(prefs.chunkSize);
+        chunkSizeDisplay.textContent = prefs.chunkSize;
+    }
+
+    chunkSizeSlider.addEventListener('input', async () => {
+        
+        chunkSizeDisplay.textContent = chunkSizeSlider.value;
+
+        // Save chunk size to local storage
+        prefs.chunkSize = parseInt(chunkSizeSlider.value);
+        localStorage.setItem('prefs', JSON.stringify(prefs));
+
+    });
 
     // Initial load
     getPiperVoices();

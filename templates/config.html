@@ -115,6 +115,18 @@
                 </div>
             </div>
 
+            <div class="bg-white p-6 rounded-lg shadow-md full">
+                <h3 class="text-xl font-bold mb-4">Chunk Size</h2>
+                <div>
+                    <p><i>Chunking</i>, or splitting the text into smaller pieces to generate simultaniously is how we achieve smooth playback. Set here how big, in words, you want your chunks to be. <i>smaller chunks</i> means faster generation, but potentially weirder pronounciation, <i>bigger chunks</i> means better understanding of phrase context for pronounciation, but potentially slower generation.</p>
+                </div>
+                <hr class="my-4">
+                <div class="mb-4">
+                    <p>Chunk size: <span id="chunk-size-display"></span></p>
+                    <input class="w-full" step="5" min="10" max="250" type="range" name="chunk-size" id="chunk-size-slider">
+                </div>
+            </div>
+
         </div>
 
     </div>

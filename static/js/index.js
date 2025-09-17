@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const modalActionBtn = document.getElementById('modal-action-btn');
     const playbackSpeed = document.getElementById('playback-speed');
+    const playbackSpeedDisplay = document.getElementById('playback-speed-display');
     const stopBtn = document.getElementById('stop-btn');
 
     // Login Modal Elements
@@ -86,6 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let allTextChunks = [];
     let currentChunkIndex = 0;
     let lastChunkProcessed = -1;
+    let localPrefs = JSON.parse(localStorage.getItem('prefs')) || {};
+    let pdfTextContent = {}
     
     // Speech to Text variables
     let mediaRecorder = null;
@@ -755,7 +758,12 @@ document.addEventListener('DOMContentLoaded', () => {
         playbackSpeed.disabled = true;
     }
 
-    function splitTextIntoChunks(text, chunkSize = 50) {
+    function splitTextIntoChunks(text, chunkSize) {
+
+        // Get local chunk size from prefs, default to 50 if not found or invalid
+        const parsedChunkSize = parseInt(localPrefs.chunkSize);
+        chunkSize = (!isNaN(parsedChunkSize) && parsedChunkSize > 0) ? parsedChunkSize : 50;
+
         const words = text.split(/\s+/);
         const chunks = [];
         let currentTextIndex = 0;
@@ -798,7 +806,12 @@ document.addEventListener('DOMContentLoaded', () => {
         generateBtn.disabled = false;
 
         const currentAudio = audioQueue[currentChunkIndex];
-        highlightChunk(currentAudio.text);
+
+        if (pdfDoc) {
+            await highlightPdfChunk(currentAudio.text);
+        } else {
+            highlightChunk(currentAudio.text); // Original behavior for text view
+        }
 
         const shouldAutoDelete = (activeBook && activeBook.source === 'local') && localBooks[activeBook.id].autoDeleteChunks;
         if (!shouldAutoDelete && currentChunk && currentChunk.childNodes[1] && currentChunk.childNodes[1].childNodes[1]) {
@@ -808,10 +821,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
         audioPlayer.src = currentAudio.url;
         audioPlayer.playbackRate = playbackSpeed.value;
-        audioPlayer.play();
+        
+        // Add a retry counter to currentAudio object if it doesn't exist
+        if (typeof currentAudio.retries === 'undefined') {
+            currentAudio.retries = 0;
+        }
+
+        // Try playing the URL
+        try {
+            await audioPlayer.play();
+        } catch (error) {
+            console.warn(`Audio playback failed for chunk ${currentChunkIndex} (${currentAudio.url}), retrying in 2 seconds. Error:`, error);
+            // This error often occurs if the user hasn\'t interacted with the document yet,
+            // or if the browser blocks autoplay.
+            if (currentAudio.retries < 3) { // Max 3 retries
+                currentAudio.retries++;
+                setTimeout(async () => {
+                    playAudioQueue(); // Retry playing after a delay
+                }, 2000); // Wait 2 seconds before retrying
+            } else {
+                console.error(`Audio playback failed for chunk ${currentChunkIndex} (${currentAudio.url}) after multiple retries. Skipping chunk. Error:`, error);
+                isPlaying = false;
+                disableAudioControls();
+                generateBtnText.textContent = 'Generate Speech';
+                generateBtnIcon.name = 'volume-high-outline';
+                audioPlayer.src = ''; // Clear source to prevent further attempts
+                showNotification(`Failed to play audio for chunk ${currentChunkIndex}. Skipping.`, 'error');
+                
+                // Skip to the next chunk if playback failed persistently
+                unhighlightChunk(currentAudio.text);
+                currentChunk.classList.add('hidden');
+                currentChunkIndex++;
+                processAndQueueChunk(currentChunkIndex + 2); // Pre-fetch next-next chunk
+                if (audioQueue[currentChunkIndex]) {
+                    playAudioQueue();
+                } else {
+                    // If there are no more chunks in the queue after skipping
+                    isPlaying = false;
+                    disableAudioControls();
+                    clearAllHighlights();
+                    generateBtnText.textContent = 'Generate Speech';
+                    generateBtnIcon.name = 'volume-high-outline';
+                }
+            }
+        }
 
         audioPlayer.onended = async () => {
-            unhighlightChunk(currentAudio.text);
+
+            if (pdfDoc) {
+                clearPdfHighlights();
+            } else {
+                unhighlightChunk(currentAudio.text); // Original behavior for text view
+            }
+
             currentChunk.classList.add('hidden');
             
             currentChunkIndex++;
@@ -822,7 +884,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
 
                 isPlaying = false;
-                disableAudioControls();
                 disableAudioControls();
                 clearAllHighlights();
 
@@ -929,13 +990,15 @@ document.addEventListener('DOMContentLoaded', () => {
         
         generateSpeech(chunk, engineSelect.value, voiceSelect.value).then(audioUrl => {
             if (audioUrl) {
-                console.debug(`✅ Audio received for chunk index: ${chunkIndex}`);
-                audioQueue[chunkIndex] = { url: audioUrl, text: chunk };
+                // Introduce a small delay to ensure the file is fully ready on the server
+                setTimeout(() => {
+                    audioQueue[chunkIndex] = { url: audioUrl, text: chunk };
 
-                // If playback isn't running and this is the chunk we're waiting for, start playing.
-                if (!isPlaying && chunkIndex === currentChunkIndex) {
-                    playAudioQueue();
-                }
+                    // If playback isn't running and this is the chunk we're waiting for, start playing.
+                    if (!isPlaying && chunkIndex === currentChunkIndex) {
+                        playAudioQueue();
+                    }
+                }, 100); // 100ms delay
             } else {
                 console.debug(`❌ Failed to get audio for chunk index: ${chunkIndex}`);
             }
@@ -945,9 +1008,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearAllHighlights() {
         const allWordElements = textDisplay.querySelectorAll('span.highlight');
         allWordElements.forEach(span => span.classList.remove('highlight'));
+        clearPdfHighlights();
     }
 
-    // ---- START: New function to render a page of text ----
     function renderTextPage(num) {
         textCurrentPage = num;
         const start = (num - 1) * charsPerPage;
@@ -977,7 +1040,6 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomInBtn.disabled = true;
         zoomOutBtn.disabled = true;
     }
-    // ---- END: New function to render a page of text ----
 
     async function renderPage(num) {
         if (!pdfDoc) return;
@@ -1008,6 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await page.render(renderContext).promise;
 
             const textContent = await page.getTextContent();
+            pdfTextContent[pageNumber] = textContent;
             return textContent.items.map(item => item.str).join(' ');
         };
 
@@ -1045,8 +1108,87 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function highlightPdfChunk(chunkObject) {
+        const highlightLayer = document.getElementById('highlight-layer');
+        if (!highlightLayer) return;
+    
+        highlightLayer.innerHTML = ''; // Clear previous highlights
+    
+        const chunkText = chunkObject.text;
+        const visiblePages = isTwoPageView ? [currentPageNum, currentPageNum + 1] : [currentPageNum];
+    
+        // The "shopping list" of text we still need to find. Whitespace is normalized.
+        let textToFind = chunkText.trim().replace(/\s+/g, ' ');
+        // A flag to ensure we only start highlighting after finding the beginning of the phrase.
+        let matchingStarted = false;
+    
+        // Use a for...of loop to correctly handle await inside the loop
+        for (const [pageIndex, pageNum] of visiblePages.entries()) {
+            if (!pdfTextContent[pageNum] || textToFind.length === 0) continue;
+    
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: currentScale });
+            
+            // Use a for...of loop to allow 'break' and 'continue'
+            for (const item of pdfTextContent[pageNum].items) {
+                if (textToFind.length === 0) break; // Exit if we've found the entire chunk
+    
+                // Normalize the text from the PDF item for a more reliable comparison
+                const itemText = item.str.trim().replace(/\s+/g, ' ');
+                if (itemText.length === 0) continue;
+    
+                if (!matchingStarted) {
+                    // We haven't found the start yet. Check if our remaining text starts with this item's text.
+                    if (textToFind.toLowerCase().startsWith(itemText.toLowerCase())) {
+                        matchingStarted = true;
+                        // Fall-through to the highlighting logic below
+                    } else {
+                        continue; // Not the start, so skip to the next item
+                    }
+                }
+    
+                // Once matching has started, we expect items to appear contiguously
+                if (matchingStarted) {
+                    if (textToFind.toLowerCase().startsWith(itemText.toLowerCase())) {
+                        // This item is a valid part of our sequence, so highlight it
+                        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                        const highlight = document.createElement('div');
+                        highlight.className = 'highlight pdf-highlight';
+                        
+                        const leftOffset = (isTwoPageView && pageIndex === 1) ? pdfViewer.children[0].width : 0;
+                        
+                        highlight.style.left = `${tx[4] + leftOffset}px`;
+                        highlight.style.top = `${tx[5] - 10}px`; // Your -10px offset is kept
+                        highlight.style.width = `${item.width * currentScale}px`;
+                        highlight.style.height = `${item.height * currentScale}px`;
+                        
+                        highlightLayer.appendChild(highlight);
+                        
+                        // "Consume" the matched text from our "shopping list"
+                        const index = textToFind.toLowerCase().indexOf(itemText.toLowerCase());
+                        textToFind = textToFind.substring(index + itemText.length).trim();
+    
+                    } else {
+                        // If the next item doesn't match, the sequence is broken. Stop highlighting for this chunk.
+                        textToFind = ''; 
+                    }
+                }
+            }
+            if (textToFind.length === 0) break; // Exit the page loop if we're done
+        }
+    }
+    
+    /* Clears all highlights from the PDF overlay. */
+    function clearPdfHighlights() {
+        const highlightLayer = document.getElementById('highlight-layer');
+        if (highlightLayer) {
+            highlightLayer.innerHTML = '';
+        }
+    }
+
     playbackSpeed.addEventListener('input', () => {
         audioPlayer.playbackRate = playbackSpeed.value;
+        playbackSpeedDisplay.textContent = playbackSpeed.value.toString() + "x";
     });
 
     stopBtn.addEventListener('click', stopAudioQueue);
@@ -1178,8 +1320,10 @@ document.addEventListener('DOMContentLoaded', () => {
         hideFileModal();
     });
 
-    // ---- START: Updated Pagination Button Listeners ----
     prevPageBtn.addEventListener('click', () => {
+
+        clearAllHighlights();
+
         if (pdfDoc) {
             if (currentPageNum <= 1) return;
             renderPage(currentPageNum - (isTwoPageView ? 2 : 1));
@@ -1190,6 +1334,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     nextPageBtn.addEventListener('click', () => {
+
+        clearAllHighlights();
+
         if (pdfDoc) {
             const limit = isTwoPageView ? pdfDoc.numPages -1 : pdfDoc.numPages;
             if (currentPageNum >= limit) return;
@@ -1199,7 +1346,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTextPage(textCurrentPage + 1);
         }
     });
-    // ---- END: Updated Pagination Button Listeners ----
 
     toggleTwoPageBtn.addEventListener('click', () => {
         if (!pdfDoc) return;
@@ -1225,12 +1371,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isPaused) {
                 isPaused = false;
                 generateBtnText.textContent = 'Pause';
-                generateBtnIcon.name = 'pause-outline';
+                generateBtnIcon.name = 'pause-filled';
                 audioPlayer.play();
             } else {
                 isPaused = true;
                 generateBtnText.textContent = 'Play';
-                generateBtnIcon.name = 'play-outline';
+                generateBtnIcon.name = 'play';
                 audioPlayer.pause();
             }
         } else {
