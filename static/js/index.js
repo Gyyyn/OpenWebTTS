@@ -1108,6 +1108,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function checkPhraseSimilarity(str1, str2, strictness = 0.85) {
+        // Normalize: lowercase, trim, collapse whitespace, remove trailing punctuation
+        const normalize = s => s
+          .toLowerCase()
+          .replace(/\s+/g, ' ')           // collapse whitespace
+          .trim()
+          .replace(/[!?.,"';:]+$/, '');   // remove trailing punctuation
+      
+        const a = normalize(str1);
+        const b = normalize(str2);
+      
+        // Tokenize by splitting on spaces
+        const tokensA = a.split(' ').filter(t => t.length > 0);
+        const tokensB = b.split(' ').filter(t => t.length > 0);
+      
+        if (tokensA.length === 0 && tokensB.length === 0) return true;
+        if (tokensA.length === 0 || tokensB.length === 0) return false;
+      
+        // Weight function: emphasize middle (sine curve from 1 to 2 and back to 1)
+        const weight = (index, total) => {
+          if (total <= 1) return 1;
+          const pos = index / (total - 1); // 0 to 1
+          return 1 + Math.sin(Math.PI * pos); // peaks at 2 in the middle
+        };
+      
+        // Assign weights to tokens in A
+        const weightedA = tokensA.map((token, i) => ({
+          token,
+          weight: weight(i, tokensA.length)
+        }));
+      
+        // Total weight of A (denominator)
+        const totalWeightA = weightedA.reduce((sum, item) => sum + item.weight, 0);
+      
+        // Compute weighted overlap: for each weighted token in A, if it exists in B, add its weight
+        let matchedWeight = 0;
+        const setB = new Set(tokensB); // for fast lookup
+      
+        for (const { token, weight } of weightedA) {
+          if (setB.has(token)) {
+            matchedWeight += weight;
+          }
+        }
+      
+        // Similarity ratio: matched weight / total weight of A
+        const similarity = matchedWeight / totalWeightA;
+      
+        return similarity >= strictness;
+      }
+
     async function highlightPdfChunk(chunkObject) {
         const highlightLayer = document.getElementById('highlight-layer');
         if (!highlightLayer) return;
@@ -1121,6 +1171,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let textToFind = chunkText.trim().replace(/\s+/g, ' ');
         // A flag to ensure we only start highlighting after finding the beginning of the phrase.
         let matchingStarted = false;
+        // How many failed matches we had.
+        let matchingFails = 0;
     
         // Use a for...of loop to correctly handle await inside the loop
         for (const [pageIndex, pageNum] of visiblePages.entries()) {
@@ -1139,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
                 if (!matchingStarted) {
                     // We haven't found the start yet. Check if our remaining text starts with this item's text.
-                    if (textToFind.toLowerCase().startsWith(itemText.toLowerCase())) {
+                    if (checkPhraseSimilarity(itemText, textToFind)) {
                         matchingStarted = true;
                         // Fall-through to the highlighting logic below
                     } else {
@@ -1149,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
                 // Once matching has started, we expect items to appear contiguously
                 if (matchingStarted) {
-                    if (textToFind.toLowerCase().startsWith(itemText.toLowerCase())) {
+                    if (checkPhraseSimilarity(itemText, textToFind)) {
                         // This item is a valid part of our sequence, so highlight it
                         const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
                         const highlight = document.createElement('div');
@@ -1163,14 +1215,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         highlight.style.height = `${item.height * currentScale}px`;
                         
                         highlightLayer.appendChild(highlight);
-                        
-                        // "Consume" the matched text from our "shopping list"
-                        const index = textToFind.toLowerCase().indexOf(itemText.toLowerCase());
-                        textToFind = textToFind.substring(index + itemText.length).trim();
     
                     } else {
-                        // If the next item doesn't match, the sequence is broken. Stop highlighting for this chunk.
-                        textToFind = ''; 
+
+                        matchingFails += 1;
+
+                        if (matchingFails > 2) {
+                            // The sequence is broken. Stop highlighting for this chunk.
+                            textToFind = ''; 
+                        }
+                        
                     }
                 }
             }
@@ -1371,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isPaused) {
                 isPaused = false;
                 generateBtnText.textContent = 'Pause';
-                generateBtnIcon.name = 'pause-filled';
+                generateBtnIcon.name = 'pause';
                 audioPlayer.play();
             } else {
                 isPaused = true;
