@@ -45,7 +45,8 @@ export async function generateSpeech(text, engine, voice) {
                 const poll = setInterval(async () => {
                     try {
                         const headResponse = await fetch(data.audio_url, { method: 'HEAD' });
-                        if (headResponse.ok) {
+                        // We need exactly 200, otherwise we get 206 partial content and skip over text.
+                        if (headResponse.status == 200) {
                             clearInterval(poll);
                             resolve(data.audio_url);
                         }

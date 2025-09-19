@@ -1,3 +1,15 @@
+/*
+ * -- index.js
+ * --
+ * -- This file contains most of the UI for the main app.
+ * -- It's structed "top to bottom", mirroring the HTML of index.html.
+ *
+ */
+
+/*
+ * Imports.
+ */
+
 // Import IndexedDB functions
 import { savePdf, loadPdf, deletePdf } from './db.js';
 
@@ -7,39 +19,60 @@ import { getPodcasts, generatePodcast, deletePodcast } from './podcast.js';
 // Import Speech Generation functions
 import { generateSpeech } from "./speechGen.js";
 
+// Import helpers
+import { checkPhraseSimilarity, detectHeadersAndFooters } from "./helpers.js";
+import { createFilesGrid } from './library.js';
+
 document.addEventListener('DOMContentLoaded', () => {
+
+    /*
+     * Setup manipulated elements.
+     */
+
+    // Inputs
     const engineSelect = document.getElementById('engine');
     const voiceSelect = document.getElementById('voice');
-    const generateBtn = document.getElementById('generate-btn');
-    const generatePodcastBtn = document.getElementById('create-offline-podcast-btn');
-    const generateBtnText = document.getElementById('generate-btn-text');
-    const generateBtnIcon = document.getElementById('generate-btn-icon');
+    const pdfFileInput = document.getElementById('pdf-file');
+    const webPageLinkInput  = document.getElementById('web-page-url');
     const textInput = document.getElementById('text');
-    const textDisplay = document.getElementById('text-display');
+    const playbackSpeed = document.getElementById('playback-speed');
+
+    // Checkboxes
+    const toggleTwoPageBtn = document.getElementById('two-page-view-checkbox');
+    const autoReadCheckbox = document.getElementById('auto-read-checkbox');
+    const autoDeleteChunksCheckbox = document.getElementById('auto-delete-chunks-checkbox');
+    const skipHeadersNFootersCheckbox = document.getElementById('skip-headers-checkbox');
+
+    // Buttons
+    const collapseSidebarButton = document.getElementById('collapse-sidebar-btn');
+    const newBookBtn = document.getElementById('new-book-btn');
+    const libraryBtn = document.getElementById('library-btn');
+    const generatePodcastBtn = document.getElementById('create-offline-podcast-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const generateBtn = document.getElementById('generate-btn');
+    const generateBtnIcon = document.getElementById('generate-btn-icon');
+    const closeCurrentChunkButton = document.getElementById('close-current-chunk');
+    
+    // Elements
+    const sidebar = document.getElementById('sidebar');
+    const localBookList = document.getElementById('local-book-list');
+    const onlineBookList = document.getElementById('online-book-list');
+    const mainDiv = document.getElementById('main');
+    const bookView = document.getElementById('book-view');
     const bookPageTitle = document.getElementById('book-title');
+    const pageNumSpan = document.getElementById('page-num');
+    const textboxViewerWrapper = document.getElementById('textbox-viewer-wrapper');
+    const textDisplay = document.getElementById('text-display'); // Main textarea from TTS.
+    const pdfViewer = document.getElementById('pdf-viewer');
+    const pdfViewerWrapper = document.getElementById('pdf-viewer-wrapper');
+    const generateBtnText = document.getElementById('generate-btn-text');
     const loadingDiv = document.getElementById('loading');
     const audioOutput = document.getElementById('audio-output');
     const audioPlayer = document.getElementById('audio-player');
-    const pdfFileInput = document.getElementById('pdf-file');
-    const pdfViewer = document.getElementById('pdf-viewer');
-    const pdfViewerWrapper = document.getElementById('pdf-viewer-wrapper');
-    const textboxViewerWrapper = document.getElementById('textbox-viewer-wrapper');
-    const prevPageBtn = document.getElementById('prev-page');
-    const nextPageBtn = document.getElementById('next-page');
-    const pageNumSpan = document.getElementById('page-num');
-    const toggleTwoPageBtn = document.getElementById('two-page-view-checkbox');
-    const localBookList = document.getElementById('local-book-list');
-    const onlineBookList = document.getElementById('online-book-list');
-    const newBookBtn = document.getElementById('new-book-btn');
-    const autoReadCheckbox = document.getElementById('auto-read-checkbox');
-    const autoDeleteChunksCheckbox = document.getElementById('auto-delete-chunks-checkbox');
+    const playbackSpeedDisplay = document.getElementById('playback-speed-display');
     const currentChunk = document.getElementById('current-chunk');
-    const closeCurrentChunkButton = document.getElementById('close-current-chunk');
-    const bookView = document.getElementById('book-view');
-    const webPageLinkInput  = document.getElementById('web-page-url');
-    const sidebar = document.getElementById('sidebar');
-    const collapseSidebarButton = document.getElementById('collapse-sidebar-btn');
-    const mainDiv = document.getElementById('main');
 
     // Modal Elements
     const bookModal = document.getElementById('book-modal');
@@ -47,9 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookTitleInput = document.getElementById('book-title-input');
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const modalActionBtn = document.getElementById('modal-action-btn');
-    const playbackSpeed = document.getElementById('playback-speed');
-    const playbackSpeedDisplay = document.getElementById('playback-speed-display');
-    const stopBtn = document.getElementById('stop-btn');
 
     // Login Modal Elements
     const loginModal = document.getElementById('login-modal');
@@ -67,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filePickerModal = document.getElementById('file-picker-modal');
     const openFilePickerBtn = document.getElementById('open-file-picker-modal');
     const closeFilePickerBtn = document.getElementById('close-file-picker-modal');
+    const filePickerModalURLLoadingIndicator = document.getElementById('url-loading-indicator');
 
     // Speech to Text Elements
     const recordBtn = document.getElementById('record-btn');
@@ -75,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioFileInput = document.getElementById('audio-file-input');
     const transcribeFileBtn = document.getElementById('transcribe-file-btn');
 
+    // Book elements
     let pdfDoc = null;
     let currentPageNum = 1;
     let localBooks = JSON.parse(localStorage.getItem('books')) || {};
@@ -111,8 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set workerSrc for PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
-    // --- Functions
+    /*
+     * --- Functions
+     */
 
+    // Toolbar collapse, handled mainly by CSS
     function handleSidebarCollapse() {
         sidebar.classList.toggle('collapsed');
         collapseSidebarButton.classList.toggle('rotate-180');
@@ -121,8 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mainDiv.classList.toggle('ml-[260px]');
         mainDiv.classList.toggle('ml-[64px]');   
     }
-
-    // Toolbar collapse, handled mainly by CSS
+  
     collapseSidebarButton.addEventListener('click', function(e) {
 
         e.preventDefault();
@@ -135,18 +169,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setActiveBook(book) {
-        // Make sure we stop playback and generation if we switch books.
+
+        // Reset everything and stop playback.
+        activeBook = book;
         resetBookView();
         stopAudioQueue()
-        activeBook = book;
         renderLocalBooks();
         renderOnlineBooks();
+
+        if (!book) return;
+
+        // Remove active bg from library.
+        libraryBtn.classList.remove('bg-indigo-100');
+
         loadBookContent(book);
         openFilePickerBtn.classList.add('hidden')
         if (book && book.source === 'local') {
             openFilePickerBtn.classList.remove('hidden')
             updateCheckbox(autoReadCheckbox, 'autoRead');
             updateCheckbox(autoDeleteChunksCheckbox, 'autoDeleteChunks');
+            updateCheckbox(skipHeadersNFootersCheckbox, 'skipHeadersNFooters');
         }
     }
 
@@ -174,11 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (sidebar.classList.contains('collapsed')) {
                     handleSidebarCollapse();
-
-                    // Wonky, but makes sure the audio player is always closed
-                    if (!playerDiv.classList.contains('hidden')) {
-                        playerDiv.classList.toggle('hidden');
-                    }
+                    playerDiv.classList.add('hidden');
                 }
 
                 if (playerDiv) {
@@ -566,40 +604,40 @@ document.addEventListener('DOMContentLoaded', () => {
         textDisplay.textContent = allTextChunks.map(chunk => chunk.text).join(' ');
     }
 
-    // Original loadBookContent function is renamed to handle specific loading logic
-    let originalLoadBookContent = async (book) => {
-        if (book) {
-            bookPageTitle.innerHTML = book.title;
-            const content = book.source === 'online' ? book.content : localBooks[book.id].text;
-            
-            // Text Pagination Logic
-            fullBookText = content || '';
-            totalTextPages = Math.max(1, Math.ceil(fullBookText.length / charsPerPage));
-            textCurrentPage = 1;
+    let renderBookContent = async (book) => {
+        if (!book) return;
 
-            bookView.classList.remove('hidden');
-            currentChunkIndex = 0; // Reset chunk index
-            autoDeleteChunksCheckbox.disabled = false;
-            toggleTwoPageBtn.disabled = true;
+        bookView.classList.remove('hidden');
+        bookPageTitle.innerHTML = book.title;
+        const content = book.source === 'online' ? book.content : localBooks[book.id].text;
+        
+        // Text Pagination Logic
+        fullBookText = content || '';
+        totalTextPages = Math.max(1, Math.ceil(fullBookText.length / charsPerPage));
+        textCurrentPage = 1;
 
-            if (book.source === 'local' && localBooks[book.id].pdfId) {
-                const pdfData = await loadPdf(localBooks[book.id].pdfId);
-                if (pdfData) {
-                    pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
-                    const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
-                    renderPage(lastPage);
-                    autoDeleteChunksCheckbox.disabled = true;
-                    toggleTwoPageBtn.disabled = false;
-                } else {
-                    resetPdfView();
-                    const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;
-                    renderTextPage(lastTextPage);
-                }
+        bookView.classList.remove('hidden');
+        currentChunkIndex = 0; // Reset chunk index
+        autoDeleteChunksCheckbox.disabled = false;
+        toggleTwoPageBtn.disabled = true;
+
+        if (book.source === 'local' && localBooks[book.id].pdfId) {
+            const pdfData = await loadPdf(localBooks[book.id].pdfId);
+            if (pdfData) {
+                pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+                const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
+                renderPage(lastPage);
+                autoDeleteChunksCheckbox.disabled = true;
+                toggleTwoPageBtn.disabled = false;
             } else {
                 resetPdfView();
                 const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;
                 renderTextPage(lastTextPage);
             }
+        } else {
+            resetPdfView();
+            const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;
+            renderTextPage(lastTextPage);
         }
     };
     
@@ -611,7 +649,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        await originalLoadBookContent(book);
+        // Close library if it's open.
+        const library = document.getElementById('library-file-grid');
+
+        if (library) library.remove();
+
+        await renderBookContent(book);
         if (currentUser) {
             saveBookBtn.classList.remove('hidden');
         }
@@ -646,9 +689,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfViewerWrapper.classList.add('hidden');
         textboxViewerWrapper.classList.remove('hidden');
         pdfViewer.innerHTML = '';
-        // pageNumSpan.textContent = ''; // Commented out to allow text pagination to control it
-        // prevPageBtn.disabled = true; // These are now context-sensitive
-        // nextPageBtn.disabled = true;
         pdfDoc = null;
         generateBtn.disabled = false;
 
@@ -672,6 +712,10 @@ document.addEventListener('DOMContentLoaded', () => {
         pageNumSpan.textContent = '';
     }
 
+    /*
+     * -- Events
+     */
+
     autoReadCheckbox.addEventListener('change', () => {
         if (activeBook && activeBook.source === 'local') {
             localBooks[activeBook.id].autoRead = autoReadCheckbox.checked;
@@ -682,6 +726,13 @@ document.addEventListener('DOMContentLoaded', () => {
     autoDeleteChunksCheckbox.addEventListener('change', () => {
         if (activeBook && activeBook.source === 'local') {
             localBooks[activeBook.id].autoDeleteChunks = autoDeleteChunksCheckbox.checked;
+            saveLocalBooks();
+        }
+    });
+
+    skipHeadersNFootersCheckbox.addEventListener('change', () => {
+        if (activeBook && activeBook.source === 'local') {
+            localBooks[activeBook.id].skipHeadersNFooters = skipHeadersNFootersCheckbox.checked;
             saveLocalBooks();
         }
     });
@@ -814,6 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const shouldAutoDelete = (activeBook && activeBook.source === 'local') && localBooks[activeBook.id].autoDeleteChunks;
+        
         if (!shouldAutoDelete && currentChunk && currentChunk.childNodes[1] && currentChunk.childNodes[1].childNodes[1]) {
             currentChunk.childNodes[1].childNodes[1].textContent = currentAudio.text.text;
             currentChunk.classList.remove('hidden');
@@ -1045,6 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!pdfDoc) return;
         pdfViewerWrapper.classList.remove('hidden');
         textboxViewerWrapper.classList.add('hidden');
+        autoDeleteChunksCheckbox.checked = false;
 
         // Enable PDF-specific controls
         toggleTwoPageBtn.disabled = false;
@@ -1053,6 +1106,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentPageNum = num;
         pdfViewer.innerHTML = '';
+
+        const mapTextContent = (textObject) => {
+            return textObject.items.map(item => item.str).join(' ');
+        }
 
         const renderSinglePage = async (pageNumber, container) => {
             const page = await pdfDoc.getPage(pageNumber);
@@ -1067,11 +1124,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 canvasContext: context,
                 viewport: viewport,
             };
-            await page.render(renderContext).promise;
 
-            const textContent = await page.getTextContent();
+            await page.render(renderContext).promise;
+            let textContent = await page.getTextContent();
+
+            if (skipHeadersNFootersCheckbox.checked) {
+                const parsedTextContent = detectHeadersAndFooters(textContent, canvas.height);
+                textContent = parsedTextContent.body;
+            }
+
             pdfTextContent[pageNumber] = textContent;
-            return textContent.items.map(item => item.str).join(' ');
+            return mapTextContent(textContent);
         };
 
         if (isTwoPageView) {
@@ -1107,56 +1170,6 @@ document.addEventListener('DOMContentLoaded', () => {
             saveLocalBooks();
         }
     }
-
-    function checkPhraseSimilarity(str1, str2, strictness = 0.85) {
-        // Normalize: lowercase, trim, collapse whitespace, remove trailing punctuation
-        const normalize = s => s
-          .toLowerCase()
-          .replace(/\s+/g, ' ')           // collapse whitespace
-          .trim()
-          .replace(/[!?.,"';:]+$/, '');   // remove trailing punctuation
-      
-        const a = normalize(str1);
-        const b = normalize(str2);
-      
-        // Tokenize by splitting on spaces
-        const tokensA = a.split(' ').filter(t => t.length > 0);
-        const tokensB = b.split(' ').filter(t => t.length > 0);
-      
-        if (tokensA.length === 0 && tokensB.length === 0) return true;
-        if (tokensA.length === 0 || tokensB.length === 0) return false;
-      
-        // Weight function: emphasize middle (sine curve from 1 to 2 and back to 1)
-        const weight = (index, total) => {
-          if (total <= 1) return 1;
-          const pos = index / (total - 1); // 0 to 1
-          return 1 + Math.sin(Math.PI * pos); // peaks at 2 in the middle
-        };
-      
-        // Assign weights to tokens in A
-        const weightedA = tokensA.map((token, i) => ({
-          token,
-          weight: weight(i, tokensA.length)
-        }));
-      
-        // Total weight of A (denominator)
-        const totalWeightA = weightedA.reduce((sum, item) => sum + item.weight, 0);
-      
-        // Compute weighted overlap: for each weighted token in A, if it exists in B, add its weight
-        let matchedWeight = 0;
-        const setB = new Set(tokensB); // for fast lookup
-      
-        for (const { token, weight } of weightedA) {
-          if (setB.has(token)) {
-            matchedWeight += weight;
-          }
-        }
-      
-        // Similarity ratio: matched weight / total weight of A
-        const similarity = matchedWeight / totalWeightA;
-      
-        return similarity >= strictness;
-      }
 
     async function highlightPdfChunk(chunkObject) {
         const highlightLayer = document.getElementById('highlight-layer');
@@ -1240,6 +1253,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    libraryBtn.addEventListener('click', () => {
+
+        // First reset the book view.
+        setActiveBook(null);
+        libraryBtn.classList.add('bg-indigo-100');
+
+        bookView.classList.add('hidden');
+        const fileGrid = createFilesGrid([]);
+        mainDiv.appendChild(fileGrid);
+
+    });
+
     playbackSpeed.addEventListener('input', () => {
         audioPlayer.playbackRate = playbackSpeed.value;
         playbackSpeedDisplay.textContent = playbackSpeed.value.toString() + "x";
@@ -1253,6 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!url) return;
 
         webPageLinkInput.disabled = true;
+        filePickerModalURLLoadingIndicator.classList.toggle('hidden');
 
         try {
             new URL(url);
@@ -1271,8 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const data = await response.json();
-
-            textDisplay.value = data.text;
+            fullBookText = data.text;
             
             if (activeBook.source === 'local') {
                 localBooks[activeBook.id].text = data.text;
@@ -1287,6 +1312,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(`Failed to read website: ${error.message}`);
         }
 
+        filePickerModalURLLoadingIndicator.classList.toggle('hidden');
         webPageLinkInput.disabled = false;
     });
 
