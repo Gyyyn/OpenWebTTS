@@ -7,7 +7,6 @@
 export function createFilesGrid(files) {
     const container = document.createElement('div');
     container.id = 'library-file-grid';
-    // Apply Tailwind classes for grid styles, and add 'relative' for absolute positioning of the close button
     container.className = 'm-5 file-grid-container grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 p-5 border border-gray-200 rounded-lg bg-gray-50 shadow-md relative transition-opacity duration-300 ease-in-out';
 
     if (!files || files.length === 0) {
@@ -50,6 +49,10 @@ export function createFilesGrid(files) {
         if (file.uploadDate) detailsText += (detailsText ? ' | ' : '') + `Uploaded: ${file.uploadDate}`;
         detailsElement.textContent = detailsText;
 
+        fileItem.addEventListener('click', () => {
+            window.open(file.url, '_blank');
+        });
+
         fileItem.appendChild(iconElement);
         fileItem.appendChild(nameElement);
         fileItem.appendChild(detailsElement);
@@ -58,4 +61,34 @@ export function createFilesGrid(files) {
     });
 
     return container;
+}
+
+/**
+ * Fetches and renders a grid display of PDFs for the current user.
+ * @param {string} currentUser The username of the currently logged-in user.
+ * @returns {Promise<HTMLElement>} A promise that resolves to the container div element with the PDF grid.
+ */
+export async function renderUserPdfs(currentUser) {
+    try {
+        const response = await fetch(`/api/users/${currentUser}/pdfs`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch user PDFs: ${response.statusText}`);
+        }
+        const data = await response.json();
+
+        const pdfsForGrid = data.pdfs.map(pdf => ({
+            name: pdf.title,
+            type: 'application/pdf',
+            id: pdf.id, // Keep the ID for potential future interactions
+            url: pdf.content // The URL to fetch the PDF content
+        }));
+
+        return createFilesGrid(pdfsForGrid);
+    } catch (error) {
+        console.error('Error rendering user PDFs:', error);
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'm-5 p-5 text-center text-red-500';
+        errorContainer.textContent = `Failed to load PDFs: ${error.message}`;
+        return errorContainer;
+    }
 }

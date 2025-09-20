@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import uuid
@@ -9,7 +10,26 @@ class UserManager:
         os.makedirs(users_dir, exist_ok=True)
 
     def _get_user_file_path(self, username):
-        return os.path.join(self.users_dir, f"{username}.json")
+        # Hash the username to create a directory for the user's files
+        user_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+        user_folder = os.path.join(self.users_dir, user_hash)
+        os.makedirs(user_folder, exist_ok=True)
+        return os.path.join(user_folder, "user_data.json")
+
+    def _get_user_folder(self, username):
+        user_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+        return os.path.join(self.users_dir, user_hash)
+
+    def save_pdf_to_user_folder(self, username: str, filename: str, pdf_content: bytes):
+        user_folder = self._get_user_folder(username)
+        # Sanitize filename to prevent path traversal issues
+        sanitized_filename = os.path.basename(filename)
+        pdf_path = os.path.join(user_folder, sanitized_filename)
+        
+        with open(pdf_path, "wb") as f:
+            f.write(pdf_content)
+
+        return pdf_path
 
     def create_user(self, username, password):
         user_file = self._get_user_file_path(username)
@@ -84,6 +104,17 @@ class UserManager:
         if user_data:
             podcasts_data = user_data.get('podcasts', {})
             return [{**podcast_data, 'id': podcast_id} for podcast_id, podcast_data in podcasts_data.items()]
+        return []
+
+    def get_pdf_books(self, username):
+        user_data = self.get_user_data(username)
+        if user_data:
+            books_data = user_data.get('books', {})
+            pdf_books = []
+            for book_id, book_data in books_data.items():
+                if book_data.get('is_pdf') is True:
+                    pdf_books.append({**book_data, 'id': book_id})
+            return pdf_books
         return []
 
     def delete_book(self, username, book_id):

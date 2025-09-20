@@ -21,7 +21,7 @@ import { generateSpeech } from "./speechGen.js";
 
 // Import helpers
 import { checkPhraseSimilarity, detectHeadersAndFooters } from "./helpers.js";
-import { createFilesGrid } from './library.js';
+import { createFilesGrid, renderUserPdfs } from './library.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -609,10 +609,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         bookView.classList.remove('hidden');
         bookPageTitle.innerHTML = book.title;
-        const content = book.source === 'online' ? book.content : localBooks[book.id].text;
         
+        let bookContent = '';
+        let isPdfBook = false;
+
+        if (book.source === 'online' && book.is_pdf) {
+            isPdfBook = true;
+            bookContent = book.content; // This will be the path to the PDF on the server
+        } else if (book.source === 'online') {
+            bookContent = book.content;
+        } else if (book.source === 'local') {
+            bookContent = localBooks[book.id].text;
+            if (localBooks[book.id].pdfId) {
+                isPdfBook = true;
+            }
+        }
+
         // Text Pagination Logic
-        fullBookText = content || '';
+        fullBookText = bookContent || '';
         totalTextPages = Math.max(1, Math.ceil(fullBookText.length / charsPerPage));
         textCurrentPage = 1;
 
@@ -621,8 +635,19 @@ document.addEventListener('DOMContentLoaded', () => {
         autoDeleteChunksCheckbox.disabled = false;
         toggleTwoPageBtn.disabled = true;
 
-        if (book.source === 'local' && localBooks[book.id].pdfId) {
-            const pdfData = await loadPdf(localBooks[book.id].pdfId);
+        if (isPdfBook) {
+            let pdfData;
+            if (book.source === 'local') {
+                pdfData = await loadPdf(localBooks[book.id].pdfId);
+            } else if (book.source === 'online') {
+                // Fetch PDF from server
+                const response = await fetch(book.content); // book.content is the URL to the PDF
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch PDF from ${book.content}`);
+                }
+                pdfData = await response.arrayBuffer();
+            }
+
             if (pdfData) {
                 pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
                 const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
@@ -655,8 +680,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (library) library.remove();
 
         await renderBookContent(book);
-        if (currentUser) {
+        if (currentUser && !book.is_pdf) { // Only show save button for non-PDF online books
             saveBookBtn.classList.remove('hidden');
+        } else {
+            saveBookBtn.classList.add('hidden');
         }
     };
 
@@ -1171,6 +1198,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let matchingIndex = 0;
+    let lastMatchedIndex = 0;
+
     async function highlightPdfChunk(chunkObject) {
         const highlightLayer = document.getElementById('highlight-layer');
         if (!highlightLayer) return;
@@ -1189,7 +1219,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
         // Use a for...of loop to correctly handle await inside the loop
         for (const [pageIndex, pageNum] of visiblePages.entries()) {
+            console.log(matchingIndex, lastMatchedIndex, matchingFails)
             if (!pdfTextContent[pageNum] || textToFind.length === 0) continue;
+            matchingIndex += 1;
+            if (matchingIndex < lastMatchedIndex) continue;
     
             const page = await pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: currentScale });
@@ -1197,6 +1230,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Use a for...of loop to allow 'break' and 'continue'
             for (const item of pdfTextContent[pageNum].items) {
                 if (textToFind.length === 0) break; // Exit if we've found the entire chunk
+
+                console.log(item.str);
     
                 // Normalize the text from the PDF item for a more reliable comparison
                 const itemText = item.str.trim().replace(/\s+/g, ' ');
@@ -1206,6 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // We haven't found the start yet. Check if our remaining text starts with this item's text.
                     if (checkPhraseSimilarity(itemText, textToFind)) {
                         matchingStarted = true;
+                        lastMatchedIndex = matchingIndex;
                         // Fall-through to the highlighting logic below
                     } else {
                         continue; // Not the start, so skip to the next item
@@ -1253,16 +1289,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    libraryBtn.addEventListener('click', () => {
+    libraryBtn.addEventListener('click', async () => {
 
         // First reset the book view.
         setActiveBook(null);
         libraryBtn.classList.add('bg-indigo-100');
 
         bookView.classList.add('hidden');
-        const fileGrid = createFilesGrid([]);
-        mainDiv.appendChild(fileGrid);
-
+        
+        if (currentUser) {
+            const pdfGrid = await renderUserPdfs(currentUser);
+            mainDiv.appendChild(pdfGrid);
+        } else {
+            const fileGrid = createFilesGrid([]);
+            mainDiv.appendChild(fileGrid);
+        }
     });
 
     playbackSpeed.addEventListener('input', () => {
@@ -1334,26 +1375,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (fileExtension === 'pdf') {
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const arrayBuffer = event.target.result;
-                if (activeBook.source === 'local') {
-                    if (localBooks[activeBook.id].pdfId) {
-                        await deletePdf(localBooks[activeBook.id].pdfId);
+            if (currentUser) {
+                // If logged in, directly upload to server
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('content', fileName.replace(`.${fileExtension}`, '')); // Use filename as content
+
+                try {
+                    const response = await fetch(`/api/users/${currentUser}/pdfs`, {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to upload PDF.');
                     }
-                    localBooks[activeBook.id].pdfId = activeBook.id;
-                    localBooks[activeBook.id].text = '';
-                    saveLocalBooks();
-                    allTextChunks = [];
-                    currentChunkIndex = 0;
-                    
-                    await savePdf(activeBook.id, arrayBuffer);
-                    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
-                    renderPage(lastPage);
+                    const data = await response.json();
+                    showNotification(data.message, 'success');
+                    fetchAndRenderOnlineBooks(); // Refresh online books
+                    hideFileModal();
+                    return; // Exit after server upload
+                } catch (error) {
+                    showNotification(`Error uploading PDF: ${error.message}`, 'error');
+                    hideFileModal();
+                    return;
                 }
-            };
-            reader.readAsArrayBuffer(file);
+            } else {
+                // Fallback to local IndexedDB for anonymous users
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const arrayBuffer = event.target.result;
+                    if (activeBook.source === 'local') {
+                        if (localBooks[activeBook.id].pdfId) {
+                            await deletePdf(localBooks[activeBook.id].pdfId);
+                        }
+                        localBooks[activeBook.id].pdfId = activeBook.id;
+                        localBooks[activeBook.id].text = '';
+                        saveLocalBooks();
+                        allTextChunks = [];
+                        currentChunkIndex = 0;
+                        
+                        await savePdf(activeBook.id, arrayBuffer);
+                        pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
+                        renderPage(lastPage);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
         } else if (fileExtension === 'epub') {
             if (activeBook.source === 'local') {
                 if (localBooks[activeBook.id].pdfId) {
@@ -1885,11 +1955,22 @@ document.addEventListener('DOMContentLoaded', () => {
         let bookData = {};
         let isUpdatingOnlineBook = activeBook.source === 'online';
 
+        // Determine if the active book is a PDF based on its content or a flag
+        const isPdfBook = activeBook.is_pdf || (activeBook.source === 'local' && localBooks[activeBook.id].pdfId);
+
+        if (isPdfBook) {
+            showNotification('PDFs are saved immediately upon upload. No further saving action is needed.', 'info');
+            return;
+        }
+
+        // For text-based books, proceed with the existing save logic
         if (isUpdatingOnlineBook) {
             bookData.content = fullBookText; // Use full text
+            bookData.is_pdf = false; // Explicitly mark as not a PDF
         } else {
             bookData.title = activeBook.title;
             bookData.content = localBooks[activeBook.id].text;
+            bookData.is_pdf = false; // Explicitly mark as not a PDF
         }
 
         try {
@@ -1914,9 +1995,12 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchAndRenderOnlineBooks();
 
             if (!isUpdatingOnlineBook) {
-                delete localBooks[activeBook.id];
-                saveLocalBooks();
-                renderLocalBooks();
+                // If a local book was saved online, remove it from local storage
+                if (localBooks[activeBook.id]) {
+                    delete localBooks[activeBook.id];
+                    saveLocalBooks();
+                    renderLocalBooks();
+                }
                 activeBook = null;
             }
         } catch (error) {
@@ -1930,7 +2014,17 @@ document.addEventListener('DOMContentLoaded', () => {
             'Delete',
             async () => {
                 try {
-                    const response = await fetch(`/api/users/${currentUser}/books/${bookId}`, { method: 'DELETE' });
+                    const bookToDelete = onlineBooks.find(book => book.id === bookId);
+                    if (!bookToDelete) throw new Error("Book not found in online list.");
+
+                    let url = `/api/users/${currentUser}/books/${bookId}`;
+                    if (bookToDelete.is_pdf) {
+                        // If it's a PDF, call the dedicated PDF delete endpoint (if you create one)
+                        // For now, we'll assume the generic delete handles it if the content is just a path.
+                        // If a specific PDF cleanup is needed, a new endpoint might be required.
+                    }
+
+                    const response = await fetch(url, { method: 'DELETE' });
                     if (!response.ok) {
                         const errorData = await response.json();
                         throw new Error(errorData.detail || 'Failed to delete the book.');

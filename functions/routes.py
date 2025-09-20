@@ -11,8 +11,8 @@ import requests
 import whisper
 from bs4 import BeautifulSoup
 from ebooklib import epub
-from fastapi import (APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile)
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import (APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile)
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 
 # Import shared objects from app.py
@@ -52,6 +52,27 @@ class KokoroVoice(BaseModel):
 class SpeechToTextResponse(BaseModel):
     text: str
     language: Optional[str] = None
+
+class BookData(BaseModel):
+    title: str
+    content: str
+    is_pdf: bool = False
+
+class PodcastGenerate(BaseModel):
+    title: str
+    text: str
+    engine: str
+    voice: str
+    api_key: Optional[str] = None
+
+class ReadWebsiteRequest(BaseModel):
+    url: str
+
+class BookUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    is_pdf: Optional[bool] = None
+
 
 # --- Helper Functions ---
 
@@ -410,6 +431,56 @@ async def add_book_route(username: str, book: BookData):
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "Book added successfully.", "book_id": book_id}
 
+@router.get("/api/users/{username}/pdfs")
+async def get_user_pdfs_route(username: str):
+    pdfs = user_manager.get_pdf_books(username)
+    return {"pdfs": pdfs}
+
+@router.post("/api/users/{username}/pdfs")
+async def upload_pdf_route(username: str, file: UploadFile = File(...), content: str = Form(...)):
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF files are supported.")
+
+    pdf_content = await file.read()
+    # Sanitize the content (which is the desired filename) to prevent path traversal
+    sanitized_content = os.path.basename(content) # Ensures only the filename part is used
+    filename_with_ext = f"{sanitized_content}.pdf"
+
+    try:
+        # Save the PDF to the user's folder and get the absolute path on the server
+        absolute_pdf_path = user_manager.save_pdf_to_user_folder(username, filename_with_ext, pdf_content)
+        
+        # Construct the URL that the frontend will use to fetch the PDF
+        pdf_fetch_url = f"/api/users/{username}/pdfs/{filename_with_ext}"
+
+        # Save book metadata to user's JSON with the fetch URL as content
+        book_data = {"title": sanitized_content, "content": pdf_fetch_url, "is_pdf": True}
+        success, book_id = user_manager.add_book(username, book_data)
+        if not success:
+            # If book metadata fails to save, attempt to remove the uploaded PDF file
+            if os.path.exists(absolute_pdf_path):
+                os.unlink(absolute_pdf_path)
+            raise HTTPException(status_code=500, detail="Failed to record PDF in user's books.")
+
+        return JSONResponse(content={
+            "message": "PDF uploaded and saved successfully.",
+            "book_id": book_id,
+            "path": pdf_fetch_url  # Return the fetch URL to the frontend
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save PDF: {str(e)}")
+
+@router.get("/api/users/{username}/pdfs/{filename}")
+async def get_user_pdf(username: str, filename: str):
+    # Sanitize filename to prevent path traversal issues
+    sanitized_filename = os.path.basename(filename)
+    user_pdf_path = os.path.join(user_manager._get_user_folder(username), sanitized_filename)
+
+    if not os.path.exists(user_pdf_path):
+        raise HTTPException(status_code=404, detail="PDF not found.")
+
+    return FileResponse(user_pdf_path, media_type="application/pdf")
+
 # --------------------------------
 # --- Users Podcast Management ---
 # --------------------------------
@@ -420,6 +491,20 @@ async def get_podcasts_route(username: str):
 
 @router.delete("/api/users/{username}/books/{book_id}")
 async def delete_book_route(username: str, book_id: str):
+    # When deleting a book, check if it's a PDF and remove the file from the server
+    user_data = user_manager.get_user_data(username)
+    if user_data and book_id in user_data.get('books', {}):
+        book_to_delete = user_data['books'][book_id]
+        if book_to_delete.get('is_pdf') and book_to_delete.get('content'):
+            # Extract filename from the URL to construct the absolute path
+            pdf_url = book_to_delete['content']
+            filename = os.path.basename(pdf_url)
+            pdf_absolute_path = os.path.join(user_manager._get_user_folder(username), filename)
+            
+            if os.path.exists(pdf_absolute_path):
+                os.unlink(pdf_absolute_path) # Delete the actual PDF file
+                print(f"Deleted PDF file: {pdf_absolute_path}")
+
     success = user_manager.delete_book(username, book_id)
     if not success:
         raise HTTPException(status_code=404, detail="Book not found or user does not exist.")
