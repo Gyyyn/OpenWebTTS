@@ -60,13 +60,39 @@
             </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md full">
-                <h3 class="text-xl font-bold mb-4">Gemini Voice (WIP)</h2>
+                <h3 class="text-xl font-bold mb-4">Gemini/Google Cloud TTS Voice</h2>
                 <div>
                     <p><i>Warning!</i> Setting you API key here could incurr charges if you exceed your free tokens. Use with care.</p>
+                    <button id="toggle-explanation-container" class="mt-2 block text-sm font-medium text-gray-700 hover:text-indigo-500 hover:cursor-pointer">Show/Hide detailed instructions</button>
+                    <div id="explanation-container" class="p-2">
+                        <h2 class="text-lg mt-2">Step 1: Set Up Your Project & API</h2>
+                        <ol role="list" class="ps-4 text-sm list list-decimal">
+                            <li>Go to the <a class="link p-1 bg-indigo-100 text-indigo-600 rounded-lg" href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> and sign in.</li>
+                            <li>Select or create a new project using the dropdown menu at the top of the page.</li>
+                            <li>In the main search bar, type <code>Cloud Text-to-Speech API</code> and select it.</li>
+                            <li>Click the blue <strong>ENABLE</strong> button if the API is not already active.</li>
+                        </ol>
+
+                        <h2 class="text-lg mt-2">Step 2: Create a Service Account & Download Key</h2>
+                        <ol role="list" class="ps-4 text-sm list list-decimal">
+                            <li>In the search bar, search for and navigate to the <strong>Credentials</strong> page.</li>
+                            <li>Click <strong>+ CREATE CREDENTIALS</strong> and select <strong>Service account</strong>.</li>
+                            <li>Give your service account a name (e.g., <code>my-tts-app-key</code>), then click <strong>CREATE AND CONTINUE</strong>, and finally click <strong>DONE</strong>.</li>
+                            <li>On the Credentials page, click the email address of the service account you just created.</li>
+                            <li>Go to the <strong>KEYS</strong> tab, click <strong>ADD KEY</strong>, and choose <strong>Create new key</strong>.</li>
+                            <li>Ensure <strong>JSON</strong> is selected as the key type and click <strong>CREATE</strong>. A JSON file will be downloaded to your computer.</li>
+                        </ol>
+
+                        <h2 class="text-lg mt-2">Step 3: Secure and Use Your Key</h2>
+                        <div class="p-2 text-sm bg-yellow-100">
+                            <p><strong>Important:</strong> Treat this downloaded JSON file like a password. Do not share it publicly, as it provides access to your Google Cloud account.</p>
+                            <p>You can now paste the path to this file here.</p>
+                        </div>
+                    </div>
                 </div>
                 <hr class="my-4">
                 <div>
-                    <label for="google-voice" class="block text-sm font-medium text-gray-700">Google API Key</label>
+                    <label for="google-voice" class="block text-sm font-medium text-gray-700">Google Cloud JSON Key File Path</label>
                     <input id="google-voice" name="google-voice" class="mt-1 block w-full pl-3 pr-10 py-2 bg-gray-100 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl" />
                 </div>
             </div>

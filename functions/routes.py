@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, KOKORO_DIR, USERS_DIR
 
 # Import other function modules
-import functions.gemini
+from functions.gemini import gemini_process_audio, gemini_list_voices
 from functions.kokoro import kokoro_process_audio
 from functions.kitten import kitten_process_audio
 from functions.users import UserManager
@@ -141,6 +141,36 @@ def get_kitten_voices() -> List[Voice]:
 
     return output
 
+def get_gemini_voices(api_key: str) -> List[Voice]:
+    output = []
+    
+    # The 'api_key' parameter should be the file path to your Google Cloud service account JSON file.
+    credentials_path = None
+    if api_key:
+        if os.path.exists(api_key):
+            credentials_path = api_key
+        else:
+            print(f"WARNING: The provided api_key='{api_key}' is not a valid file path. Trying to fall back on environment variables.")
+    
+    voices = gemini_list_voices(credentials_json_path=credentials_path)
+
+    for voice in voices:
+        # Also adding the language code to the name for better user experience
+        lang_code = voice.language_codes[0] if voice.language_codes else 'unknown'
+        output.append(Voice(id=voice.name, name=f"Gemini: {voice.name} ({lang_code})"))
+
+    if not voices:
+         print("---")
+         print("DEBUG: Gemini voices list is empty. This is likely a credential issue.")
+         print("Please check the following:")
+         print("1. If using the 'api_key' parameter, ensure it's a VALID PATH to your service account JSON file.")
+         print("2. If not using 'api_key', ensure the GOOGLE_APPLICATION_CREDENTIALS environment variable is set correctly.")
+         print("3. Ensure the service account has the 'Cloud Text-to-Speech API' enabled in your Google Cloud project.")
+         print("4. Check the server logs for any specific authentication errors from the Google Cloud client library.")
+         print("---")
+
+    return output
+
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
         if request.engine == "piper":
@@ -154,14 +184,25 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
         elif request.engine == "kokoro":
             kokoro_process_audio(request.voice, False, request.text, output_path)
         elif request.engine == "gemini":
-            if not request.api_key:
-                raise ValueError("Gemini API key is required for Gemini engine.")
-            audio_content = functions.gemini.text_to_speech(request.api_key, request.text, request.voice)
-            if audio_content:
-                with open(output_path, "wb") as f:
-                    f.write(audio_content)
+            use_env_var = "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
+
+            if os.path.exists(request.api_key):
+                print(f"Found '{request.api_key}', using it for authentication.")
+                gemini_process_audio(text=request.text, voice=request.voice, output_filename=output_path, credentials_json_path=request.api_key)
+            elif use_env_var:
+                print("Found GOOGLE_APPLICATION_CREDENTIALS environment variable, using it for authentication.")
+                # No need to pass the path, the function will find it automatically
+                gemini_process_audio(text=request.text, voice=request.voice, output_filename=output_path)
             else:
-                raise ValueError("Failed to get audio content from Gemini API.")
+                print("-" * 80)
+                print("WARNING: Could not find credentials.")
+                print("This script requires authentication to work.")
+                print("\nPlease do one of the following:")
+                print(f"1. Place your service account JSON key in this directory and name it '{local_credentials_file}'")
+                print("OR")
+                print("2. Set the GOOGLE_APPLICATION_CREDENTIALS environment variable.")
+                print("\nSee the README.md file for detailed instructions.")
+                print("-" * 80)
         elif request.engine == "kitten":
             kitten_process_audio(request.voice, False, request.text, output_path)
         else:
@@ -232,7 +273,7 @@ async def download_kokoro_voice(voice: KokoroVoice):
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
 @router.get("/api/voices", response_model=List[Voice])
-async def list_voices(engine: str):
+async def list_voices(engine: str, api_key: Optional[str] = None):
     if engine == "coqui":
         return get_coqui_voices()
     elif engine == "piper":
@@ -242,7 +283,7 @@ async def list_voices(engine: str):
     elif engine == "kitten":
         return get_kitten_voices()
     elif engine == "gemini":
-        return functions.gemini.list_voices()
+        return get_gemini_voices(api_key=api_key)
     else:
         return []
 
@@ -573,3 +614,4 @@ async def generate_podcast_route(username: str, podcast: PodcastGenerate, backgr
         "status": "generating",
         "audio_url": audio_url
     })
+

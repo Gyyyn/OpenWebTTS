@@ -802,7 +802,20 @@ document.addEventListener('DOMContentLoaded', () => {
         voiceSelect.innerHTML = '<option value="">Loading voices...</option>';
 
         try {
-            const response = await fetch(`/api/voices?engine=${engine}`);
+
+            let endpoint = `/api/voices?engine=${engine}`;
+
+            let apiKey = null;
+            if (engine === 'gemini') {
+                apiKey = localStorage.getItem('geminiApiKey');
+                if (!apiKey) {
+                    alert('Please set your Gemini API Key in the Config page.');
+                }
+
+                endpoint += `&api_key=${apiKey}`;
+            }
+
+            const response = await fetch(endpoint);
             if (!response.ok) {
                 throw new Error('Failed to fetch voices.');
             }

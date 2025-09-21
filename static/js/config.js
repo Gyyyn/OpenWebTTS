@@ -185,6 +185,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     });
 
+    const apiKeyContainer = document.getElementById('explanation-container');
+    apiKeyContainer.style.display = 'none';
+
+    document.getElementById('toggle-explanation-container').addEventListener('click', function() {
+        apiKeyContainer.style.display = apiKeyContainer.style.display === 'none' ? 'block' : 'none';
+    });
+
     // Initial load
     getPiperVoices();
     getCacheSize(); // Call getCacheSize on initial load
