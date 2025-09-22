@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const collapseSidebarButton = document.getElementById('collapse-sidebar-btn');
     const newBookBtn = document.getElementById('new-book-btn');
     const libraryBtn = document.getElementById('library-btn');
+    const commandsBtn = document.getElementById('commands-btn');
     const generatePodcastBtn = document.getElementById('create-offline-podcast-btn');
     const stopBtn = document.getElementById('stop-btn');
     const prevPageBtn = document.getElementById('prev-page');
@@ -152,17 +153,38 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebar.classList.toggle('collapsed');
         collapseSidebarButton.classList.toggle('rotate-180');
         collapseSidebarButton.classList.toggle('cursor-[w-resize]');
-        collapseSidebarButton.classList.toggle('cursor-[e-resize]')
-        mainDiv.classList.toggle('ml-[260px]');
-        mainDiv.classList.toggle('ml-[64px]');   
+        collapseSidebarButton.classList.toggle('cursor-[e-resize]');
+
+        if (sidebar.classList.contains('collapsed')) {
+            mainDiv.classList.remove('md:ml-[260px]');
+            mainDiv.classList.add('md:ml-[64px]');
+        } else {
+            mainDiv.classList.remove('md:ml-[64px]');
+            mainDiv.classList.add('md:ml-[260px]');
+        }
     }
   
     collapseSidebarButton.addEventListener('click', function(e) {
-
         e.preventDefault();
         handleSidebarCollapse();
-
     });
+
+    // Set initial sidebar state based on screen width
+    if (window.innerWidth < 768) { // Tailwind's `md` breakpoint
+        if (!sidebar.classList.contains('collapsed')) {
+            sidebar.classList.add('collapsed');
+            collapseSidebarButton.classList.remove('rotate-180');
+            collapseSidebarButton.classList.remove('cursor-[w-resize]');
+            collapseSidebarButton.classList.add('cursor-[e-resize]');
+        }
+    } else {
+        if (sidebar.classList.contains('collapsed')) {
+            sidebar.classList.remove('collapsed');
+            collapseSidebarButton.classList.add('rotate-180');
+            collapseSidebarButton.classList.add('cursor-[w-resize]');
+            collapseSidebarButton.classList.remove('cursor-[e-resize]');
+        }
+    }
 
     function saveLocalBooks() {
         localStorage.setItem('books', JSON.stringify(localBooks));
@@ -468,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { showInput = true, inputValue = '' } = options;
 
         modalTitle.textContent = title;
-        modalActionBtn.textContent = actionText;
+        modalActionBtn.querySelector('span:first-child').textContent = actionText;
         modalActionBtn.onclick = actionCallback;
 
         if (showInput) {
@@ -489,15 +511,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add event listener for keydown events on the document
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Enter') {
-            // Trigger the modalActionBtn click event
-            if (!bookModal.classList.contains('hidden')) {
-                modalActionBtn.click();
-            }
+            if (!bookModal.classList.contains('hidden'))
+            modalActionBtn.click();
         } else if (event.key === 'Escape') {
-            // Trigger the modalCancelBtn click event
-            if (!bookModal.classList.contains('hidden')) {
-                modalCancelBtn.click();
-            }
+            if (!bookModal.classList.contains('hidden'))
+            modalCancelBtn.click();
         }
     });
 
@@ -689,21 +707,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function createNewBook() {
-        showBookModal(
-            'New Temporary Book',
-            'Create',
-            () => {
-                const bookTitle = bookTitleInput.value;
-                if (bookTitle) {
-                    const bookId = `book-${Date.now()}`;
-                    localBooks[bookId] = { title: bookTitle, text: '', autoRead: false, autoDeleteChunks: false, pdfId: null };
-                    saveLocalBooks();
-                    setActiveBook({ ...localBooks[bookId], id: bookId, source: 'local' });
-                }
-                hideBookModal();
-            },
-            { showInput: true, inputValue: '' }
-        );
+
+        const randomTitles = [
+            "An Expert's Guide to Knowing Absolutely Everything About Things I Just Googled",
+            "The Life-Changing Magic of Leaving It for Tomorrow",
+            "How to Win Friends and Alienate People with Your Unsolicited Advice",
+            "I'm Listening: A Memoir About Waiting for My Turn to Speak",
+            "Meditations on the Serenity of an Uncharged Phone Battery",
+            "Achieving Peak Productivity Between the Hours of 2 and 4 AM",
+            "The Subtle Art of Being Loudly Correct in Group Chats",
+            "Why Your Opinion Matters (A Collection of Short Fictional Stories)",
+            "Journey to the Center of My Own Comfort Zone",
+            "Conquering Your Goals, As Soon As You Figure Out What They Are"
+        ];
+
+        const bookId = `book-${Date.now()}`;
+        const randomIndex = Math.floor(Math.random() * randomTitles.length);
+        const randomTitle = randomTitles[randomIndex];
+        localBooks[bookId] = {
+            title: randomTitle,
+            text: '',
+            autoRead: false,
+            autoDeleteChunks:
+            false,
+            pdfId: null
+        };
+
+        saveLocalBooks();
+        setActiveBook({ ...localBooks[bookId], id: bookId, source: 'local' });
     }
 
     function updateCheckbox(checkboxElement, bookProperty) {
@@ -1133,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomOutBtn.disabled = true;
     }
 
-    async function renderPage(num) {
+    async function renderPage(num, skipTextExtraction = false) {
         if (!pdfDoc) return;
         pdfViewerWrapper.classList.remove('hidden');
         textboxViewerWrapper.classList.add('hidden');
@@ -1166,6 +1197,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             await page.render(renderContext).promise;
+
+            if (skipTextExtraction) {
+                return '';
+            }
+
             let textContent = await page.getTextContent();
 
             if (skipHeadersNFootersCheckbox.checked) {
@@ -1185,17 +1221,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 page2Text = await renderSinglePage(num + 1, pdfViewer);
             }
 
-            const combinedText = page1Text + ' ' + page2Text;
-            allTextChunks = splitTextIntoChunks(combinedText);
-            textDisplay.textContent = combinedText;
+            if (!skipTextExtraction) {
+                const combinedText = page1Text + ' ' + page2Text;
+                allTextChunks = splitTextIntoChunks(combinedText);
+                textDisplay.textContent = combinedText;
+            }
 
             pageNumSpan.textContent = `Pages ${num}-${Math.min(num + 1, pdfDoc.numPages)} of ${pdfDoc.numPages}`;
             nextPageBtn.disabled = num >= pdfDoc.numPages - 1;
 
         } else {
             const pageText = await renderSinglePage(num, pdfViewer);
-            allTextChunks = splitTextIntoChunks(pageText);
-            textDisplay.textContent = pageText;
+
+            if (!skipTextExtraction) {
+                allTextChunks = splitTextIntoChunks(pageText);
+                textDisplay.textContent = pageText;
+            }
 
             pageNumSpan.textContent = `Page ${num} of ${pdfDoc.numPages}`;
             nextPageBtn.disabled = num >= pdfDoc.numPages;
@@ -1205,7 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(pdfDoc.fingerprint, num);
         prevPageBtn.disabled = num <= 1;
 
-        if (activeBook && activeBook.source === 'local') {
+        if (activeBook && activeBook.source === 'local' && !skipTextExtraction) {
             localBooks[activeBook.id].text = textDisplay.textContent;
             saveLocalBooks();
         }
@@ -1370,6 +1411,129 @@ document.addEventListener('DOMContentLoaded', () => {
         webPageLinkInput.disabled = false;
     });
 
+    async function saveOcrText(bookId, text) {
+        try {
+            const response = await fetch(`/api/users/${currentUser}/books/${bookId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ocr_text: text }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to save OCR text.');
+            }
+            console.log('OCR text saved successfully for book:', bookId);
+            // Refresh the book list to get the new data with ocr_text
+            await fetchAndRenderOnlineBooks();
+            // Return the newly fetched book
+            return onlineBooks.find(b => b.id === bookId);
+        } catch (error) {
+            console.error('Error saving OCR text:', error);
+            showNotification(`Failed to save OCR text: ${error.message}`, 'error');
+            return null; // Return null on failure
+        }
+    }
+
+    function pollOcrResult(taskId, bookId = null) {
+        const interval = setInterval(async () => {
+            try {
+                const response = await fetch(`/api/ocr_result/${taskId}`);
+                if (!response.ok) {
+                    clearInterval(interval);
+                    throw new Error('Failed to get OCR status.');
+                }
+                const data = await response.json();
+    
+                if (data.status === 'completed') {
+                    clearInterval(interval);
+                    loadingDiv.classList.add('hidden');
+                    generateBtn.disabled = false;
+                    showNotification('PDF OCR completed successfully.', 'success');
+
+                    if (bookId && currentUser) {
+                        const newOnlineBook = await saveOcrText(bookId, data.text);
+                        if (newOnlineBook) {
+                            setActiveBook({ ...newOnlineBook, source: 'online' });
+                        } else {
+                            // Fallback if the book couldn't be found after saving
+                            console.error("Could not find online book after saving OCR text. Falling back to text view.");
+                            fullBookText = data.text;
+                            renderTextPage(1);
+                        }
+                    } else {
+                        // Anonymous user flow
+                        fullBookText = data.text;
+                        if (activeBook.source === 'local') {
+                            localBooks[activeBook.id].text = fullBookText;
+                            saveLocalBooks();
+                        }
+                        renderTextPage(1);
+                    }
+    
+                } else if (data.status === 'failed') {
+                    clearInterval(interval);
+                    console.error('OCR failed:', data.detail);
+                    alert(`OCR failed: ${data.detail}`);
+                    loadingDiv.classList.add('hidden');
+                    generateBtn.disabled = false;
+    
+                } else {
+                    // 'processing', so we continue polling.
+                    console.log('OCR in progress...');
+                }
+            } catch (error) {
+                clearInterval(interval);
+                console.error('Error polling for OCR result:', error);
+                alert(`An error occurred while checking OCR status: ${error.message}`);
+                loadingDiv.classList.add('hidden');
+                generateBtn.disabled = false;
+            }
+        }, 2000); // Poll every 2 seconds
+    }
+
+    async function handlePdfUpload(file, bookId = null) {
+        loadingDiv.classList.remove('hidden');
+        generateBtn.disabled = true;
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetch('/api/read_pdf', { method: 'POST', body: formData });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to read PDF.');
+            }
+            const data = await response.json();
+            
+            if (data.status === 'completed') {
+                if (bookId && currentUser) {
+                    saveOcrText(bookId, data.text);
+                }
+                fullBookText = data.text;
+                if (activeBook.source === 'local') {
+                    localBooks[activeBook.id].text = fullBookText;
+                    saveLocalBooks();
+                }
+                totalTextPages = Math.max(1, Math.ceil(fullBookText.length / charsPerPage));
+                renderTextPage(1);
+                loadingDiv.classList.add('hidden');
+                generateBtn.disabled = false;
+            } else if (data.status === 'ocr_started') {
+                showNotification('PDF contains no text. Starting background OCR...', 'info');
+                pollOcrResult(data.task_id, bookId);
+            } else {
+                throw new Error('Received an unexpected response from the server.');
+            }
+
+        } catch (error) {
+            console.error('Error reading PDF:', error);
+            alert(`An error occurred: ${error.message}`);
+            textDisplay.innerHTML = '';
+            loadingDiv.classList.add('hidden');
+            generateBtn.disabled = false;
+        }
+    }
+
     pdfFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1406,7 +1570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     const data = await response.json();
                     showNotification(data.message, 'success');
-                    fetchAndRenderOnlineBooks(); // Refresh online books
+                    await handlePdfUpload(file, data.book_id); // Now, read the PDF content
                     hideFileModal();
                     return; // Exit after server upload
                 } catch (error) {
@@ -1416,26 +1580,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 // Fallback to local IndexedDB for anonymous users
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    const arrayBuffer = event.target.result;
-                    if (activeBook.source === 'local') {
-                        if (localBooks[activeBook.id].pdfId) {
-                            await deletePdf(localBooks[activeBook.id].pdfId);
-                        }
-                        localBooks[activeBook.id].pdfId = activeBook.id;
-                        localBooks[activeBook.id].text = '';
-                        saveLocalBooks();
-                        allTextChunks = [];
-                        currentChunkIndex = 0;
-                        
-                        await savePdf(activeBook.id, arrayBuffer);
-                        pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                        const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
-                        renderPage(lastPage);
-                    }
-                };
-                reader.readAsArrayBuffer(file);
+                await handlePdfUpload(file);
             }
         } else if (fileExtension === 'epub') {
             if (activeBook.source === 'local') {
@@ -1476,8 +1621,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadingDiv.classList.add('hidden');
                 generateBtn.disabled = false;
             }
+        } else if (fileExtension === 'docx') {
+            if (activeBook.source === 'local') {
+                if (localBooks[activeBook.id].pdfId) {
+                    await deletePdf(localBooks[activeBook.id].pdfId);
+                }
+                localBooks[activeBook.id].pdfId = null;
+                saveLocalBooks();
+            }
+
+            loadingDiv.classList.remove('hidden');
+            generateBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                const response = await fetch('/api/read_docx', { method: 'POST', body: formData });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to read DOCX.');
+                }
+                const data = await response.json();
+                
+                // Load the full text and render the first page
+                fullBookText = data.text;
+                if (activeBook.source === 'local') {
+                    localBooks[activeBook.id].text = fullBookText;
+                    saveLocalBooks();
+                }
+                totalTextPages = Math.max(1, Math.ceil(fullBookText.length / charsPerPage));
+                renderTextPage(1);
+
+            } catch (error) {
+                console.error('Error reading DOCX:', error);
+                alert(`An error occurred: ${error.message}`);
+                textDisplay.innerHTML = '';
+            } finally {
+                loadingDiv.classList.add('hidden');
+                generateBtn.disabled = false;
+            }
         } else {
-            alert('Please select a valid PDF or EPUB file.');
+            alert('Please select a valid PDF, EPUB, or DOCX file.');
         }
         
         hideFileModal();
@@ -1756,18 +1940,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const commands = [
         { name: 'New Book', description: 'Create a new temporary book', action: () => { createNewBook(); hideCommandPalette(); } },
-        { name: 'Import File', description: 'Import a PDF or EPUB file', action: () => { showFileModal(); hideCommandPalette(); } },
-        { name: 'Generate Speech', description: 'Generate speech for the current text', action: () => { startSpeechGeneration(); hideCommandPalette(); } },
-        { name: 'Stop Playback', description: 'Stop current audio playback', action: () => { stopAudioQueue(); hideCommandPalette(); } },
-        { name: 'Record Audio', description: 'Start recording audio for transcription', action: () => { startRecording(); hideCommandPalette(); } },
-        { name: 'Transcribe Audio File', description: 'Transcribe an audio file', action: () => { audioFileInput.click(); hideCommandPalette(); } },
+        { name: 'Delete Book', description: 'Delete the currently active book', action: () => { 
+            if (activeBook) {
+                if (activeBook.source === 'online') {
+                    deleteOnlineBook(activeBook.id);
+                } else if (activeBook.source === 'local') {
+                    deleteLocalBook(activeBook.id);
+                }
+                hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Rename Book', description: 'Rename the currently active book', action: () => { 
+            if (activeBook) {
+                if (activeBook.source === 'online') {
+                    renameOnlineBook(activeBook);
+                } else if (activeBook.source === 'local') {
+                    renameLocalBook(activeBook);
+                }
+                hideCommandPalette();
+            } else showNotification('No book is currently active.');
+         } },
+
+        { name: 'Import File', description: 'Import a PDF or EPUB file', action: () => {
+            if (activeBook) {
+                showFileModal(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Generate Speech', description: 'Generate speech for the current text', action: () => {
+            if (activeBook) {
+                startSpeechGeneration(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Stop Playback', description: 'Stop current audio playback', action: () => {
+            if (activeBook) {
+                stopAudioQueue(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Record Audio', description: 'Start recording audio for transcription', action: () => {
+            if (activeBook) {
+                startRecording(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Transcribe Audio File', description: 'Transcribe an audio file', action: () => {
+            if (activeBook) {
+                audioFileInput.click(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
         { name: 'Login/Create Account', description: 'Login or create a new user account', action: () => { showLoginModal(); hideCommandPalette(); } },
-        { name: 'Save Book (Online)', description: 'Save the current book to your online account', action: () => { handleSaveBook(); hideCommandPalette(); } },
-        { name: 'Toggle Two-Page View', description: 'Toggle between single and two-page PDF view', action: () => { toggleTwoPageBtn.click(); hideCommandPalette(); } },
-        { name: 'Zoom In PDF', description: 'Increase zoom level of PDF', action: () => { zoomInBtn.click(); hideCommandPalette(); } },
-        { name: 'Zoom Out PDF', description: 'Decrease zoom level of PDF', action: () => { zoomOutBtn.click(); hideCommandPalette(); } },
-        { name: 'Previous PDF Page', description: 'Go to the previous page in PDF viewer', action: () => { prevPageBtn.click(); hideCommandPalette(); } },
-        { name: 'Next PDF Page', description: 'Go to the next page in PDF viewer', action: () => { nextPageBtn.click(); hideCommandPalette(); } },
+        { name: 'Save Book (Online)', description: 'Save the current book to your online account', action: () => {
+            if (activeBook) {
+                handleSaveBook(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Toggle Two-Page View', description: 'Toggle between single and two-page PDF view', action: () => {
+            if (activeBook) {
+                toggleTwoPageBtn.click(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Zoom In PDF', description: 'Increase zoom level of PDF', action: () => {
+            if (activeBook) {
+                zoomInBtn.click(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Zoom Out PDF', description: 'Decrease zoom level of PDF', action: () => {
+            if (activeBook) {
+                zoomOutBtn.click(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Previous Page', description: 'Go to the previous page', action: () => {
+            if (activeBook) {
+                prevPageBtn.click(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
+        { name: 'Next Page', description: 'Go to the next page', action: () => {
+            if (activeBook) {
+                nextPageBtn.click(); hideCommandPalette();
+            } else showNotification('No book is currently active.');
+        } },
     ];
 
     let filteredCommands = [];
@@ -1856,6 +2105,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     commandPaletteModal.addEventListener('click', (e) => {
         if (e.target === commandPaletteModal) hideCommandPalette();
+    });
+
+    commandsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (commandPaletteModal.classList.contains('hidden')) showCommandPalette();
+        else hideCommandPalette();
     });
 
     renderLocalBooks();

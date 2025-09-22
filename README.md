@@ -9,6 +9,9 @@ OpenWebTTS is a local web-based application that provides a simple interface for
 - **Simple Web Interface**: A clean UI for text input and audio generation.
 - **Multiple Engine Support**: Use Piper, Kokoro or Coqui for TTS or OpenAI Whisper for STT.
 - **Real-time Generation**: Generates as you listen for smooth playback or recording.
+- **PDF, Epub, docx and URL import support**: And more to come!
+- **Automatically skip headers and footers**: Premium feature no more!
+- **Automatic OCR**: If your PDF doesn't have text, we can make some for you.
 
 ## Project Structure
 

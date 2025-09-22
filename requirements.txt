@@ -11,3 +11,8 @@ requests
 ebooklib
 pywebview
 openai-whisper
+google-cloud-texttospeech
+pytesseract
+pdf2image
+Pillow
+python-docx

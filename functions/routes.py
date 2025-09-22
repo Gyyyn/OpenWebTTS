@@ -7,8 +7,12 @@ from io import BytesIO
 from typing import List, Dict, Optional
 import ebooklib
 import fitz
+import docx
 import requests
 import whisper
+import pytesseract
+from pdf2image import convert_from_bytes
+from PIL import Image
 from bs4 import BeautifulSoup
 from ebooklib import epub
 from fastapi import (APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile)
@@ -72,6 +76,7 @@ class BookUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     is_pdf: Optional[bool] = None
+    ocr_text: Optional[str] = None
 
 
 # --- Helper Functions ---
@@ -302,8 +307,29 @@ async def synthesize_speech(request: SynthesizeRequest, background_tasks: Backgr
         background_tasks.add_task(_generate_audio_file, request, output_path)
         return JSONResponse(content={"audio_url": audio_url, "status": "generating"})
 
-@router.post("/api/read_pdf", response_model=PdfText)
-async def read_pdf(file: UploadFile = File(...)):
+OCR_CACHE_DIR = os.path.join(tempfile.gettempdir(), "openwebtts_ocr_cache")
+os.makedirs(OCR_CACHE_DIR, exist_ok=True)
+
+def _perform_ocr(pdf_bytes: bytes, task_id: str):
+    """Background task to perform OCR and save the result."""
+    try:
+        images = convert_from_bytes(pdf_bytes)
+        ocr_text = ""
+        for image in images:
+            ocr_text += pytesseract.image_to_string(image)
+        
+        result_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.txt")
+        with open(result_path, "w", encoding="utf-8") as f:
+            f.write(ocr_text)
+        print(f"OCR for task {task_id} completed. Result saved to {result_path}")
+    except Exception as e:
+        print(f"Error during OCR for task {task_id}: {e}")
+        result_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.error")
+        with open(result_path, "w", encoding="utf-8") as f:
+            f.write(str(e))
+
+@router.post("/api/read_pdf")
+async def read_pdf(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload a PDF.")
     try:
@@ -313,9 +339,47 @@ async def read_pdf(file: UploadFile = File(...)):
         for page_num in range(len(pdf_document)):
             page = pdf_document.load_page(page_num)
             text += page.get_text()
-        return PdfText(text=text)
+
+        if text.strip():
+            print("Extracted text directly from PDF.")
+            return JSONResponse(content={"status": "completed", "text": text})
+
+        # If text is empty, perform OCR in the background
+        print("No text in PDF, starting OCR in background.")
+        
+        # Generate a unique ID for this task
+        task_id = hashlib.sha256(pdf_bytes).hexdigest()
+        
+        # Check if result already exists (e.g. from a previous run)
+        result_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.txt")
+        if os.path.exists(result_path):
+            with open(result_path, "r", encoding="utf-8") as f:
+                ocr_text = f.read()
+            return JSONResponse(content={"status": "completed", "text": ocr_text})
+
+        if background_tasks:
+            background_tasks.add_task(_perform_ocr, pdf_bytes, task_id)
+        
+        return JSONResponse(content={"status": "ocr_started", "task_id": task_id})
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read PDF. Reason: {str(e)}")
+
+@router.get("/api/ocr_result/{task_id}")
+async def get_ocr_result(task_id: str):
+    result_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.txt")
+    error_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.error")
+
+    if os.path.exists(result_path):
+        with open(result_path, "r", encoding="utf-8") as f:
+            text = f.read()
+        return JSONResponse(content={"status": "completed", "text": text})
+    elif os.path.exists(error_path):
+        with open(error_path, "r", encoding="utf-8") as f:
+            error_message = f.read()
+        return JSONResponse(content={"status": "failed", "detail": error_message})
+    else:
+        return JSONResponse(content={"status": "processing"})
 
 @router.post("/api/read_epub", response_model=PdfText)
 async def read_epub(file: UploadFile = File(...)):
@@ -344,6 +408,20 @@ async def read_epub(file: UploadFile = File(...)):
             os.unlink(temp_epub_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read EPUB. Reason: {str(e)}")
+
+@router.post("/api/read_docx", response_model=PdfText)
+async def read_docx(file: UploadFile = File(...)):
+    if not file.filename.endswith(".docx"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a DOCX file.")
+    try:
+        docx_bytes = await file.read()
+        doc = docx.Document(BytesIO(docx_bytes))
+        full_text = []
+        for para in doc.paragraphs:
+            full_text.append(para.text)
+        return PdfText(text="\n".join(full_text))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read DOCX. Reason: {str(e)}")
 
 @router.get("/api/clear_cache")
 async def clear_cache():
@@ -427,6 +505,7 @@ class ReadWebsiteRequest(BaseModel):
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    ocr_text: Optional[str] = None
 
 @router.post("/api/read_website", response_model=PdfText)
 async def read_website(request: ReadWebsiteRequest):

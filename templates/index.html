@@ -39,6 +39,11 @@
                     <ion-icon name="cog-outline"></ion-icon>
                     <span class="ms-2 hide-on-collapse">Config</span>
                 </a>
+                <button id="commands-btn" class="button mb-2 hover:bg-gray-200 w-full block text-left rounded-lg px-2 py-1">
+                    <ion-icon name="terminal-outline"></ion-icon>
+                    <span class="ms-2 hide-on-collapse">Commands <span class="text-xs">(CTRL/⌘K)</span></span>
+                </button>
+
 
                 <hr class="my-2" />
 
@@ -96,7 +101,7 @@
     </div>
 
     <!-- Main Content -->
-    <div id="main" class="ml-[260px] min-h-[100dvh]">
+    <div id="main" class="ml-[64px] md:ml-[260px] min-h-[100dvh]">
         <div id="book-view" class="bg-white 2xl:bg-gray-100 flex flex-col h-[100vh] items-center hidden">
 
             <!-- File Picker Modal -->
@@ -108,7 +113,7 @@
                             <ion-icon name="close-outline" size="large"></ion-icon>
                         </button>
                     </div>
-                    <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+                    <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub,.docx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
                     <hr class="my-4">
                     <div class="flex flex-col justify-between items-start mb-4">
                         <h3 class="text-m font-semibold text-gray-800">URL</h3>
@@ -125,7 +130,7 @@
             <div class="flex items-end px-6 py-4 w-full" style="background-image: linear-gradient(180deg,rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.5) 80%, rgba(255, 255, 255, 0) 100%);">
                 <!-- Main Model Selector -->
                 <div>
-                    <label for="engine" class="block text-sm font-medium text-gray-700">TTS Engine</label>
+                    <label for="engine" class="hidden md:block text-xs font-medium text-gray-700">TTS Engine</label>
                     <select id="engine" name="engine" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
                         <option value="piper" >Piper</option>
                         <option value="kokoro">Kokoro</option>
@@ -135,7 +140,7 @@
                     </select>
                 </div>
                 <div class="ms-2">
-                    <label for="voice" class="block text-sm font-medium text-gray-700">Voice/Speaker</label>
+                    <label for="voice" class="hidden md:block text-xs font-medium text-gray-700">Voice/Speaker</label>
                     <select id="voice" name="voice" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
                         <option value="">-- Select an engine first --</option>
                     </select>
@@ -167,18 +172,17 @@
                         <ion-icon name="chevron-down-outline"></ion-icon>
                     </button>
                 </div>
-                <!-- Podcast Generation Button -->
                 <div class="ms-2">
-                    <button id="create-offline-podcast-btn" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
-                        <ion-icon name="mic-outline" class="mr-2"></ion-icon>
-                        <span>Create Offline Podcast</span>
+                    <button id="create-offline-podcast-btn" class="p-3 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                        <ion-icon name="mic-outline"></ion-icon>
+                        <span class="hidden md:inline ms-2">Create Offline Podcast</span>
                     </button>
                 </div>
             </div>
 
-            <div class="backdrop-blur-lg z-10 border border-indigo-200 bottom-0 fixed flex flex-col items-center justify-between m-4 p-4 rounded-xl w-[80%] shadow-xl">
+            <div class="backdrop-blur-lg w-[90dvw] md:w-[80%] z-10 border border-indigo-200 left-0 md:left-[inherit] bottom-0 fixed flex flex-col items-center justify-between m-4 p-4 rounded-xl shadow-xl">
                 
-                <div class="flex items-center justify-between w-full">
+                <div class="flex flex-col md:flex-row items-center justify-between w-full">
                     <!-- TTS Section -->
                     <div class="flex items-end">
                         <div id="generate-section" class="flex">
@@ -199,7 +203,11 @@
                             </div>
                             <div class="flex items-center justify-between">
                                 <div class="ml-2">
-                                    <label for="playback-speed" class="block text-sm font-medium text-gray-700">Speed: <span id="playback-speed-display" class="mx-1 font-bold"></span>(0.7x - 2.6x)</label>
+                                    <label for="playback-speed" class="block text-sm font-medium text-gray-700">
+                                        <span class="me-1 hidden md:inline">Speed:</span>
+                                        <span id="playback-speed-display" class="mx-1 font-bold"></span>
+                                        <span class="me-1 hidden md:inline">(0.7x - 2.6x)</span>
+                                    </label>
                                     <input type="range" id="playback-speed" min="0.8" max="2.6" step="0.3" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" disabled>
                                 </div>
                             </div>
@@ -220,7 +228,7 @@
                     </div>
 
                     <!-- Speech to Text Section -->
-                    <div id="speech-to-text-section" class="flex">
+                    <div id="speech-to-text-section" class="flex mt-1 md:mt-0 md:ms-2">
                         <button id="record-btn" class="ms-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors py-2 px-4">
                             <span class="me-2">Record Audio</span>
                             <ion-icon name="mic-outline"></ion-icon>
@@ -245,9 +253,9 @@
                     </div>
                 </div>
 
-                <div id="current-chunk" class="hidden w-full border-t mt-2 pt-2">
+                <div id="current-chunk" class="hidden w-full border-t mt-2">
                     <div class="flex justify-between items-start">
-                        <span>
+                        <span class="mt-2 text-xs md:text-sm">
                             <!-- The current text chunk will appear here -->
                         </span>
                         <button id="close-current-chunk" class="ml-4 text-gray-400 hover:text-gray-700 focus:outline-none" title="Close">
@@ -260,11 +268,16 @@
 
             <div class="px-6 mb-20">
 
-                <div id="pagination-controls" class="flex justify-between items-center mb-2">
-                    <button id="prev-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
-                        <ion-icon name="chevron-back-outline"></ion-icon>
-                        <span class="ms-2">Previous</span>
-                    </button>
+                <div id="pagination-controls" class="flex flex-col md:flex-row justify-between items-center mb-2">
+                    <div class="flex justify-center items-center">
+                        <button id="prev-page" class="px-3 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
+                            <span><ion-icon name="arrow-back"></ion-icon></span>
+                        </button>
+                        <span id="page-num" class="text-sm text-gray-600"></span>
+                        <button id="next-page" class="px-3 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
+                            <span><ion-icon name="arrow-forward"></ion-icon></span>
+                        </button>
+                    </div>
                     <div class="flex justify-center items-center">
                         <button id="zoom-in-btn" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
                             <ion-icon name="add-circle-outline"></ion-icon>
@@ -273,11 +286,6 @@
                             <ion-icon name="remove-circle-outline"></ion-icon>
                         </button>
                     </div>
-                    <span id="page-num" class="text-sm text-gray-600"></span>
-                    <button id="next-page" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
-                        <span class="me-2">Next</span>
-                        <ion-icon name="chevron-forward-outline"></ion-icon>
-                    </button>
                 </div>
 
                 <div id="textbox-viewer-wrapper" class="2xl:w-[80%] 2xl:rounded-xl 2xl:shadow-lg 2xl:p-4 2xl:mx-auto bg-white">
@@ -324,10 +332,10 @@
             <input type="text" id="book-title-input" class="w-full p-2 border border-gray-300 rounded-lg mb-4" placeholder="Enter book title">
             <div class="flex justify-end space-x-2">
                 <button id="modal-cancel-btn" class="flex items-center px-4 py-2 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
-                    Cancel <span class="ml-1 text-xs border rounded">ESC</span>
+                    Cancel <span class="ml-1 p-1 text-xs border rounded">ESC</span>
                 </button>
                 <button id="modal-action-btn" class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                    <span class="ml-1"><span class="ml-1 text-xs border rounded">ENTER</span></span>
+                    <span class="ml-1"></span><span class="ml-1 p-1 text-xs border rounded">ENTER</span>
                 </button>
             </div>
         </div>
