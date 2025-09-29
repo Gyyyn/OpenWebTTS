@@ -5,54 +5,106 @@
  *
  */
 
-export function checkPhraseSimilarity(str1, str2, strictness = 0.85) {
-    // Normalize: lowercase, trim, collapse whitespace, remove trailing punctuation
-    const normalize = s => s
-        .toLowerCase()
-        .replace(/\s+/g, ' ')           // collapse whitespace
-        .trim()
-        .replace(/[!?.,"';:]+$/, '');   // remove trailing punctuation
+/**
+ * Calculates the similarity between two strings and checks if it meets a minimum percentage.
+ * Similarity is determined using the Levenshtein distance.
+ *
+ * @param {string} stringA The first string.
+ * @param {string} stringB The second string.
+ * @param {number} minPercentage The minimum required similarity percentage (e.g., 80 for 80%).
+ * @returns {boolean} Returns true if stringA is at least X percent similar to stringB.
+ */
+export function isSimilar(stringA, stringB, minPercentage) {
+    // Handle invalid percentage input
+    if (minPercentage < 0 || minPercentage > 100) {
+        throw new Error("Percentage must be between 0 and 100.");
+    }
 
-    const a = normalize(str1);
-    const b = normalize(str2);
+    // Find the length of the longer string
+    const maxLength = Math.max(stringA.length, stringB.length);
 
-    // Tokenize by splitting on spaces
-    const tokensA = a.split(' ').filter(t => t.length > 0);
-    const tokensB = b.split(' ').filter(t => t.length > 0);
+    // If both strings are empty, they are 100% similar
+    if (maxLength === 0) {
+        return true;
+    }
 
-    if (tokensA.length === 0 && tokensB.length === 0) return true;
-    if (tokensA.length === 0 || tokensB.length === 0) return false;
+    // Calculate the Levenshtein distance between the strings
+    const distance = levenshteinDistance(stringA, stringB);
 
-    // Weight function: emphasize middle (sine curve from 1 to 2 and back to 1)
-    const weight = (index, total) => {
-        if (total <= 1) return 1;
-        const pos = index / (total - 1); // 0 to 1
-        return 1 + Math.sin(Math.PI * pos); // peaks at 2 in the middle
-    };
+    // Convert the distance to a similarity percentage
+    const similarity = (1 - distance / maxLength) * 100;
 
-    // Assign weights to tokens in A
-    const weightedA = tokensA.map((token, i) => ({
-        token,
-        weight: weight(i, tokensA.length)
-    }));
+    // Check if the similarity meets the minimum requirement
+    return similarity >= minPercentage;
+    }
 
-    // Total weight of A (denominator)
-    const totalWeightA = weightedA.reduce((sum, item) => sum + item.weight, 0);
+    /**
+     * A helper function to calculate the Levenshtein distance between two strings.
+     * This is the number of edits needed to change one string into the other.
+     * @param {string} str1 The first string.
+     * @param {string} str2 The second string.
+     * @returns {number} The edit distance.
+     */
+    function levenshteinDistance(str1 = '', str2 = '') {
+    // Create a 2D array to store distances
+    const track = Array(str2.length + 1).fill(null).map(() =>
+        Array(str1.length + 1).fill(null)
+    );
 
-    // Compute weighted overlap: for each weighted token in A, if it exists in B, add its weight
-    let matchedWeight = 0;
-    const setB = new Set(tokensB); // for fast lookup
+    // Initialize the first row and column of the matrix
+    for (let i = 0; i <= str1.length; i++) {
+        track[0][i] = i;
+    }
+    for (let j = 0; j <= str2.length; j++) {
+        track[j][0] = j;
+    }
 
-    for (const { token, weight } of weightedA) {
-        if (setB.has(token)) {
-        matchedWeight += weight;
+    // Fill the rest of the matrix
+    for (let j = 1; j <= str2.length; j++) {
+        for (let i = 1; i <= str1.length; i++) {
+        const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+        track[j][i] = Math.min(
+            track[j][i - 1] + 1, // Deletion
+            track[j - 1][i] + 1, // Insertion
+            track[j - 1][i - 1] + indicator, // Substitution
+        );
         }
     }
 
-    // Similarity ratio: matched weight / total weight of A
-    const similarity = matchedWeight / totalWeightA;
+    // The final distance is in the bottom-right cell
+    return track[str2.length][str1.length];
+}
 
-    return similarity >= strictness;
+/**
+ * Processes a string by repeatedly checking its similarity against a reference string.
+ * If not similar, it splits the string in half and retries, until the string
+ * is 3 words or less, or until it is found to be similar.
+ * @param {string} initialString The string to start with.
+ * @param {string} comparisonString The string to compare against.
+ * @param {number} minPercentage The similarity threshold.
+ * @returns {string} The final resulting string.
+ */
+export function checkPhraseSimilarity(initialString, comparisonString, minPercentage) {
+    let currentString = initialString;
+
+    // We use a while loop that checks the word count on each iteration
+    while (currentString.split(' ').length > 3) {
+        if (isSimilar(currentString, comparisonString, minPercentage)) {
+        break; // Exit the loop if similarity is met
+        } else {
+        const words = currentString.split(' ');
+        const midPoint = Math.floor(words.length / 2);
+        
+        // Keep the first half of the words
+        currentString = words.slice(0, midPoint).join(' ');
+        }
+    }
+
+    if (currentString.split(' ').length <= 3) {
+        return false;
+    }
+
+    return true;
 }
 
 /**

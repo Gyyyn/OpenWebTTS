@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const skipHeadersNFootersCheckbox = document.getElementById('skip-headers-checkbox');
 
     // Buttons
+    const iconMenuToggle = document.getElementById('icon-menu-toggle');
     const collapseSidebarButton = document.getElementById('collapse-sidebar-btn');
     const newBookBtn = document.getElementById('new-book-btn');
     const libraryBtn = document.getElementById('library-btn');
@@ -58,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Elements
     const sidebar = document.getElementById('sidebar');
+    const iconMenuDropdown = document.getElementById('icon-menu-dropdown');
     const localBookList = document.getElementById('local-book-list');
     const onlineBookList = document.getElementById('online-book-list');
     const mainDiv = document.getElementById('main');
@@ -157,9 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (sidebar.classList.contains('collapsed')) {
             mainDiv.classList.remove('md:ml-[260px]');
-            mainDiv.classList.add('md:ml-[64px]');
+            mainDiv.classList.add('md:ml-[50px]');
         } else {
-            mainDiv.classList.remove('md:ml-[64px]');
+            mainDiv.classList.remove('md:ml-[50px]');
             mainDiv.classList.add('md:ml-[260px]');
         }
     }
@@ -198,6 +200,8 @@ document.addEventListener('DOMContentLoaded', () => {
         stopAudioQueue()
         renderLocalBooks();
         renderOnlineBooks();
+        recordBtn.classList.remove('hidden');
+        transcribeFileBtn.classList.remove('hidden');
 
         if (!book) return;
 
@@ -205,7 +209,13 @@ document.addEventListener('DOMContentLoaded', () => {
         libraryBtn.classList.remove('bg-indigo-100');
 
         loadBookContent(book);
-        openFilePickerBtn.classList.add('hidden')
+        openFilePickerBtn.classList.add('hidden');
+
+        if (book.is_pdf) {
+            recordBtn.classList.add('hidden');
+            transcribeFileBtn.classList.add('hidden');
+        }
+
         if (book && book.source === 'local') {
             openFilePickerBtn.classList.remove('hidden')
             updateCheckbox(autoReadCheckbox, 'autoRead');
@@ -1123,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }, 100); // 100ms delay
             } else {
-                console.debug(`❌ Failed to get audio for chunk index: ${chunkIndex}`);
+                console.debug(`Failed to get audio for chunk index: ${chunkIndex}`);
             }
         });
     }
@@ -1252,87 +1262,113 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    let matchingIndex = 0;
-    let lastMatchedIndex = 0;
-
     async function highlightPdfChunk(chunkObject) {
         const highlightLayer = document.getElementById('highlight-layer');
         if (!highlightLayer) return;
-    
+
         highlightLayer.innerHTML = ''; // Clear previous highlights
-    
+
         const chunkText = chunkObject.text;
         const visiblePages = isTwoPageView ? [currentPageNum, currentPageNum + 1] : [currentPageNum];
-    
-        // The "shopping list" of text we still need to find. Whitespace is normalized.
+
+        // Normalize the target text
         let textToFind = chunkText.trim().replace(/\s+/g, ' ');
-        // A flag to ensure we only start highlighting after finding the beginning of the phrase.
         let matchingStarted = false;
-        // How many failed matches we had.
-        let matchingFails = 0;
-    
-        // Use a for...of loop to correctly handle await inside the loop
+        let consumedLength = 0;
+
+        console.debug('----- Trying to highlight: ', textToFind, ' -----');
+
+        // First, let's build the complete text from all visible pages to find the best match
+        let allPageItems = [];
+        let pageItemMap = new Map(); // Map item index to page info
+
         for (const [pageIndex, pageNum] of visiblePages.entries()) {
-            console.log(matchingIndex, lastMatchedIndex, matchingFails)
-            if (!pdfTextContent[pageNum] || textToFind.length === 0) continue;
-            matchingIndex += 1;
-            if (matchingIndex < lastMatchedIndex) continue;
-    
+            if (!pdfTextContent[pageNum]) continue;
+
+            const pageItems = pdfTextContent[pageNum].items
+            .map(item => ({...item, str: item.str.trim().replace(/\s+/g, ' ')}))
+            .filter(item => item.str.length > 0);
+
+            for (const item of pageItems) {
+                pageItemMap.set(allPageItems.length, { pageIndex, pageNum, item });
+                allPageItems.push(item);
+            }
+        }
+
+        // Build complete text from all items
+        const completePageText = allPageItems.map(item => item.str).join(' ');
+
+        // Find the best match position in the complete text
+        let bestMatchStart = -1;
+        let bestMatchLength = 0;
+
+        // Try to find the longest prefix of textToFind that appears in completePageText
+        for (let len = Math.min(textToFind.length, 200); len >= 10; len--) {
+            const prefixToFind = textToFind.substring(0, len);
+            const matchIndex = completePageText.indexOf(prefixToFind);
+            if (matchIndex !== -1) {
+                bestMatchStart = matchIndex;
+                bestMatchLength = len;
+                break;
+            }
+        }
+
+        if (bestMatchStart === -1) {
+            console.debug('Could not find any match for the text');
+            return;
+        }
+
+        console.debug('Found match starting at position', bestMatchStart, 'in complete page text');
+
+        // Now find which PDF items correspond to this match
+        let currentTextPos = 0;
+        let itemsToHighlight = [];
+        let totalMatchedLength = 0;
+
+        for (let i = 0; i < allPageItems.length && totalMatchedLength < textToFind.length; i++) {
+            const item = allPageItems[i];
+            const itemEndPos = currentTextPos + item.str.length;
+
+            // Check if this item overlaps with our match region
+            if (itemEndPos > bestMatchStart && currentTextPos < bestMatchStart + textToFind.length) {
+                itemsToHighlight.push(i);
+                totalMatchedLength += item.str.length;
+            }
+
+            currentTextPos = itemEndPos;
+        }
+
+        // Now actually highlight the items
+        for (const itemIndex of itemsToHighlight) {
+            const pageInfo = pageItemMap.get(itemIndex);
+            if (!pageInfo) continue;
+
+            const { pageIndex, pageNum, item } = pageInfo;
             const page = await pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: currentScale });
-            
-            // Use a for...of loop to allow 'break' and 'continue'
-            for (const item of pdfTextContent[pageNum].items) {
-                if (textToFind.length === 0) break; // Exit if we've found the entire chunk
 
-                console.log(item.str);
-    
-                // Normalize the text from the PDF item for a more reliable comparison
-                const itemText = item.str.trim().replace(/\s+/g, ' ');
-                if (itemText.length === 0) continue;
-    
-                if (!matchingStarted) {
-                    // We haven't found the start yet. Check if our remaining text starts with this item's text.
-                    if (checkPhraseSimilarity(itemText, textToFind)) {
-                        matchingStarted = true;
-                        lastMatchedIndex = matchingIndex;
-                        // Fall-through to the highlighting logic below
-                    } else {
-                        continue; // Not the start, so skip to the next item
-                    }
-                }
-    
-                // Once matching has started, we expect items to appear contiguously
-                if (matchingStarted) {
-                    if (checkPhraseSimilarity(itemText, textToFind)) {
-                        // This item is a valid part of our sequence, so highlight it
-                        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                        const highlight = document.createElement('div');
-                        highlight.className = 'highlight pdf-highlight';
-                        
-                        const leftOffset = (isTwoPageView && pageIndex === 1) ? pdfViewer.children[0].width : 0;
-                        
-                        highlight.style.left = `${tx[4] + leftOffset}px`;
-                        highlight.style.top = `${tx[5] - 10}px`; // Your -10px offset is kept
-                        highlight.style.width = `${item.width * currentScale}px`;
-                        highlight.style.height = `${item.height * currentScale}px`;
-                        
-                        highlightLayer.appendChild(highlight);
-    
-                    } else {
+            createAndAppendHighlight(item, viewport, pageIndex, highlightLayer);
 
-                        matchingFails += 1;
-
-                        if (matchingFails > 2) {
-                            // The sequence is broken. Stop highlighting for this chunk.
-                            textToFind = ''; 
-                        }
-                        
-                    }
-                }
-            }
-            if (textToFind.length === 0) break; // Exit the page loop if we're done
+            console.debug('Highlighted item:', item.str);
         }
+
+        console.debug('Finished highlighting', itemsToHighlight.length, 'items');
+    }
+    
+    // Helper function to create and append highlight (extracted for cleaner code)
+    function createAndAppendHighlight(item, viewport, pageIndex, highlightLayer) {
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const highlight = document.createElement('div');
+        highlight.className = 'highlight pdf-highlight';
+        
+        const leftOffset = (isTwoPageView && pageIndex === 1) ? pdfViewer.children[0].width : 0;
+        
+        highlight.style.left = `${tx[4] + leftOffset}px`;
+        highlight.style.top = `${tx[5] - 10}px`; // Your -10px offset is kept
+        highlight.style.width = `${item.width * currentScale}px`;
+        highlight.style.height = `${item.height * currentScale}px`;
+        
+        highlightLayer.appendChild(highlight);
     }
     
     /* Clears all highlights from the PDF overlay. */
@@ -1342,6 +1378,18 @@ document.addEventListener('DOMContentLoaded', () => {
             highlightLayer.innerHTML = '';
         }
     }
+
+    iconMenuToggle.addEventListener('click', (event) => {
+        event.stopPropagation(); // Prevent clicks from immediately closing the menu
+        iconMenuDropdown.classList.toggle('hidden');
+    });
+
+    // Close the dropdown if clicked outside
+    document.addEventListener('click', (event) => {
+        if (!iconMenuDropdown.contains(event.target) && !iconMenuToggle.contains(event.target)) {
+            iconMenuDropdown.classList.add('hidden');
+        }
+    });
 
     libraryBtn.addEventListener('click', async () => {
 

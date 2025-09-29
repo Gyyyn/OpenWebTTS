@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
 </head>
 <body class="bg-gray-100">
@@ -15,11 +16,22 @@
     <div id="sidebar" class="fixed left-0 top-0 h-full bg-gray-100 border-r border-gray-300 overflow-y-auto z-10">
         <div class="flex flex-col h-full justify-between">
 
-            <div class="p-4">
+            <div class="p-2">
                 
                 <div class="flex items-center justify-between mb-4">
                     <div class="hide-on-collapse flex items-center">
-                        <img src="./static/image/icon.png" alt="OpenWebTTS Icon" class="max-h-[32px] max-w-[32px]">
+
+                        <div class="relative">
+                            <button id="icon-menu-toggle" class="flex items-center focus:outline-none">
+                                <img src="./static/image/icon.png" alt="OpenWebTTS Icon" class="max-h-[32px] max-w-[32px]">
+                            </button>
+                            <div id="icon-menu-dropdown" class="absolute bg-white border border-gray-200 top-full mt-2 left-0 rounded-lg shadow-lg w-48 z-10 hidden">
+                                <ul class="py-1">
+                                    <li><a href="/terms" class="block px-4 py-2 hover:bg-gray-100">Terms of Service</a></li>
+                                    <li><a href="/privacy" class="block px-4 py-2 hover:bg-gray-100">Privacy Policy</a></li>
+                                </ul>
+                            </div>
+                        </div>
                         <h1 class="font-bold ms-2 text-center text-lg">OpenWebTTS</h1>
                     </div>
                     <button id="collapse-sidebar-btn" class="cursor-[w-resize] rotate-180 hover:bg-gray-200 text-left rounded-lg px-2 py-1">
@@ -64,8 +76,8 @@
                 </ul>
             </div>
 
-            <div class="border-t flex items-center justify-between px-4 py-3 bg-white shadow-inner">
-                <div class="hide-on-collapse flex items-center space-x-3">
+            <div class="hide-on-collapse border-t flex items-center justify-between px-4 py-3 bg-white shadow-inner">
+                <div class="flex items-center space-x-3">
                     <span class="text-3xl text-gray-400">
                         <ion-icon name="person-circle-outline"></ion-icon>
                     </span>
@@ -101,7 +113,7 @@
     </div>
 
     <!-- Main Content -->
-    <div id="main" class="ml-[64px] md:ml-[260px] min-h-[100dvh]">
+    <div id="main" class="ml-[50px] md:ml-[260px] min-h-[100dvh]">
         <div id="book-view" class="bg-white 2xl:bg-gray-100 flex flex-col h-[100vh] items-center hidden">
 
             <!-- File Picker Modal -->

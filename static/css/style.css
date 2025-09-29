@@ -1,3 +1,7 @@
+body {
+    font-family: 'Merriweather', serif;
+}
+
 #pdf-viewer {
     display: flex;
     flex-direction: row;
@@ -78,7 +82,7 @@ button, a.button {
 }
 
 #sidebar.collapsed {
-    width: 64px;
+    width: 50px;
 }
 .collapsed .hide-on-collapse {
     display: none !important;
