@@ -1,14 +1,14 @@
-FROM python:3.11-slim
+FROM docker.io/library/python:3.11-slim-bookworm
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    libwebkit2gtk-4.0-37 \
-    libgirepository1.0-dev \
-    libcairo2-dev \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+  gcc \
+  g++ \
+  libwebkit2gtk-4.0-37 \
+  libgirepository1.0-dev \
+  libcairo2-dev \
+  pkg-config \
+  && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -31,7 +31,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/ || exit 1
+  CMD curl -f http://localhost:8000/ || exit 1
 
 # Run the application
 CMD ["python", "app.py", "--host", "0.0.0.0", "--port", "8000"]
