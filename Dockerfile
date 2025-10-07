@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
   libwebkit2gtk-4.0-37 \
   libgirepository1.0-dev \
   libcairo2-dev \
+  ffmpeg \
   pkg-config \
   && rm -rf /var/lib/apt/lists/*
 
