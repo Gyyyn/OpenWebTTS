@@ -1,4 +1,4 @@
-export async function generateSpeech(text, engine, voice) {
+export async function generateSpeech(text, lang='en', engine, voice) {
 
     if (!text) {
         return;
@@ -19,7 +19,10 @@ export async function generateSpeech(text, engine, voice) {
 
     try {
         
-        const requestBody = { engine, voice, text: text.text };
+        const requestBody = { engine, lang, voice, text: text.text };
+
+        console.debug('Generating request: ', requestBody);        
+
         if (apiKey) { // Only add apiKey if it's present (i.e., for Gemini engine)
             requestBody.api_key = apiKey;
         }

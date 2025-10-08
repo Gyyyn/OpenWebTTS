@@ -18,12 +18,14 @@ from ebooklib import epub
 from fastapi import (APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile)
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from pydantic import BaseModel, Field
+from langdetect import detect
 
 # Import shared objects from app.py
 from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, KOKORO_DIR, USERS_DIR
 
 # Import other function modules
 from functions.gemini import gemini_process_audio, gemini_list_voices
+from functions.coqui import coqui_process_audio, save_voice_sample
 from functions.kokoro import kokoro_process_audio
 from functions.kitten import kitten_process_audio
 from functions.users import UserManager
@@ -32,8 +34,12 @@ from functions.webpage import extract_readable_content
 router = APIRouter()
 
 # --- Pydantic Models ---
+class DetectLangRequest(BaseModel):
+    text: str
+
 class SynthesizeRequest(BaseModel):
     engine: str
+    lang: Optional[str] = 'en'
     voice: str
     text: str
     api_key: Optional[str] = None
@@ -100,11 +106,10 @@ def get_coqui_voices() -> List[Voice]:
     voices = []
     if not os.path.exists(COQUI_DIR):
         return voices
-    for model_dir in os.listdir(COQUI_DIR):
-        model_path = os.path.join(COQUI_DIR, model_dir)
-        if os.path.isdir(model_path):
-            if 'config.json' in os.listdir(model_path):
-                voices.append(Voice(id=model_dir, name=f"Coqui: {model_dir}"))
+    for file_name in os.listdir(COQUI_DIR):
+        if file_name.endswith(".wav"):
+            voice_id = file_name.replace(".wav", "")
+            voices.append(Voice(id=voice_id, name=f"Coqui: {voice_id}"))
     return voices
 
 def get_piper_voices() -> List[Voice]:
@@ -178,6 +183,9 @@ def get_gemini_voices(api_key: str) -> List[Voice]:
 
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
+        # ---
+        # Process audio with Piper
+        # ---
         if request.engine == "piper":
             model_path = os.path.join(PIPER_DIR, f"{request.voice}.onnx")
             command = [
@@ -186,8 +194,19 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
                 "--output_file", output_path,
             ]
             subprocess.run(command, input=request.text, text=True, check=True, encoding='utf-8')
+        # ---
+        # Process audio with Coqui
+        # ---
+        elif request.engine == 'coqui':
+            coqui_process_audio('models/coqui/sample.wav', request.lang, request.text, output_path)
+        # ---
+        # Process audio with Kokoro
+        # ---
         elif request.engine == "kokoro":
             kokoro_process_audio(request.voice, False, request.text, output_path)
+        # ---
+        # Process audio with Google Cloud TTS
+        # ---
         elif request.engine == "gemini":
             use_env_var = "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
 
@@ -208,8 +227,14 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
                 print("2. Set the GOOGLE_APPLICATION_CREDENTIALS environment variable.")
                 print("\nSee the README.md file for detailed instructions.")
                 print("-" * 80)
+        # ---
+        # Process audio with Kitten
+        # ---
         elif request.engine == "kitten":
             kitten_process_audio(request.voice, False, request.text, output_path)
+        # ---
+        # Or fail.
+        # ---
         else:
             raise ValueError("Unsupported TTS engine.")
     except Exception as e:
@@ -276,6 +301,24 @@ async def download_kokoro_voice(voice: KokoroVoice):
         raise HTTPException(status_code=500, detail=f"Failed to download voice: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+
+@router.post("/api/voice_cloning")
+async def voice_cloning(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    if not file.content_type == "audio/wav":
+         print(f"Warning: Received file with content type {file.content_type}, expected audio/wav.")
+
+    try:
+        audio_content = await file.read()
+        
+        saved_path = save_voice_sample(audio_content, file.filename)
+        
+        return JSONResponse(content={"message": f"Voice sample saved successfully as {os.path.basename(saved_path)}"}, status_code=200)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save voice sample. Reason: {str(e)}")
 
 @router.get("/api/voices", response_model=List[Voice])
 async def list_voices(engine: str, api_key: Optional[str] = None):
@@ -521,6 +564,14 @@ async def read_website(request: ReadWebsiteRequest):
         raise HTTPException(status_code=500, detail=f"Failed to fetch website content: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read website. Reason: {str(e)}")
+
+@router.post("/api/detect_lang")
+async def detect_lang(request: DetectLangRequest):
+    try:
+        lang = detect(request.text)
+        return JSONResponse(content={"language": lang})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to detect language. Reason: {str(e)}")
 
 @router.post("/api/users/create")
 async def create_user_route(user: UserCreate):

@@ -1,6 +1,4 @@
-import { generateSpeech } from "./speechGen.js";
-
-export async function generatePodcast(username, title, text, engine, voice, api_key = null) {
+export async function generatePodcast(username, title, text, lang, engine, voice, api_key = null) {
     try {
         const response = await fetch(`/api/users/${username}/podcast`, {
             method: 'POST',
@@ -11,6 +9,7 @@ export async function generatePodcast(username, title, text, engine, voice, api_
                 title,
                 text,
                 engine,
+                lang,
                 voice,
                 api_key
             }),

@@ -1,6 +1,10 @@
 # Ignore Python virtual environment
 /venv/
 
+# Ignore node modules
+node_modules/
+package-lock.json
+
 # Ignore Python cache files
 __pycache__/
 *.pyc
@@ -22,3 +26,9 @@ build-dir
 
 # Saved users
 users/
+
+# Ignore built files
+static/css/style.css
+static/js/pdf.min.mjs
+static/js/pdf.worker.min.mjs
+static/ionicons

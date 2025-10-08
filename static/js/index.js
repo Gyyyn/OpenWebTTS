@@ -20,7 +20,7 @@ import { getPodcasts, generatePodcast, deletePodcast } from './podcast.js';
 import { generateSpeech } from "./speechGen.js";
 
 // Import helpers
-import { checkPhraseSimilarity, detectHeadersAndFooters } from "./helpers.js";
+import { setBodyFont, getAllPdfText, detectHeadersAndFooters } from "./helpers.js";
 import { createFilesGrid, renderUserPdfs } from './library.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -66,6 +66,57 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookView = document.getElementById('book-view');
     const bookPageTitle = document.getElementById('book-title');
     const pageNumSpan = document.getElementById('page-num');
+    const pageNumInput = document.createElement('input');
+    pageNumInput.type = 'number';
+    pageNumInput.className = 'w-16 text-center bg-gray-200 rounded-lg';
+    pageNumInput.style.display = 'none';
+    pageNumSpan.parentElement.insertBefore(pageNumInput, pageNumSpan.nextSibling);
+
+    pageNumSpan.addEventListener('click', () => {
+        pageNumSpan.style.display = 'none';
+        pageNumInput.style.display = 'inline-block';
+        if (pdfDoc) {
+            pageNumInput.value = currentPageNum;
+        } else {
+            pageNumInput.value = textCurrentPage;
+        }
+        pageNumInput.focus();
+        pageNumInput.select();
+    });
+
+    const goToPage = () => {
+        const page = parseInt(pageNumInput.value);
+        if (!isNaN(page)) {
+            if (pdfDoc) {
+                const limit = isTwoPageView ? pdfDoc.numPages - 1 : pdfDoc.numPages;
+                if (page > 0 && page <= limit) {
+                    renderPage(page);
+                }
+            } else {
+                if (page > 0 && page <= totalTextPages) {
+                    renderTextPage(page);
+                }
+            }
+        }
+        pageNumInput.style.display = 'none';
+        pageNumSpan.style.display = 'inline-block';
+    };
+
+    document.addEventListener('click', (e) => {
+        if (e.target !== pageNumInput && e.target !== pageNumSpan) {
+            pageNumInput.style.display = 'none';
+            pageNumSpan.style.display = 'inline-block';
+        }
+    });
+
+    pageNumInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            goToPage();
+        } else if (e.key === 'Escape') {
+            pageNumInput.style.display = 'none';
+            pageNumSpan.style.display = 'inline-block';
+        }
+    });
     const textboxViewerWrapper = document.getElementById('textbox-viewer-wrapper');
     const textDisplay = document.getElementById('text-display'); // Main textarea from TTS.
     const pdfViewer = document.getElementById('pdf-viewer');
@@ -139,12 +190,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let totalTextPages = 1;
     let fullBookText = ''; // To store the entire text of a book
     let currentTextPageLength = 0; // To track text length for editing
+    let bookDetectedLang = '';
 
     const zoomInBtn = document.getElementById('zoom-in-btn');
     const zoomOutBtn = document.getElementById('zoom-out-btn');
 
     // Set workerSrc for PDF.js
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
 
     /*
      * --- Functions
@@ -678,7 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (pdfData) {
                 pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
-                const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprint)) || 1;
+                const lastPage = parseInt(localStorage.getItem(pdfDoc.fingerprints[0])) || 1;
                 renderPage(lastPage);
                 autoDeleteChunksCheckbox.disabled = true;
                 toggleTwoPageBtn.disabled = false;
@@ -691,6 +743,24 @@ document.addEventListener('DOMContentLoaded', () => {
             resetPdfView();
             const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;
             renderTextPage(lastTextPage);
+        }
+        
+        try {
+            const response = await fetch('/api/detect_lang', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: bookContent })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to detect language.');
+            }
+
+            const data = await response.json();
+            bookDetectedLang = data.language;
+            
+        } catch (error) {
+            console.error('Error detecting language:', error);
         }
     };
     
@@ -780,9 +850,11 @@ document.addEventListener('DOMContentLoaded', () => {
         pageNumSpan.textContent = '';
     }
 
-    /*
-     * -- Events
-     */
+                /*
+
+                 * -- Events
+
+                 */
 
     autoReadCheckbox.addEventListener('change', () => {
         if (activeBook && activeBook.source === 'local') {
@@ -843,16 +915,16 @@ document.addEventListener('DOMContentLoaded', () => {
         voiceSelect.innerHTML = '<option value="">Loading voices...</option>';
 
         try {
-
             let endpoint = `/api/voices?engine=${engine}`;
-
             let apiKey = null;
+
             if (engine === 'gemini') {
                 apiKey = localStorage.getItem('geminiApiKey');
                 if (!apiKey) {
                     alert('Please set your Gemini API Key in the Config page.');
+                    voiceSelect.innerHTML = '<option value="">-- API key needed --</option>';
+                    return;
                 }
-
                 endpoint += `&api_key=${apiKey}`;
             }
 
@@ -865,14 +937,35 @@ document.addEventListener('DOMContentLoaded', () => {
             voiceSelect.innerHTML = '';
             if (voices.length === 0) {
                 voiceSelect.innerHTML = '<option value="">-- No voices found --</option>';
-            } else {
-                voices.forEach(voice => {
-                    const option = document.createElement('option');
-                    option.value = voice.id;
-                    option.textContent = voice.name;
-                    voiceSelect.appendChild(option);
+                return;
+            }
+
+            // Sort voices based on bookDetectedLang
+            console.debug('Detected Language ', bookDetectedLang);
+            
+            if (bookDetectedLang) {
+                voices.sort((a, b) => {
+                    const aName = a.name.toLowerCase();
+                    const bName = b.name.toLowerCase();
+                    const lang = bookDetectedLang.toLowerCase();
+
+                    if (aName.includes(lang) && !bName.includes(lang)) {
+                        return -1;
+                    }
+                    if (!aName.includes(lang) && bName.includes(lang)) {
+                        return 1;
+                    }
+                    return 0;
                 });
             }
+
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.id;
+                option.textContent = voice.name;
+                voiceSelect.appendChild(option);
+            });
+
         } catch (error) {
             console.error('Error fetching voices:', error);
             voiceSelect.innerHTML = '<option value="">-- Error loading voices --</option>';
@@ -1121,7 +1214,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const chunk = allTextChunks[chunkIndex];
         
-        generateSpeech(chunk, engineSelect.value, voiceSelect.value).then(audioUrl => {
+        generateSpeech(chunk, bookDetectedLang, engineSelect.value, voiceSelect.value).then(audioUrl => {
             if (audioUrl) {
                 // Introduce a small delay to ensure the file is fully ready on the server
                 setTimeout(() => {
@@ -1253,7 +1346,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentChunkIndex = 0;
-        localStorage.setItem(pdfDoc.fingerprint, num);
+        localStorage.setItem(pdfDoc.fingerprints[0], num);
         prevPageBtn.disabled = num <= 1;
 
         if (activeBook && activeBook.source === 'local' && !skipTextExtraction) {
@@ -1761,6 +1854,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     engineSelect.addEventListener('change', updateVoices);
+
     generateBtn.addEventListener('click', () => {
         if (isPlaying) {
             if (isPaused) {
@@ -2416,13 +2510,16 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBookBtn.addEventListener('click', handleSaveBook);
 
     generatePodcastBtn.addEventListener('click', () => {
+
         if (!currentUser) {
             showNotification('You must be logged in to generate a podcast.', 'warning');
             return;
         }
-        const podcastText = fullBookText.trim(); // Use full text for podcast
+
+        let podcastText = fullBookText.trim(); // Use full text for podcast
+        
         if (!podcastText) {
-            showNotification('Please provide text for the podcast.', 'warning');
+            showNotification('No text found!', 'warning');
             return;
         }
 
@@ -2444,10 +2541,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const voice = voiceSelect.value;
                 const apiKey = null;
 
-                const result = await generatePodcast(currentUser, podcastTitle, podcastText, engine, voice, apiKey);
+                if (pdfDoc) {
+
+                    const canvas = document.querySelector("#pdf-viewer > canvas");
+                    podcastText = await getAllPdfText(pdfDoc, { 
+                        skipHeadersNFooters: skipHeadersNFootersCheckbox.value,
+                        canvasHeight: canvas.height 
+                    });
+                    
+                }
+
+                const result = await generatePodcast(currentUser, podcastTitle, podcastText, bookDetectedLang, engine, voice, apiKey);
 
                 if (result.success) {
-                    showNotification(`Podcast '${podcastTitle}' generation started with ID: ${result.podcast_id}`, 'success');
+                    showNotification(`Your podcast is generating and will be ready soon!`, 'success');
                     fetchAndRenderPodcasts();
                 } else {
                     showNotification(`Failed to start podcast generation: ${result.error}`, 'error');
@@ -2479,4 +2586,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveBookBtn.classList.remove('hidden');
         }
     });
+
+    // Initial load functions
+    setBodyFont();
 });

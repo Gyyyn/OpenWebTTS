@@ -208,3 +208,37 @@ export function findRepeatedFooters(multiPageItems, pageHeight = 842) {
     const threshold = multiPageItems.length / 2;
     return Object.keys(freq).filter(text => freq[text] > threshold);
 }
+
+export async function getAllPdfText(pdf, options={}) {
+
+    const maxPages = pdf.numPages;
+    let countPromises = []; // collecting all page promises
+
+    for (var j = 1; j <= maxPages; j++) {
+
+      const page = await pdf.getPage(j);
+      const textContent = await page.getTextContent();
+      let parsedTextContent = textContent;            
+        
+        if (options.skipHeadersNFooters && options.canvasHeight) {
+            parsedTextContent = detectHeadersAndFooters(textContent, options.canvasHeight);
+            countPromises.push(parsedTextContent.body.items.map(function (s) { return s.str; }).join('')); // value page text
+        } else {
+            countPromises.push(parsedTextContent.items.map(function (s) { return s.str; }).join('')); // value page text
+        }
+
+    }
+
+    var parsedOutputText = countPromises.join('').trim();
+    return parsedOutputText;
+}
+
+export function setBodyFont(prefs) {
+
+    if (!prefs) {
+        prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
+    }
+
+    const fontStyle = prefs.accessibleFontEnabled ? prefs.accessibleFontStyle : 'Merriweather';
+    document.body.style.fontFamily = `${fontStyle}, var(--default-font-family)`;
+}

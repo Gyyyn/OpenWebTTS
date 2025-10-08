@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenWebTTS</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/png" href="/static/favicon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700;900&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script type="module" src="/static/js/pdf.min.mjs"></script>
 </head>
 <body class="bg-gray-100">
 
@@ -57,7 +55,7 @@
                 </button>
 
 
-                <hr class="my-2" />
+                <hr class="my-2 border-indigo-200" />
 
                 <div class="m-2 text-gray-400 hide-on-collapse">My Books</div>
                 <ul id="online-book-list" class="space-y-1">
@@ -68,7 +66,7 @@
                     <!-- Populated for logged-in users -->
                 </ul>
 
-                <hr class="my-2 hide-on-collapse">
+                <hr class="my-2 border-indigo-200 hide-on-collapse">
 
                 <div class="m-2 text-gray-400 hide-on-collapse">Temporary Books</div>
                 <ul id="local-book-list" class="space-y-1">
@@ -76,7 +74,7 @@
                 </ul>
             </div>
 
-            <div class="hide-on-collapse border-t flex items-center justify-between px-4 py-3 bg-white shadow-inner">
+            <div class="hide-on-collapse border-t border-indigo-200 flex items-center justify-between px-4 py-3 bg-white shadow-inner">
                 <div class="flex items-center space-x-3">
                     <span class="text-3xl text-gray-400">
                         <ion-icon name="person-circle-outline"></ion-icon>
@@ -126,7 +124,7 @@
                         </button>
                     </div>
                     <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub,.docx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
-                    <hr class="my-4">
+                    <hr class="my-4 border-indigo-200">
                     <div class="flex flex-col justify-between items-start mb-4">
                         <h3 class="text-m font-semibold text-gray-800">URL</h3>
                         <div class="relative w-full">
@@ -147,7 +145,7 @@
                         <option value="piper" >Piper</option>
                         <option value="kokoro">Kokoro</option>
                         <option value="kitten">Kitten</option>
-                        <option value="coqui" disabled>Coqui TTS</option>
+                        <option value="coqui">Coqui</option>
                         <option value="gemini" >Gemini Voice</option>
                     </select>
                 </div>
@@ -165,7 +163,7 @@
                                 <input id="auto-delete-chunks-checkbox" class="me-2" type="checkbox">
                                 <label for="auto-delete-chunks-checkbox">Auto-Delete Read Chunks</label>
                             </div>
-                            <hr class="mt-2" />
+                            <hr class="mt-2 border-indigo-200" />
                             <div class="ml-2 mt-2 flex items-center">
                                 <input checked id="two-page-view-checkbox" class="me-2" type="checkbox">
                                 <label for="two-page-view-checkbox">Two-Page View</label>
@@ -265,7 +263,7 @@
                     </div>
                 </div>
 
-                <div id="current-chunk" class="hidden w-full border-t mt-2">
+                <div id="current-chunk" class="hidden w-full border-t border-indigo-200 mt-2">
                     <div class="flex justify-between items-start">
                         <span class="mt-2 text-xs md:text-sm">
                             <!-- The current text chunk will appear here -->
@@ -285,7 +283,7 @@
                         <button id="prev-page" class="px-3 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
                             <span><ion-icon name="arrow-back"></ion-icon></span>
                         </button>
-                        <span id="page-num" class="text-sm text-gray-600"></span>
+                        <span id="page-num" class="text-sm text-gray-600 cursor-pointer"></span>
                         <button id="next-page" class="px-3 bg-gray-100 rounded-xl hover:bg-violet-200 transition-colors">
                             <span><ion-icon name="arrow-forward"></ion-icon></span>
                         </button>
@@ -321,8 +319,6 @@
         </div>
     </div>
 
-    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
     <!-- Login Modal -->
     <div id="login-modal" class="modal hidden">
         <div class="modal-content">
@@ -353,8 +349,6 @@
         </div>
     </div>
 
-    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
     <!-- Command Palette Modal -->
     <div id="command-palette-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 hidden">
         <div class="bg-white rounded-lg shadow-lg p-4 w-full max-w-lg mx-4">
@@ -366,6 +360,8 @@
         </div>
     </div>
 
+    <script type="module" src="/static/ionicons/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="/static/ionicons/ionicons.js"></script>
     <script type="module" src="/static/js/index.js"></script>
 </body>
 </html>

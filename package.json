@@ -1,0 +1,15 @@
+{
+    "dependencies": {
+        "@tailwindcss/cli": "^4.1.14",
+        "concurrently": "^9.2.1",
+        "ionicons": "^7.1.0",
+        "pdfjs-dist": "^5.4.296",
+        "tailwindcss": "^4.1.14"
+    },
+    "scripts": {
+        "build-css": "npx @tailwindcss/cli -i ./static/css/pre.css -o ./static/css/style.css",
+        "build-pdf-js": "cp node_modules/pdfjs-dist/build/pdf.min.mjs static/js/; cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs static/js/",
+        "build-ionicons": "rm -rf static/ionicons; cp -r node_modules/ionicons/dist static/ionicons",
+        "build": "concurrently \"npm run build-pdf-js\" \"npm run build-ionicons\" \"npm run build-css\""
+    }
+}

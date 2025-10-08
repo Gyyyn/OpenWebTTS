@@ -1,17 +1,25 @@
 # OpenWebTTS: Local Text-to-Speech Web UI
 
-OpenWebTTS is a local web-based application that provides a simple interface for generating speech using multiple Text-to-Speech (TTS)  or Speech-to-Text (STT) engines.
+![GitHub stars](https://img.shields.io/github/stars/Gyyyn/OpenWebTTS)
+![GitHub forks](https://img.shields.io/github/forks/Gyyyn/OpenWebTTS)
+![License](https://img.shields.io/github/license/Gyyyn/OpenWebTTS)
+
+OpenWebTTS is the open-source, privacy-first alternative to Speechify and ElevenLabs. Run it locally, use any TTS engine, and read PDFs, Epubs and other documents without subscriptions or tracking.
 
 <img width="2373" height="1445" alt="image" src="https://github.com/user-attachments/assets/5bcdd59d-f30e-4b56-9b14-a58c1a29ab36" />
 
-## Features
+## Better than paid alternatives
 
-- **Simple Web Interface**: A clean UI for text input and audio generation.
-- **Multiple Engine Support**: Use Piper, Kokoro or Coqui for TTS or OpenAI Whisper for STT.
-- **Real-time Generation**: Generates as you listen for smooth playback or recording.
-- **PDF, Epub, docx and URL import support**: And more to come!
-- **Automatically skip headers and footers**: Premium feature no more!
-- **Automatic OCR**: If your PDF doesn't have text, we can make some for you.
+- **Clean Interface**: Straight to the point and no ads, simple by design, powerful if needed.
+- **Multiple Engine Support**: Options for any type of hardware, and even cloud options if wanted.
+- **Voice cloning\***: With a simple 10 second `wav` file you can clone any voice to read for you!
+- **Import anything**: Most document types are supported, and URLs too!
+- **Automatically skip headers and footers\***: Premium feature no more!
+- **Automatic OCR\***: If your PDF doesn't have text, we can make some for you.
+- **Offline first\***: No connection neeeded.
+- **Self-hostable**: Take control of your data, with no feature locked away.
+
+Features marked with an `*` are *paid* on other platforms!
 
 ## Project Structure
 
@@ -26,11 +34,12 @@ OpenWebTTS/
 |
 ├── functions/
 |   ├── users.py           # User management and authentication
-│   ├── gemini.py          # Gemini API
+│   ├── gemini.py          # Gemini and Google Cloud TTS API
 │   ├── piper.py           # Piper TTS
 │   ├── whisper.py         # OpenAI's Whisper STT
 |   ├── kitten.py          # Kitten TTS
-│   ├── kokoro.py          # Kokoro functions
+│   ├── kokoro.py          # Kokoro TTS
+│   ├── coqui.py           # Coqui TTS
 |   ├── openai_api.py      # OpenAI compatible API endpoints
 |   └── webpage.py         # Webpage extraction
 |
@@ -42,8 +51,7 @@ OpenWebTTS/
 ├── translations/          # Translations
 |   └── en/ (etc...)
 |
-├── users/
-│   └── *.json             # User settings and preferences
+├── users/                 # User settings and preferences         
 |
 ├── static/
 |   ├── css/               # Stylesheets
@@ -60,7 +68,7 @@ OpenWebTTS/
 
 ### 1. Prerequisites
 
-- Python 3.11 (Recommended). **Note:** Other Python versions might not be fully compatiible due to dependencies. If you wish to use 3.12 or above, make sure to adjust the `requirements.txt` file accordingly, and note that not all functions will work.
+- Python 3.11 (Recommended). **Note:** Other Python versions might not be fully compatiible due to dependencies. Later version might work, but use at your own risk.
 - `pip` and `venv` for managing dependencies.
 - `espeak-ng` for Kokoro.
 
@@ -91,6 +99,21 @@ pip install -r requirements.txt
 pip install https://github.com/KittenML/KittenTTS/releases/download/0.1/kittentts-0.1.0-py3-none-any.whl
 ```
 
+Next, adquire dependencies using npm:
+
+```bash
+npm install
+npm run build
+```
+
+Finally you can run the app.
+
+```bash
+python app.py
+```
+
+The app will be available at `http://127.0.0.1:8000`. If you want the app to be available to your LAN, pass the `--host=0.0.0.0` flag. For Desktop Mode see below.
+
 ### 4. Download and Place TTS Models
 
 #### Piper
@@ -111,21 +134,11 @@ Or
 1.  Download a model from the [officla repository](https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices).
 2.  Place the file inside `models/kokoro/`. For example: `models/kokoro/af_heart.pt`
 
-#### Coqui TTS (In development.)
+#### Coqui
 
-1.  Find a model from the [Coqui TTS releases](https://github.com/coqui-ai/TTS/releases) or train your own.
-2.  A Coqui model is typically a directory containing files like `model.pth`, `config.json`, and `speakers.json` (for multi-speaker models).
-3.  Place the entire model directory inside `models/coqui/`. For example: `models/coqui/your-coqui-model/`.
+Coqui downloads itself automatically with Python. Currently we only support XTTS2, with YourTTS coming soon. We don't plan on supporting every Coqui version, as it will be mostly used for voice cloning since other models have since surpassed it in regular TTS.
 
-## How to Run the Application
-
-Once you have installed the dependencies and placed your models, you can start the web server.
-
-```bash
-python app.py
-```
-
-The application will be available at `http://127.0.0.1:8000`. If you want the app to be available to your LAN, pass the `--host=0.0.0.0` flag.
+1.  Place the audio files for voice cloning inside `models/coqui/`. For example: `models/coqui/my-voice.wav`.
 
 ### Desktop Mode (Experimental)
 

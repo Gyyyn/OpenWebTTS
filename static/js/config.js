@@ -1,11 +1,21 @@
-const backButton = document.getElementById('back');
+/*
+ * -- config.js
+ * --
+ * -- This file contains the UI for the config page.
+ * -- It's structed "top to bottom", mirroring the HTML of config.html.
+ *
+ */
+
+/*
+ * Imports.
+ */
+
+import { setBodyFont } from "./helpers.js";
+
 const clearCacheButton = document.getElementById('clear-cache');
 
-backButton.addEventListener('click', () => {
-    window.history.back();
-});
-
 document.addEventListener('DOMContentLoaded', () => {
+    const accessibleFontCheckbox = document.getElementById('use-accessible-font-checkbox');
     const piperVoiceSelect = document.getElementById('piper-voice');
     const kokoroVoiceSelect = document.getElementById('kokoro-voice');
     const downloadBtnPiper = document.getElementById('download-btn-piper');
@@ -17,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadStatus = document.getElementById('download-status');
     const googleVoiceInput = document.getElementById('google-voice');
     const GEMINI_API_KEY_STORAGE_KEY = 'geminiApiKey';
+
+    let prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
 
     // Load saved API key on page load
     if (localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY)) {
@@ -152,6 +164,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Populate saved values
+    function populatePrefsInputs() {
+        
+        if (prefs.chunkSize) {
+            chunkSizeSlider.value = parseInt(prefs.chunkSize);
+            chunkSizeDisplay.textContent = prefs.chunkSize;
+        }
+
+        if (prefs.accessibleFontEnabled === true) {
+            accessibleFontCheckbox.checked = true;
+        }
+
+        if (prefs.accessibleFontStyle) {
+            document.querySelectorAll('input[name="accessible-font-style"]').forEach((input) => {
+
+                if (input.value == prefs.accessibleFontStyle) {
+                    input.checked = true;
+                }
+
+            });
+        }
+    }
+
     clearCacheButton.addEventListener('click', async () => {
         
         const response = await fetch('/api/clear_cache');
@@ -160,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('Failed to clear cache.');
         }
 
-        alert('Cache cleared.');
         getCacheSize(); // Refresh cache size after clearing
 
     });
@@ -168,18 +202,10 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadBtnPiper.addEventListener('click', downloadPiperVoice);
     downloadBtnKokoro.addEventListener('click', downloadKokoroVoice);
 
-    let prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
-
-    if (prefs.chunkSize) {
-        chunkSizeSlider.value = parseInt(prefs.chunkSize);
-        chunkSizeDisplay.textContent = prefs.chunkSize;
-    }
-
     chunkSizeSlider.addEventListener('input', async () => {
         
         chunkSizeDisplay.textContent = chunkSizeSlider.value;
 
-        // Save chunk size to local storage
         prefs.chunkSize = parseInt(chunkSizeSlider.value);
         localStorage.setItem('prefs', JSON.stringify(prefs));
 
@@ -192,7 +218,109 @@ document.addEventListener('DOMContentLoaded', () => {
         apiKeyContainer.style.display = apiKeyContainer.style.display === 'none' ? 'block' : 'none';
     });
 
+    accessibleFontCheckbox.addEventListener('change', () => {
+
+        prefs.accessibleFontEnabled = accessibleFontCheckbox.checked;
+        localStorage.setItem('prefs', JSON.stringify(prefs));
+
+        setBodyFont(prefs);
+        populatePrefsInputs();
+
+    });
+
+    document.querySelectorAll('input[name="accessible-font-style"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+
+            accessibleFontCheckbox.checked = true;
+            prefs.accessibleFontEnabled = true;
+            prefs.accessibleFontStyle = document.querySelector('input[name="accessible-font-style"]:checked')?.value || 'default'; 
+            
+            localStorage.setItem('prefs', JSON.stringify(prefs));
+            
+            setBodyFont(prefs);
+
+        });
+    });
+
+    // -- Coqui Voice Cloning -- //
+    const recordBtn = document.getElementById('record-btn');
+    const stopRecordBtn = document.getElementById('stop-record-btn');
+    const recordingIndicator = document.getElementById('recording-indicator');
+    const audioFileInput = document.getElementById('audio-file-input');
+    const uploadFileBtn = document.getElementById('upload-file-btn');
+
+    let mediaRecorder;
+    let audioChunks = [];
+
+    async function handleAudioFile(file) {
+        console.debug("Audio file ready: ", file);
+        downloadStatus.textContent = 'Uploading...';
+
+        const formData = new FormData();
+        // If the file is a Blob from recording, it needs a filename.
+        const fileName = file.name || 'user.wav';
+        formData.append("file", file, fileName);
+
+        try {
+            const response = await fetch('/api/voice_cloning', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to upload voice sample.');
+            }
+
+            const data = await response.json();
+            downloadStatus.textContent = data.message;
+        } catch (error) {
+            console.error('Error uploading voice sample:', error);
+            downloadStatus.textContent = `An error occurred: ${error.message}`;
+        }
+    }
+
+    recordBtn.addEventListener('click', async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.start();
+
+        recordBtn.classList.add('hidden');
+        stopRecordBtn.classList.remove('hidden');
+        recordingIndicator.classList.remove('hidden');
+
+        mediaRecorder.addEventListener("dataavailable", event => {
+            audioChunks.push(event.data);
+        });
+
+        mediaRecorder.addEventListener("stop", () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            handleAudioFile(audioBlob);
+            audioChunks = [];
+        });
+    });
+
+    stopRecordBtn.addEventListener('click', () => {
+        mediaRecorder.stop();
+        recordBtn.classList.remove('hidden');
+        stopRecordBtn.classList.add('hidden');
+        recordingIndicator.classList.add('hidden');
+    });
+
+    uploadFileBtn.addEventListener('click', () => {
+        audioFileInput.click();
+    });
+
+    audioFileInput.addEventListener('change', () => {
+        const file = audioFileInput.files[0];
+        if (file) {
+            handleAudioFile(file);
+        }
+    });
+
     // Initial load
     getPiperVoices();
-    getCacheSize(); // Call getCacheSize on initial load
+    getCacheSize();
+    populatePrefsInputs();
+    setBodyFont();
 });
