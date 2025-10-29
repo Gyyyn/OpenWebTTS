@@ -20,9 +20,11 @@ models/kokoro/*
 static/audio/*
 static/audio_cache/*
 
-# Ignore Flatpak build
+# Ignore build dirs
 .flatpak-builder
 build-dir
+build
+dist
 
 # Saved users
 users/

@@ -1,6 +1,7 @@
 from kokoro import KPipeline
 import soundfile as sf
 import torch
+from functions.audio import normalize_audio
 
 def kokoro_process_audio(voice, lang, text, output):
 
@@ -13,3 +14,6 @@ def kokoro_process_audio(voice, lang, text, output):
 
     for i, (gs, ps, audio) in enumerate(generator):
         sf.write(f'{output}', audio, 24000)
+
+    # Normalize the audio
+    normalize_audio(output)

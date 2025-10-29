@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @font-face {
     font-family: 'Merriweather';
     font-style: normal;
@@ -80,10 +82,8 @@ button, a.button {
 }
 
 .modal-content {
-    background-color: #fefefe;
     margin: auto;
     padding: 20px;
-    border: 1px solid #888;
     width: 80%;
     max-width: 500px;
     border-radius: 8px;
@@ -108,4 +108,18 @@ button, a.button {
 
 #sidebar.collapsed .mini-audio-player {
     display: none;
+}
+
+#text-display {
+    line-height: 1.5;
+    text-justify: distribute;
+    font-variant-ligatures: common-ligatures;
+    text-rendering: optimizeLegibility;
+    hyphens: auto;
+    letter-spacing: -0.01em;
+    text-align: justify;
+}
+
+.bg-modal {
+    background-color: rgba(0,0,0,0.5);
 }

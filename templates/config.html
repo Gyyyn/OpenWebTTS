@@ -18,14 +18,14 @@
     </style>
 </head>
 
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
     <div class="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
         
         <!-- Header -->
         <header class="flex items-center justify-between mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">Configuration</h1>
-            <a id="back" href="/" class="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Configuration</h1>
+            <a id="back" href="/" class="inline-flex items-center gap-2 rounded-lg bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <ion-icon name="arrow-back" class="text-lg"></ion-icon>
                 <span>Back</span>
             </a>
@@ -34,50 +34,50 @@
         <main class="space-y-8">
 
             <!-- Accessibility Section -->
-            <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-3">Accessibility</h2>
+            <section class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-3 border-gray-200 dark:border-gray-700">Accessibility</h2>
                 <div class="grid md:grid-cols-2 items-start gap-6">
                     <div>
-                        <h3 class="font-medium text-gray-900">Readable Font</h3>
-                        <p class="text-sm text-gray-500 mt-1">Enable an accessibility-focused font.</p>
+                        <h3 class="font-medium text-gray-900 dark:text-gray-100">Readable Font</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enable an accessibility-focused font.</p>
                     </div>
                     <div>
                         <label for="use-accessible-font-checkbox" class="flex items-center gap-3 cursor-pointer">
                             <input type="checkbox" name="accessible-font" id="use-accessible-font-checkbox" class="form-checkbox h-4 w-4 rounded">
-                            <span class="font-medium">Use an easier to read font</span>
+                            <span class="font-medium dark:text-gray-300">Use an easier to read font</span>
                         </label>
                         <div class="mt-4 space-y-3 pl-7">
                             <label class="flex items-center space-x-3">
                                 <input type="radio" name="accessible-font-style" value="OpenDyslexic" class="form-radio h-4 w-4">
-                                <span>OpenDyslexic</span>
+                                <span class="dark:text-gray-300">OpenDyslexic</span>
                             </label>
                             <label class="flex items-center space-x-3">
                                 <input type="radio" name="accessible-font-style" value="Arial" class="form-radio h-4 w-4">
-                                <span>Arial*</span>
+                                <span class="dark:text-gray-300">Arial*</span>
                             </label>
                             <label class="flex items-center space-x-3">
                                 <input type="radio" name="accessible-font-style" value="Verdana" class="form-radio h-4 w-4">
-                                <span>Verdana*</span>
+                                <span class="dark:text-gray-300">Verdana*</span>
                             </label>
-                            <p class="text-xs text-gray-400 pt-1">* Requires local installation.</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 pt-1">* Requires local installation.</p>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- Models Section -->
-            <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-3">Model Management</h2>
+            <section class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-3 border-gray-200 dark:border-gray-700">Model Management</h2>
                 
                 <!-- Piper and Kokoro Downloads -->
                 <div class="space-y-6">
                     <div>
-                        <h3 class="font-semibold text-gray-900">Download Piper Model</h3>
+                        <h3 class="font-semibold text-gray-900 dark:text-gray-100">Download Piper Model</h3>
                         <div class="grid sm:grid-cols-[1fr_auto] gap-4 mt-2">
-                            <select id="piper-voice" name="piper-voice" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <select id="piper-voice" name="piper-voice" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                 <option value="">-- Loading voices --</option>
                             </select>
-                            <button id="download-btn-piper" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors">
+                            <button id="download-btn-piper" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors">
                                 <span>Download</span>
                                 <ion-icon name="download-outline"></ion-icon>
                             </button>
@@ -85,14 +85,14 @@
                     </div>
 
                     <div>
-                        <h3 class="font-semibold text-gray-900">Download Kokoro Model</h3>
-                        <div class="text-sm text-gray-600 mt-1 space-y-1">
-                            <p>Choose a voice from <a class="font-semibold text-indigo-600 hover:underline" href="https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md" target="_blank">here</a>, and paste the download link from <a class="font-semibold text-indigo-600 hover:underline" href="https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices" target="_blank">here</a>.</p>
-                            <p class="text-xs text-gray-500"><i>Note:</i> Ensure the link ends in <code>.pt</code>, not <code>?download=true</code>.</p>
+                        <h3 class="font-semibold text-gray-900 dark:text-gray-100">Download Kokoro Model</h3>
+                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 space-y-1">
+                            <p>Choose a voice from <a class="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline" href="https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md" target="_blank">here</a>, and paste the download link from <a class="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline" href="https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices" target="_blank">here</a>.</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-500"><i>Note:</i> Ensure the link ends in <code>.pt</code>, not <code>?download=true</code>.</p>
                         </div>
                         <div class="grid sm:grid-cols-[1fr_auto] gap-4 mt-2">
-                            <input id="kokoro-voice" name="kokoro-voice" placeholder="Paste voice link here..." class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
-                            <button id="download-btn-kokoro" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors">
+                            <input id="kokoro-voice" name="kokoro-voice" placeholder="Paste voice link here..." class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                            <button id="download-btn-kokoro" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors">
                                 <span>Download</span>
                                 <ion-icon name="download-outline"></ion-icon>
                             </button>
@@ -102,20 +102,20 @@
                 </div>
 
                 <!-- Gemini / Google Cloud -->
-                <div class="mt-6 pt-6 border-t">
-                    <h3 class="font-semibold text-gray-900">Gemini/Google Cloud TTS</h3>
-                    <div class="p-4 mt-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 class="font-semibold text-gray-900 dark:text-gray-100">Gemini/Google Cloud TTS</h3>
+                    <div class="p-4 mt-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-700/50 dark:text-yellow-300">
                         <strong>Warning:</strong> Setting your API key here could incur charges if you exceed your free tier. Use with care.
                     </div>
                     <div class="mt-4">
-                        <label for="google-voice" class="block text-sm font-medium text-gray-700">Google Cloud JSON Key File Path</label>
-                        <input id="google-voice" name="google-voice" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                        <label for="google-voice" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Google Cloud JSON Key File Path</label>
+                        <input id="google-voice" name="google-voice" class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                     </div>
                     <details class="mt-4 text-sm">
-                        <summary id="toggle-explanation-container" class="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800">
+                        <summary id="toggle-explanation-container" class="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
                             Show detailed setup instructions
                         </summary>
-                        <div id="explanation-container" class="prose prose-sm max-w-none mt-2 text-gray-600 space-y-3">
+                        <div id="explanation-container" class="prose prose-sm dark:prose-invert max-w-none mt-2 text-gray-600 dark:text-gray-400 space-y-3">
                             <h4>Step 1: Set Up Your Project & API</h4>
                             <ol>
                                 <li>Go to the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> and sign in.</li>
@@ -136,24 +136,24 @@
                 </div>
 
                 <!-- Coqui -->
-                <div class="mt-6 pt-6 border-t">
-                     <h3 class="font-semibold text-gray-900">Coqui Voice Cloning</h3>
-                     <p class="text-sm text-gray-600 mt-1">Record or upload a sample file for voice-cloning.</p>
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                     <h3 class="font-semibold text-gray-900 dark:text-gray-100">Coqui Voice Cloning</h3>
+                     <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Record or upload a sample file for voice-cloning.</p>
                      <div id="speech-to-text-section" class="flex items-center gap-3 mt-4">
-                        <button id="record-btn" class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-200 transition-colors">
+                        <button id="record-btn" class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                             <ion-icon name="mic-outline"></ion-icon>
                             <span>Record</span>
                         </button>
-                        <button id="stop-record-btn" class="hidden ml-2 inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-200 transition-colors">
+                        <button id="stop-record-btn" class="hidden ml-2 inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                             <ion-icon name="stop"></ion-icon>
                             <span>Stop</span>
                         </button>
                         <div id="recording-indicator" class="hidden ml-2 flex items-center">
                             <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                            <span class="ml-2 text-sm text-gray-600">Recording...</span>
+                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Recording...</span>
                         </div>
                         <input type="file" id="audio-file-input" accept="audio/wav" class="hidden">
-                        <button id="upload-file-btn" class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-200 transition-colors">
+                        <button id="upload-file-btn" class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                             <ion-icon name="cloud-upload-outline"></ion-icon>
                             <span>Upload</span>
                         </button>
@@ -161,40 +161,40 @@
                 </div>
 
                 <!-- OpenAI -->
-                <div class="mt-6 pt-6 border-t">
-                    <h3 class="font-semibold text-gray-900">OpenAI Compatibility <span class="text-xs font-medium bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full">WIP</span></h3>
-                    <p class="text-sm text-gray-600 mt-1">Map which local voice will be used for each OpenAI voice.</p>
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 class="font-semibold text-gray-900 dark:text-gray-100">OpenAI Compatibility <span class="text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-0.5 px-2 rounded-full">WIP</span></h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Map which local voice will be used for each OpenAI voice.</p>
                 </div>
             </section>
 
             <!-- General Settings & Info -->
-            <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-3">General Settings & Info</h2>
+            <section class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-3 border-gray-200 dark:border-gray-700">General Settings & Info</h2>
                 
                 <div class="grid md:grid-cols-2 gap-8">
                     <!-- Chunk Size -->
                     <div>
-                        <h3 class="font-semibold text-gray-900">Chunk Size</h3>
-                        <p class="text-sm text-gray-500 mt-1">Smaller chunks generate faster but may have less natural pronunciation. Larger chunks provide better context but may be slower.</p>
-                        <p class="text-sm text-gray-500 mt-1">Additionally, Coqui does not work well with big chunks, clipping the text when it exceeds the limit. If you are planning to use Coqui, keep the Chunk below 50.</p>
+                        <h3 class="font-semibold text-gray-900 dark:text-gray-100">Chunk Size</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Smaller chunks generate faster but may have less natural pronunciation. Larger chunks provide better context but may be slower.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Additionally, Coqui does not work well with big chunks, clipping the text when it exceeds the limit. If you are planning to use Coqui, keep the Chunk below 50.</p>
                         <div class="mt-4">
                             <div class="flex justify-between items-center text-sm font-medium">
-                                <label for="chunk-size-slider">Words per chunk:</label>
-                                <span id="chunk-size-display" class="font-semibold text-indigo-600"></span>
+                                <label for="chunk-size-slider" class="dark:text-gray-300">Words per chunk:</label>
+                                <span id="chunk-size-display" class="font-semibold text-indigo-600 dark:text-indigo-400"></span>
                             </div>
-                            <input id="chunk-size-slider" name="chunk-size" type="range" step="5" min="10" max="250" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-2">
+                            <input id="chunk-size-slider" name="chunk-size" type="range" step="5" min="10" max="250" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer mt-2">
                         </div>
                     </div>
 
                     <!-- Cache Management -->
                     <div>
-                        <h3 class="font-semibold text-gray-900">Cache Management</h3>
-                         <div class="p-3 mt-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                        <h3 class="font-semibold text-gray-900 dark:text-gray-100">Cache Management</h3>
+                         <div class="p-3 mt-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 dark:bg-red-900/20 dark:border-red-700/50 dark:text-red-300">
                             <strong>Warning:</strong> This will permanently delete all cached audio files. This action cannot be undone.
                         </div>
                         <div class="flex items-center justify-between mt-4">
-                            <p class="text-sm">Current cache size: <span id="cache-size-display" class="font-medium">Loading...</span></p>
-                            <button id="clear-cache" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 transition-colors">
+                            <p class="text-sm dark:text-gray-300">Current cache size: <span id="cache-size-display" class="font-medium">Loading...</span></p>
+                            <button id="clear-cache" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 dark:bg-red-700 dark:hover:bg-red-600 transition-colors">
                                 <ion-icon name="trash-outline"></ion-icon>
                                 <span>Clear Cache</span>
                             </button>
@@ -203,18 +203,20 @@
                 </div>
 
                 <!-- Model Info -->
-                <div class="mt-6 pt-6 border-t">
-                    <h3 class="font-semibold text-gray-900">Choosing a Model</h3>
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 class="font-semibold text-gray-900 dark:text-gray-100">Choosing a Model</h3>
                     <div class="grid md:grid-cols-2 gap-6 mt-2 items-center">
-                        <div class="text-sm text-gray-600 space-y-2">
+                        <div class="text-sm text-gray-600 dark:text-gray-400 space-y-2">
                              <p>Choosing a model compatible with your device is important for performance.</p>
                              <ul class="list-disc list-inside space-y-1">
+                                <li><strong>Coqui:</strong> Requires beefy GPU. Ideal for voice-cloning.</li>
                                 <li><strong>Kokoro:</strong> Best for powerful GPUs.</li>
                                 <li><strong>Piper:</strong> A good default choice for most systems.</li>
-                                <li><strong>Gemini:</strong> A good cloud-based option if Piper is too slow.</li>
+                                <li><strong>Kitten:</strong> Lighter than Piper, but not as clear. Ideal for CPU-only systems. Currently only supports English.</li>
+                                <li><strong>Gemini:</strong> A good cloud-based option if Piper is too slow or battery hungry.</li>
                              </ul>
                         </div>
-                        <img src="/static/image/models.png" alt="A diagram showing model performance trade-offs." class="rounded-lg border border-gray-200 w-full h-auto">
+                        <img src="/static/image/models.png" alt="A diagram showing model performance trade-offs." class="dark:invert rounded-xl border border-gray-200 dark:border-gray-400 w-full h-auto">
                     </div>
                 </div>
 

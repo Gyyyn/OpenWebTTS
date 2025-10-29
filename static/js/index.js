@@ -34,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const voiceSelect = document.getElementById('voice');
     const pdfFileInput = document.getElementById('pdf-file');
     const webPageLinkInput  = document.getElementById('web-page-url');
-    const textInput = document.getElementById('text');
     const playbackSpeed = document.getElementById('playback-speed');
 
     // Checkboxes
@@ -44,7 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const skipHeadersNFootersCheckbox = document.getElementById('skip-headers-checkbox');
 
     // Buttons
-    const iconMenuToggle = document.getElementById('icon-menu-toggle');
     const collapseSidebarButton = document.getElementById('collapse-sidebar-btn');
     const newBookBtn = document.getElementById('new-book-btn');
     const libraryBtn = document.getElementById('library-btn');
@@ -55,11 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextPageBtn = document.getElementById('next-page');
     const generateBtn = document.getElementById('generate-btn');
     const generateBtnIcon = document.getElementById('generate-btn-icon');
-    const closeCurrentChunkButton = document.getElementById('close-current-chunk');
-    
+    const prevChunkButton = document.getElementById("prev-audio-btn");
+    const nextChunkButton = document.getElementById("next-audio-btn");
+    const settingsDropupToggleBtn = document.getElementById('settings-dropup-toggle-btn');
+
     // Elements
     const sidebar = document.getElementById('sidebar');
-    const iconMenuDropdown = document.getElementById('icon-menu-dropdown');
     const localBookList = document.getElementById('local-book-list');
     const onlineBookList = document.getElementById('online-book-list');
     const mainDiv = document.getElementById('main');
@@ -67,56 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookPageTitle = document.getElementById('book-title');
     const pageNumSpan = document.getElementById('page-num');
     const pageNumInput = document.createElement('input');
-    pageNumInput.type = 'number';
-    pageNumInput.className = 'w-16 text-center bg-gray-200 rounded-lg';
-    pageNumInput.style.display = 'none';
-    pageNumSpan.parentElement.insertBefore(pageNumInput, pageNumSpan.nextSibling);
-
-    pageNumSpan.addEventListener('click', () => {
-        pageNumSpan.style.display = 'none';
-        pageNumInput.style.display = 'inline-block';
-        if (pdfDoc) {
-            pageNumInput.value = currentPageNum;
-        } else {
-            pageNumInput.value = textCurrentPage;
-        }
-        pageNumInput.focus();
-        pageNumInput.select();
-    });
-
-    const goToPage = () => {
-        const page = parseInt(pageNumInput.value);
-        if (!isNaN(page)) {
-            if (pdfDoc) {
-                const limit = isTwoPageView ? pdfDoc.numPages - 1 : pdfDoc.numPages;
-                if (page > 0 && page <= limit) {
-                    renderPage(page);
-                }
-            } else {
-                if (page > 0 && page <= totalTextPages) {
-                    renderTextPage(page);
-                }
-            }
-        }
-        pageNumInput.style.display = 'none';
-        pageNumSpan.style.display = 'inline-block';
-    };
-
-    document.addEventListener('click', (e) => {
-        if (e.target !== pageNumInput && e.target !== pageNumSpan) {
-            pageNumInput.style.display = 'none';
-            pageNumSpan.style.display = 'inline-block';
-        }
-    });
-
-    pageNumInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            goToPage();
-        } else if (e.key === 'Escape') {
-            pageNumInput.style.display = 'none';
-            pageNumSpan.style.display = 'inline-block';
-        }
-    });
+    const speechToTextSection = document.getElementById('speech-to-text-section');
+    const emptyTextOverlay = document.getElementById('empty-text-overlay');
+    const pasteClipboardOverlayBtn = document.getElementById('paste-clipboard-overlay-btn');
+    const mainNavToggle = document.getElementById('main-nav-toggle');
+    const mainNavDropdown = document.getElementById('main-nav-dropdown');
     const textboxViewerWrapper = document.getElementById('textbox-viewer-wrapper');
     const textDisplay = document.getElementById('text-display'); // Main textarea from TTS.
     const pdfViewer = document.getElementById('pdf-viewer');
@@ -127,6 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioPlayer = document.getElementById('audio-player');
     const playbackSpeedDisplay = document.getElementById('playback-speed-display');
     const currentChunk = document.getElementById('current-chunk');
+    const currentChunkTextSpan = document.getElementById('current-chunk-text-span');
+    const settingsDropupMenu = document.getElementById('settings-dropup-menu');
 
     // Modal Elements
     const bookModal = document.getElementById('book-modal');
@@ -201,6 +157,57 @@ document.addEventListener('DOMContentLoaded', () => {
     /*
      * --- Functions
      */
+
+    pageNumInput.type = 'number';
+    pageNumInput.className = 'w-16 text-center bg-gray-200 rounded-lg';
+    pageNumInput.style.display = 'none';
+    pageNumSpan.parentElement.insertBefore(pageNumInput, pageNumSpan.nextSibling);
+
+    pageNumSpan.addEventListener('click', () => {
+        pageNumSpan.style.display = 'none';
+        pageNumInput.style.display = 'inline-block';
+        if (pdfDoc) {
+            pageNumInput.value = currentPageNum;
+        } else {
+            pageNumInput.value = textCurrentPage;
+        }
+        pageNumInput.focus();
+        pageNumInput.select();
+    });
+
+    const goToPage = () => {
+        const page = parseInt(pageNumInput.value);
+        if (!isNaN(page)) {
+            if (pdfDoc) {
+                const limit = isTwoPageView ? pdfDoc.numPages - 1 : pdfDoc.numPages;
+                if (page > 0 && page <= limit) {
+                    renderPage(page);
+                }
+            } else {
+                if (page > 0 && page <= totalTextPages) {
+                    renderTextPage(page);
+                }
+            }
+        }
+        pageNumInput.style.display = 'none';
+        pageNumSpan.style.display = 'inline-block';
+    };
+
+    document.addEventListener('click', (e) => {
+        if (e.target !== pageNumInput && e.target !== pageNumSpan) {
+            pageNumInput.style.display = 'none';
+            pageNumSpan.style.display = 'inline-block';
+        }
+    });
+
+    pageNumInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            goToPage();
+        } else if (e.key === 'Escape') {
+            pageNumInput.style.display = 'none';
+            pageNumSpan.style.display = 'inline-block';
+        }
+    });
 
     // Toolbar collapse, handled mainly by CSS
     function handleSidebarCollapse() {
@@ -289,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         podcastList.innerHTML = '';
         onlinePodcasts.forEach(podcast => {
             const li = document.createElement('li');
-            li.className = 'relative p-2 rounded-lg hover:bg-gray-200'; // Added relative for absolute positioning of player
+            li.className = 'relative p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200 '; // Added relative for absolute positioning of player
             li.title = `${podcast.title}`;
 
             const mainContentDiv = document.createElement('div');
@@ -489,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createBookListItem(book, source) {
         const li = document.createElement('li');
         const isActive = activeBook && activeBook.id === book.id && activeBook.source === source;
-        li.className = `flex justify-between items-center cursor-pointer p-2 rounded-lg whitespace-nowrap overflow-hidden text-ellipsis ${isActive ? 'bg-indigo-100' : 'hover:bg-gray-200'}`;
+        li.className = `flex justify-between items-center cursor-pointer p-2 rounded-lg whitespace-nowrap overflow-hidden text-ellipsis dark:hover:bg-gray-700 dark:text-gray-200  ${isActive ? 'bg-indigo-100 dark:bg-indigo-900 dark:bg-opacity-30' : 'hover:bg-gray-200'}`;
         li.title = `${book.title}`;
 
         const titleSpan = document.createElement('span');
@@ -646,6 +653,16 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    // Function to check text content and show/hide overlay
+    function checkTextContent() {
+        const hasContent = textDisplay.textContent.trim().length > 0;
+        if (hasContent) {
+            emptyTextOverlay.classList.add('hidden');
+        } else {
+            emptyTextOverlay.classList.remove('hidden');
+        }
+    }
+
     function highlightChunk(chunkObject) {
         const fullText = textDisplay.textContent;
         const chunkText = chunkObject.text;
@@ -778,6 +795,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (library) library.remove();
 
         await renderBookContent(book);
+
+        // Check whether to display import buttons
+        checkTextContent();
+
         if (currentUser && !book.is_pdf) { // Only show save button for non-PDF online books
             saveBookBtn.classList.remove('hidden');
         } else {
@@ -839,7 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetBookView() {
         generateBtn.disabled = false;
         textDisplay.textContent = '';
-        currentChunk.childNodes[1].childNodes[1].textContent = '';
+        currentChunkTextSpan.textContent = '';
         currentChunk.classList.add('hidden');
         bookPageTitle.textContent = 'New Book';
         bookView.classList.add('hidden');
@@ -850,11 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pageNumSpan.textContent = '';
     }
 
-                /*
-
-                 * -- Events
-
-                 */
+    /** -- Events -- */
 
     autoReadCheckbox.addEventListener('change', () => {
         if (activeBook && activeBook.source === 'local') {
@@ -879,7 +896,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     newBookBtn.addEventListener('click', createNewBook);
 
-    textDisplay.addEventListener('input', () => {
+    textDisplay.addEventListener('input', (x) => {
+
         if (activeBook && !pdfDoc) { // Only handle input for text-based content
             const newPageText = textDisplay.textContent;
             const start = (textCurrentPage - 1) * charsPerPage;
@@ -907,7 +925,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update chunks for speech generation from the edited page text
             allTextChunks = splitTextIntoChunks(newPageText);
+            renderTextPage(textCurrentPage);
+            
         }
+
     });
 
     async function updateVoices() {
@@ -1014,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Playback will be triggered by processAndQueueChunk when the audio arrives.
             isPlaying = false;
             disableAudioControls();
-            generateBtnText.textContent = 'Generate Speech';
+            generateBtnText.textContent = 'Listen';
             generateBtnIcon.name = 'volume-high-outline';
             return;
         }
@@ -1040,8 +1061,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const shouldAutoDelete = (activeBook && activeBook.source === 'local') && localBooks[activeBook.id].autoDeleteChunks;
         
-        if (!shouldAutoDelete && currentChunk && currentChunk.childNodes[1] && currentChunk.childNodes[1].childNodes[1]) {
-            currentChunk.childNodes[1].childNodes[1].textContent = currentAudio.text.text;
+        if (currentChunk && currentChunkTextSpan) {
+            currentChunkTextSpan.textContent = currentAudio.text.text;
             currentChunk.classList.remove('hidden');
         }
 
@@ -1069,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error(`Audio playback failed for chunk ${currentChunkIndex} (${currentAudio.url}) after multiple retries. Skipping chunk. Error:`, error);
                 isPlaying = false;
                 disableAudioControls();
-                generateBtnText.textContent = 'Generate Speech';
+                generateBtnText.textContent = 'Listen';
                 generateBtnIcon.name = 'volume-high-outline';
                 audioPlayer.src = ''; // Clear source to prevent further attempts
                 showNotification(`Failed to play audio for chunk ${currentChunkIndex}. Skipping.`, 'error');
@@ -1086,7 +1107,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     isPlaying = false;
                     disableAudioControls();
                     clearAllHighlights();
-                    generateBtnText.textContent = 'Generate Speech';
+                    generateBtnText.textContent = 'Listen';
                     generateBtnIcon.name = 'volume-high-outline';
                 }
             }
@@ -1116,14 +1137,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Auto-Read Next Page Logic
                 if (autoReadCheckbox.checked && (currentChunkIndex >= allTextChunks.length)) {
                     
-                    const isPdfTwoPageLimit = isTwoPageView ? pdfDoc.numPages - 1 : pdfDoc.numPages;
-                    if (pdfDoc && currentPageNum < isPdfTwoPageLimit) {
-                        const nextPage = currentPageNum + (isTwoPageView ? 2 : 1);
-                        renderPage(nextPage).then(() => {
-                            startSpeechGeneration();
-                        });
+                    if (pdfDoc) {
+                        const isPdfTwoPageLimit = isTwoPageView ? pdfDoc.numPages - 1 : pdfDoc.numPages;
+
+                        if (currentPageNum < isPdfTwoPageLimit) {
+                            const nextPage = currentPageNum + (isTwoPageView ? 2 : 1);
+                            renderPage(nextPage).then(() => {
+                                startSpeechGeneration();
+                            }); 
+                        }
+                        
                     } else if (!pdfDoc && textCurrentPage < totalTextPages) {
-                        renderTextPage(textCurrentPage + 1);
+
+                        // Stop audio queue here automatically handles current page deletion.
+                        if (shouldAutoDelete) {
+                            stopAudioQueue();
+                        } else {
+                            renderTextPage(textCurrentPage + 1);
+                        }
+
                         setTimeout(startSpeechGeneration, 100); // Allow text to update
                     }
                     
@@ -1132,14 +1164,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                     
                 console.log("Buffer empty, waiting for network...");
-                generateBtnText.textContent = 'Generate Speech';
+                generateBtnText.textContent = 'Listen';
                 generateBtnIcon.name = 'volume-high-outline';
             }
         };
     }
 
     async function stopAudioQueue() {
-        // New Auto-Delete Logic on Stop ----
+
         const shouldAutoDelete = activeBook && activeBook.source === 'local' && localBooks[activeBook.id].autoDeleteChunks;
         if (shouldAutoDelete && currentChunkIndex > 0 && !pdfDoc) {
             const pageStartIndex = (textCurrentPage - 1) * charsPerPage;
@@ -1156,12 +1188,12 @@ document.addEventListener('DOMContentLoaded', () => {
             audioPlayer.pause();
             audioPlayer.src = '';
             audioQueue = [];
+            textCurrentPage = 0;
     
             // Reload the book content to reflect deletion
             loadBookContent({ ...activeBook }); // Pass a copy to ensure it re-triggers logic
             return; // Exit early as loadBookContent handles UI reset
         }
-        // ---- END: New Auto-Delete Logic on Stop ----
 
         currentChunk.classList.add('hidden');
         isPlaying = false;
@@ -1169,14 +1201,116 @@ document.addEventListener('DOMContentLoaded', () => {
         audioQueue = [];
         audioPlayer.pause();
         audioPlayer.src = '';
+
         generateBtn.disabled = false;
         generateBtnText.classList.remove('hidden');
         generateBtnIcon.classList.remove('hidden');
         loadingDiv.classList.add('hidden');
-        generateBtnText.textContent = 'Generate Speech';
+        speechToTextSection.classList.remove('hidden');
+
+        generateBtnText.textContent = 'Listen';
         generateBtnIcon.name = 'volume-high-outline';
         disableAudioControls();
         textDisplay.textContent = allTextChunks.map(c => c.text).join(' '); // Revert to plain text for the page
+    }
+
+    function goToNextAudioChunk() {
+        if (!isPlaying) {
+            return;
+        }
+
+        // Stop current playback
+        if (audioPlayer && !audioPlayer.paused) {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+        }
+
+        // Clear current highlights
+        if (pdfDoc) {
+            clearPdfHighlights();
+        } else {
+            clearAllHighlights();
+        }
+
+        // Check if we're at the end of the current page
+        if (currentChunkIndex >= allTextChunks.length - 1) {
+            // Handle page progression for auto-read
+            if (autoReadCheckbox.checked) {
+                
+                if (pdfDoc) {
+                    const isPdfTwoPageLimit = isTwoPageView ? pdfDoc.numPages - 1 : pdfDoc.numPages;
+
+                    if (currentPageNum < isPdfTwoPageLimit) {
+                        const nextPage = currentPageNum + (isTwoPageView ? 2 : 1);
+                        renderPage(nextPage).then(() => {
+                            stopAudioQueue();
+                            startSpeechGeneration();
+                        });
+                    } else {
+                        // Reached end of PDF
+                        stopAudioQueue();
+                    }
+                    
+                } else if (!pdfDoc && textCurrentPage < totalTextPages) {
+                    // Move to next text page
+                    renderTextPage(textCurrentPage + 1);
+                    setTimeout(() => {
+                        stopAudioQueue();
+                        startSpeechGeneration();
+                    }, 100);
+                } else {
+                    // Reached end of text
+                    stopAudioQueue();
+                }
+                
+                return;
+            } else {
+                // Not in auto-read mode, just stop at end of page
+                return;
+            }
+        }
+
+        // Move to next chunk
+        currentChunkIndex++;
+        
+        // Clear the current chunk display
+        currentChunk.classList.add('hidden');
+
+        // Process the chunks. This will also play the audio.
+        processAndQueueChunk(currentChunkIndex);
+        processAndQueueChunk(currentChunkIndex + 1);
+        processAndQueueChunk(currentChunkIndex + 2);
+
+        playAudioQueue();
+    
+    }
+
+    function goToPreviousAudioChunk() {
+        if (!isPlaying || currentChunkIndex <= 0) {
+            return;
+        }
+
+        // Stop current playback
+        if (audioPlayer && !audioPlayer.paused) {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+        }
+
+        // Clear current highlights
+        if (pdfDoc) {
+            clearPdfHighlights();
+        } else {
+            clearAllHighlights();
+        }
+
+        // Move to previous chunk
+        currentChunkIndex--;
+        
+        // Clear the current chunk display
+        currentChunk.classList.add('hidden');
+        
+        // Start playing from the new chunk
+        playAudioQueue();
     }
 
     async function startSpeechGeneration() {
@@ -1194,6 +1328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         generateBtnText.classList.add('hidden');
         generateBtnIcon.classList.add('hidden');
         loadingDiv.classList.remove('hidden');
+        speechToTextSection.classList.add('hidden');
 
         audioQueue = [];
         isPlaying = false;
@@ -1229,6 +1364,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.debug(`Failed to get audio for chunk index: ${chunkIndex}`);
             }
         });
+
+        console.debug("Current audio queue: ", audioQueue)
     }
 
     function clearAllHighlights() {
@@ -1293,6 +1430,7 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             container.appendChild(canvas);
+            canvas.classList.add('dark:invert')
 
             const renderContext = {
                 canvasContext: context,
@@ -1472,23 +1610,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    iconMenuToggle.addEventListener('click', (event) => {
-        event.stopPropagation(); // Prevent clicks from immediately closing the menu
-        iconMenuDropdown.classList.toggle('hidden');
-    });
-
-    // Close the dropdown if clicked outside
-    document.addEventListener('click', (event) => {
-        if (!iconMenuDropdown.contains(event.target) && !iconMenuToggle.contains(event.target)) {
-            iconMenuDropdown.classList.add('hidden');
-        }
-    });
-
     libraryBtn.addEventListener('click', async () => {
 
         // First reset the book view.
         setActiveBook(null);
-        libraryBtn.classList.add('bg-indigo-100');
+        libraryBtn.classList.add('bg-indigo-100', 'dark:bg-indigo-900', 'dark:bg-opacity-30');
 
         bookView.classList.add('hidden');
         
@@ -1882,11 +2008,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === filePickerModal) hideFileModal();
     });
 
-    closeCurrentChunkButton.addEventListener('click', () => {
-        currentChunk.textContent = '';
-        currentChunk.classList.add('hidden');
-    });
-
     async function startRecording() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -2081,8 +2202,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const commandList = document.getElementById('command-list');
 
     const commands = [
-        { name: 'New Book', description: 'Create a new temporary book', action: () => { createNewBook(); hideCommandPalette(); } },
-        { name: 'Delete Book', description: 'Delete the currently active book', action: () => { 
+        { name: 'New Book', icon: 'add-circle-outline', description: 'Create a new temporary book', action: () => { createNewBook(); hideCommandPalette(); } },
+        { name: 'Delete Book', icon: 'trash-outline', description: 'Delete the currently active book', action: () => { 
             if (activeBook) {
                 if (activeBook.source === 'online') {
                     deleteOnlineBook(activeBook.id);
@@ -2092,7 +2213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Rename Book', description: 'Rename the currently active book', action: () => { 
+        { name: 'Rename Book', icon: 'create-outline', description: 'Rename the currently active book', action: () => { 
             if (activeBook) {
                 if (activeBook.source === 'online') {
                     renameOnlineBook(activeBook);
@@ -2103,58 +2224,58 @@ document.addEventListener('DOMContentLoaded', () => {
             } else showNotification('No book is currently active.');
          } },
 
-        { name: 'Import File', description: 'Import a PDF or EPUB file', action: () => {
+        { name: 'Import File', icon: 'folder-open-outline', description: 'Import a PDF or EPUB file', action: () => {
             if (activeBook) {
                 showFileModal(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Generate Speech', description: 'Generate speech for the current text', action: () => {
+        { name: 'Generate Speech', icon: 'volume-high-outline', description: 'Generate speech for the current text', action: () => {
             if (activeBook) {
                 startSpeechGeneration(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Stop Playback', description: 'Stop current audio playback', action: () => {
+        { name: 'Stop Playback', icon: 'stop', description: 'Stop current audio playback', action: () => {
             if (activeBook) {
                 stopAudioQueue(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Record Audio', description: 'Start recording audio for transcription', action: () => {
+        { name: 'Record Audio', icon: 'mic', description: 'Start recording audio for transcription', action: () => {
             if (activeBook) {
                 startRecording(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Transcribe Audio File', description: 'Transcribe an audio file', action: () => {
+        { name: 'Transcribe Audio File', icon: 'document-text-outline', description: 'Transcribe an audio file', action: () => {
             if (activeBook) {
                 audioFileInput.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Login/Create Account', description: 'Login or create a new user account', action: () => { showLoginModal(); hideCommandPalette(); } },
-        { name: 'Save Book (Online)', description: 'Save the current book to your online account', action: () => {
+        { name: 'Login/Create Account', icon: 'person-add-outline', description: 'Login or create a new user account', action: () => { showLoginModal(); hideCommandPalette(); } },
+        { name: 'Save Book', icon: 'save-outline', description: 'Save the current book to your online account', action: () => {
             if (activeBook) {
                 handleSaveBook(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Toggle Two-Page View', description: 'Toggle between single and two-page PDF view', action: () => {
+        { name: 'Toggle Two-Page View', icon: 'book', description: 'Toggle between single and two-page PDF view', action: () => {
             if (activeBook) {
                 toggleTwoPageBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Zoom In PDF', description: 'Increase zoom level of PDF', action: () => {
+        { name: 'Zoom In PDF', icon: 'add-circle-outline', description: 'Increase zoom level of PDF', action: () => {
             if (activeBook) {
                 zoomInBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Zoom Out PDF', description: 'Decrease zoom level of PDF', action: () => {
+        { name: 'Zoom Out PDF', icon: 'remove-circle-outline', description: 'Decrease zoom level of PDF', action: () => {
             if (activeBook) {
                 zoomOutBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Previous Page', description: 'Go to the previous page', action: () => {
+        { name: 'Previous Page', icon: 'arrow-back', description: 'Go to the previous page', action: () => {
             if (activeBook) {
                 prevPageBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Next Page', description: 'Go to the next page', action: () => {
+        { name: 'Next Page', icon: 'arrow-forward', description: 'Go to the next page', action: () => {
             if (activeBook) {
                 nextPageBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
@@ -2196,11 +2317,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         filteredCommands.forEach((command, index) => {
+
             const li = document.createElement('li');
-            li.className = `p-2 cursor-pointer hover:bg-indigo-100 rounded-lg ${index === selectedCommandIndex ? 'bg-indigo-200' : ''}`;
+            
+            let commandIcon = command.icon ? `<ion-icon class="me-1" name="${command.icon}"></ion-icon>` : '';
+            
+            li.className = `p-2 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900 dark:hover:bg-opacity-30 rounded-lg ${index === selectedCommandIndex ? 'bg-indigo-200 dark:bg-indigo-900 dark:bg-opacity-30' : ''}`;
             li.innerHTML = `
-                <div class="font-medium text-gray-800">${command.name}</div>
-                <div class="text-sm text-gray-500">${command.description}</div>
+                <div class="font-medium text-gray-800 dark:text-gray-300">
+                    <span class="flex flex-row items-center">${commandIcon}${command.name}</span>
+                </div>
+                <div class="text-sm text-gray-700 dark:text-gray-500">${command.description}</div>
             `;
             li.addEventListener('click', () => command.action());
             commandList.appendChild(li);
@@ -2261,7 +2388,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateCurrentUserUI(username) {
         currentUserDisplay.textContent = username;
-        const userDetails = document.querySelector('#current-user + span');
+        const userDetails = document.querySelector('#current-user + div');
         if (username === 'Anonymous') {
             userDetails.textContent = 'Not signed in';
             logoutBtn.classList.add('hidden');
@@ -2586,6 +2713,181 @@ document.addEventListener('DOMContentLoaded', () => {
             saveBookBtn.classList.remove('hidden');
         }
     });
+
+    const themeToggle = document.getElementById('dropdown-theme-toggle');
+
+    if (localPrefs.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeToggle.checked = true;
+    } else if (localPrefs.theme === 'light') {
+        document.documentElement.classList.remove('dark');
+        themeToggle.checked = false;
+    }
+    themeToggle.addEventListener('change', () => {
+        if (themeToggle.checked) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    });
+
+    prevChunkButton.addEventListener('click', goToPreviousAudioChunk);
+    nextChunkButton.addEventListener('click', goToNextAudioChunk);
+
+    // Check text content when text changes (add to existing listener if any)
+    textDisplay.addEventListener('input', checkTextContent);
+    textDisplay.addEventListener('paste', function(e) {
+        // Use setTimeout to check after paste operation completes
+        setTimeout(checkTextContent, 10);
+    });
+
+    // Paste Clipboard button functionality
+    pasteClipboardOverlayBtn.addEventListener('click', async function() {
+
+        const text = await navigator.clipboard.readText();
+
+        if (text.trim().length > 0) {
+            textDisplay.textContent = text;
+            textDisplay.oninput();
+            checkTextContent();
+        }
+        
+    });
+
+    mainNavToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        mainNavDropdown.classList.toggle('hidden');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function() {
+        mainNavDropdown.classList.add('hidden');
+    });
+    
+    // Prevent dropdown from closing when clicking inside it
+    mainNavDropdown.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Handle keyboard navigation in dropdown
+    mainNavDropdown.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            mainNavDropdown.classList.add('hidden');
+            mainNavToggle.focus();
+        }
+    });
+    
+    // Theme toggle functionality
+    themeToggle.addEventListener('change', function() {
+        const html = document.documentElement;
+        if (this.checked) {
+            html.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            html.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    });
+    
+    // Initialize theme from localStorage
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        themeToggle.checked = true;
+        document.documentElement.classList.add('dark');
+    }
+    
+    // Smooth animations for dropdown
+    mainNavDropdown.style.transition = 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out';
+    mainNavToggle.addEventListener('click', function() {
+        if (mainNavDropdown.classList.contains('hidden')) {
+            mainNavDropdown.classList.remove('hidden');
+            setTimeout(() => {
+                mainNavDropdown.style.opacity = '1';
+                mainNavDropdown.style.transform = 'translateY(0)';
+            }, 10);
+        } else {
+            mainNavDropdown.style.opacity = '0';
+            mainNavDropdown.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                mainNavDropdown.classList.add('hidden');
+            }, 200);
+        }
+    });
+    
+    // Initialize dropdown position
+    mainNavDropdown.style.opacity = '0';
+    mainNavDropdown.style.transform = 'translateY(-10px)';
+    
+    // Settings persistence (optional - can be implemented based on existing functionality)
+    // Load saved settings from localStorage
+    const loadSettings = () => {
+        const savedSettings = JSON.parse(localStorage.getItem('tts-settings') || '{}');
+        document.getElementById('auto-delete-chunks-checkbox').checked = savedSettings.autoDelete || false;
+        document.getElementById('two-page-view-checkbox').checked = savedSettings.twoPageView !== false;
+        document.getElementById('auto-read-checkbox').checked = savedSettings.autoRead || false;
+        document.getElementById('skip-headers-checkbox').checked = savedSettings.skipHeaders || false;
+    };
+    
+    // Save settings to localStorage
+    const saveSettings = () => {
+        const settings = {
+            autoDelete: document.getElementById('auto-delete-chunks-checkbox').checked,
+            twoPageView: document.getElementById('two-page-view-checkbox').checked,
+            autoRead: document.getElementById('auto-read-checkbox').checked,
+            skipHeaders: document.getElementById('skip-headers-checkbox').checked
+        };
+        localStorage.setItem('tts-settings', JSON.stringify(settings));
+    };
+    
+    // Load settings on page load
+    loadSettings();
+    
+    // Save settings when changed
+    const checkboxes = document.querySelectorAll('#settings-dropdown input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', saveSettings);
+    });
+
+    // Toggle settings dropup
+    settingsDropupToggleBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        settingsDropupMenu.classList.toggle('hidden');
+        
+        // Animate dropup
+        if (!settingsDropupMenu.classList.contains('hidden')) {
+            settingsDropupMenu.style.opacity = '0';
+            settingsDropupMenu.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                settingsDropupMenu.style.opacity = '1';
+                settingsDropupMenu.style.transform = 'translateY(0)';
+            }, 10);
+        }
+    });
+    
+    // Close dropup when clicking outside
+    document.addEventListener('click', function() {
+        settingsDropupMenu.classList.add('hidden');
+    });
+    
+    // Prevent dropup from closing when clicking inside it
+    settingsDropupMenu.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Handle keyboard navigation
+    settingsDropupMenu.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            settingsDropupMenu.classList.add('hidden');
+            settingsDropupToggleBtn.focus();
+        }
+    });
+    
+    // Smooth animations
+    settingsDropupMenu.style.transition = 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out';
+    settingsDropupMenu.style.opacity = '0';
+    settingsDropupMenu.style.transform = 'translateY(-10px)';
 
     // Initial load functions
     setBodyFont();

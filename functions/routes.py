@@ -1,5 +1,4 @@
 import os
-import subprocess
 import hashlib
 import shutil
 import tempfile
@@ -24,6 +23,7 @@ from langdetect import detect
 from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, KOKORO_DIR, USERS_DIR
 
 # Import other function modules
+from functions.piper import piper_process_audio
 from functions.gemini import gemini_process_audio, gemini_list_voices
 from functions.coqui import coqui_process_audio, save_voice_sample
 from functions.kokoro import kokoro_process_audio
@@ -102,6 +102,10 @@ def check_model_directories():
     
     return False
 
+# --- Voice Listing ---
+
+# Coqui doesn't need model files, but we do list .wavs
+# that are used for voice cloning.
 def get_coqui_voices() -> List[Voice]:
     voices = []
     if not os.path.exists(COQUI_DIR):
@@ -112,6 +116,7 @@ def get_coqui_voices() -> List[Voice]:
             voices.append(Voice(id=voice_id, name=f"Coqui: {voice_id}"))
     return voices
 
+# Piper's models are just .onnx files.
 def get_piper_voices() -> List[Voice]:
     voices = []
     if not os.path.exists(PIPER_DIR):
@@ -122,6 +127,7 @@ def get_piper_voices() -> List[Voice]:
             voices.append(Voice(id=voice_id, name=f"Piper: {voice_id}"))
     return voices
 
+# Kokoro uses .pt for models files
 def get_kokoro_voices() -> List[Voice]:
     voices = []
     if not os.path.exists(KOKORO_DIR):
@@ -132,8 +138,9 @@ def get_kokoro_voices() -> List[Voice]:
             voices.append(Voice(id=voice_id, name=f"Kokoro: {voice_id}"))
     return voices
 
+# Kitten doesn't need model files. And currently
+# has a limited selection of voices.
 def get_kitten_voices() -> List[Voice]:
-    # Kitten doesn't need model files.
     output = []
     voices = [
         "expr-voice-2-m",
@@ -151,6 +158,8 @@ def get_kitten_voices() -> List[Voice]:
 
     return output
 
+# "Gemini Voice", or Google Cloud Text-To-Speech requires a service account 
+# JSON file, or the enviroment variable to authenticate with Google Cloud.
 def get_gemini_voices(api_key: str) -> List[Voice]:
     output = []
     
@@ -181,6 +190,10 @@ def get_gemini_voices(api_key: str) -> List[Voice]:
 
     return output
 
+# -------------------------
+# --- Speech Generation ---
+# -------------------------
+
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
         # ---
@@ -188,12 +201,7 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
         # ---
         if request.engine == "piper":
             model_path = os.path.join(PIPER_DIR, f"{request.voice}.onnx")
-            command = [
-                "piper",
-                "--model", model_path,
-                "--output_file", output_path,
-            ]
-            subprocess.run(command, input=request.text, text=True, check=True, encoding='utf-8')
+            piper_process_audio(model_path, request.lang, request.text, output_path)
         # ---
         # Process audio with Coqui
         # ---
@@ -241,7 +249,7 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
         print(f"Error generating audio for engine {request.engine}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate audio. Reason: {str(e)}")
 
-# --- API Endpoints ---
+# --- Standard routes ---
 
 @router.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -252,6 +260,10 @@ async def read_root(request: Request):
 @router.get("/config", response_class=HTMLResponse)
 async def read_config(request: Request):
     return templates.TemplateResponse("config.html", {"request": request})
+
+# -----------------------
+# ---  API Endpoints  ---
+# -----------------------
 
 @router.get("/api/piper_voices")
 async def get_piper_voices_from_hf():

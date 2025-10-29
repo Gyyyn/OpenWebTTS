@@ -6,6 +6,7 @@ uvicorn[standard]
 python-multipart
 piper-tts
 kokoro
+coqui-tts
 PyMuPDF
 requests
 ebooklib
@@ -17,3 +18,4 @@ pdf2image
 Pillow
 python-docx
 langdetect
+pydub
