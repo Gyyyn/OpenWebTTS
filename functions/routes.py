@@ -853,3 +853,19 @@ async def generate_podcast_route(username: str, podcast: PodcastGenerate, backgr
         "audio_url": audio_url
     })
 
+
+@router.get("/api/noise_files")
+async def get_noise_files():
+    """Get all noise audio files from /static/audio/noise"""
+    noise_dir = os.path.join("static", "audio", "noise")
+    if not os.path.exists(noise_dir):
+        return JSONResponse(content={"files": []})
+    
+    try:
+        files = []
+        for filename in os.listdir(noise_dir):
+            if filename.lower().endswith(('.wav', '.mp3', '.ogg', '.flac')):
+                files.append(filename)
+        return JSONResponse(content={"files": files})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read noise files: {str(e)}")

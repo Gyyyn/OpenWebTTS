@@ -35,12 +35,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const pdfFileInput = document.getElementById('pdf-file');
     const webPageLinkInput  = document.getElementById('web-page-url');
     const playbackSpeed = document.getElementById('playback-speed');
+    const bgNoiseSelect = document.getElementById('bg-noise');
+    const bgNoiseVolume = document.getElementById('bg-noise-volume');
 
     // Checkboxes
     const toggleTwoPageBtn = document.getElementById('two-page-view-checkbox');
     const autoReadCheckbox = document.getElementById('auto-read-checkbox');
     const autoDeleteChunksCheckbox = document.getElementById('auto-delete-chunks-checkbox');
     const skipHeadersNFootersCheckbox = document.getElementById('skip-headers-checkbox');
+    const bgNoiseToggle = document.getElementById('bg-noise-toggle');
 
     // Buttons
     const collapseSidebarButton = document.getElementById('collapse-sidebar-btn');
@@ -2859,6 +2862,76 @@ document.addEventListener('DOMContentLoaded', () => {
             settingsDropupMenu.classList.add('hidden');
             settingsDropupToggleBtn.focus();
         }
+    });
+
+    bgNoiseToggle.addEventListener("change", () => {
+        bgNoiseSelect.parentElement.classList.toggle('hidden');
+
+        if (!bgNoiseToggle.checked) {
+            document.getElementById('bg-noise-audio').remove();
+            return;
+        }
+        
+        // Reset list
+        bgNoiseSelect.innerHTML = `<option value="none">None (Disable)</option>`;
+
+        // Fetch and populate background noise options
+        fetch('/api/noise_files')
+            .then(response => response.json())
+            .then(response => {
+                
+                response.files.forEach(file => {
+                    const option = document.createElement('option');
+                    option.value = file;
+                    option.textContent = file.replace('.wav', '').replace(/_/g, ' ');
+                    bgNoiseSelect.appendChild(option);
+                });
+
+                const bgNoiseAudio = document.createElement('audio');
+                bgNoiseAudio.id = 'bg-noise-audio';
+                bgNoiseAudio.loop = true;
+                bgNoiseAudio.classList.add('hidden');
+
+                // Quick hack for gapless looping
+                bgNoiseAudio.addEventListener('timeupdate', (e) => {
+                    var buffer = .44
+                    if(e.target.currentTime > e.target.duration - buffer){
+                        e.target.currentTime = 0
+                        e.target.play()
+                    }
+                });
+
+                bgNoiseSelect.parentNode.insertBefore(bgNoiseAudio, bgNoiseSelect.nextSibling);
+
+            })
+            .catch(error => console.error('Error fetching noise files:', error));
+    });
+
+    bgNoiseSelect.addEventListener("change", (e) => {
+
+        const bgNoiseAudio = document.getElementById('bg-noise-audio');
+
+        if (bgNoiseAudio) {
+
+            if (e.target.value === "none") {
+                bgNoiseAudio.pause();
+                return;
+            }
+
+            bgNoiseAudio.src = `./static/audio/noise/${e.target.value}`;
+            bgNoiseAudio.play();
+        }
+        
+    });
+
+    bgNoiseVolume.addEventListener("change", (e) => {
+
+        const bgNoiseAudio = document.getElementById('bg-noise-audio');
+
+        if (bgNoiseAudio) {
+            bgNoiseAudio.volume = e.target.value;
+        }
+
     });
     
     // Smooth animations

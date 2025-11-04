@@ -313,6 +313,18 @@
                                                 <input type="range" id="playback-speed" min="0.7" max="2.5" step="0.3" value="1" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
                                             </div>
                                             <div class="flex items-center justify-between">
+                                                <label for="bg-noise-toggle" class="text-sm dark:text-gray-200 cursor-pointer">Enable background noise</label>
+                                                <input id="bg-noise-toggle" type="checkbox" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                            </div>
+                                            <div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-xl hidden">
+                                                <label for="bg-noise-volume" class="text-sm dark:text-gray-200 cursor-pointer">Noise Volume</label>
+                                                <input type="range" name="bg-noise-volume" id="bg-noise-volume" min="0" max="1" value="1" step="0.1" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                                <label for="bg-noise" class="text-sm dark:text-gray-200 cursor-pointer">Noise</label>
+                                                <select id="bg-noise" name="bg-noise" class="w-full pl-2 pr-8 py-2 mb-2 text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg">
+                                                    <!-- Options will be populated -->
+                                                </select>
+                                            </div>
+                                            <div class="flex items-center justify-between">
                                                 <label for="auto-delete-chunks-checkbox" class="text-sm dark:text-gray-200 cursor-pointer">Auto-Delete Read Chunks</label>
                                                 <input id="auto-delete-chunks-checkbox" type="checkbox" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
                                             </div>
