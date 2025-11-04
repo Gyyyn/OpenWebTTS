@@ -7,24 +7,24 @@
 export function createFilesGrid(files) {
     const container = document.createElement('div');
     container.id = 'library-file-grid';
-    container.className = 'm-5 file-grid-container grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 p-5 border border-gray-200 rounded-lg bg-gray-50 shadow-md relative transition-opacity duration-300 ease-in-out';
+    container.className = 'm-5 file-grid-container grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 p-5 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-900 dark:border-gray-700 shadow-md relative transition-opacity duration-300 ease-in-out';
 
     if (!files || files.length === 0) {
         const message = document.createElement('p');
         message.textContent = 'No files uploaded yet.';
-        message.className = 'text-center col-span-full text-gray-500 py-4'; // Tailwind classes for centering and spanning
+        message.className = 'text-center col-span-full text-gray-500 dark:text-gray-400 py-4';
         container.appendChild(message);
         return container;
     }
 
     files.forEach(file => {
         const fileItem = document.createElement('div');
-        fileItem.className = ' cursor-pointer file-grid-item border border-gray-300 rounded-md p-4 text-center bg-white shadow-sm flex flex-col justify-between transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md';
+        fileItem.className = ' cursor-pointer file-grid-item rounded-md p-4 text-center dark:bg-gray-800 bg-white shadow-sm flex flex-col justify-between transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md';
 
         // Add a simple icon based on file type
         let icon = '📁'; // Default folder icon
         if (file.type.includes('image')) icon = '🖼️';
-        else if (file.type.includes('pdf')) icon = '📄';
+        else if (file.type.includes('pdf')) icon = `<i class="fas fa-file-pdf"></i>`;
         else if (file.type.includes('word') || file.type.includes('document')) icon = '📝';
         else if (file.type.includes('excel') || file.type.includes('spreadsheet')) icon = '📊';
         else if (file.type.includes('presentation')) icon = '💻';
@@ -34,15 +34,15 @@ export function createFilesGrid(files) {
         else if (file.type.includes('code') || file.type.includes('javascript')) icon = '<code>';
 
         const iconElement = document.createElement('div');
-        iconElement.textContent = icon;
-        iconElement.className = 'text-4xl mb-2 text-gray-600'; // Tailwind classes for icon size and margin
+        iconElement.innerHTML = icon;
+        iconElement.className = 'text-4xl mb-2 text-gray-600 dark:text-gray-400';
 
         const nameElement = document.createElement('p');
         nameElement.textContent = file.name;
-        nameElement.className = 'font-bold mt-0 mb-1 break-all text-gray-800'; // Tailwind classes for font, margin, and word break
+        nameElement.className = 'font-bold mt-0 mb-1 break-all text-gray-800 dark:text-gray-200';
 
         const detailsElement = document.createElement('small');
-        detailsElement.className = 'text-gray-500 text-xs mt-auto'; // Tailwind classes for color, size, and pushing to bottom
+        detailsElement.className = 'text-gray-500 text-xs mt-auto';
 
         let detailsText = '';
         if (file.size) detailsText += `Size: ${file.size}`;

@@ -22,14 +22,33 @@ from langdetect import detect
 # Import shared objects from app.py
 from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, KOKORO_DIR, USERS_DIR
 
+# Import engine configuration system
+from engine_config import engine_manager, is_engine_enabled, get_enabled_engines
+
 # Import other function modules
-from functions.piper import piper_process_audio
-from functions.gemini import gemini_process_audio, gemini_list_voices
-from functions.coqui import coqui_process_audio, save_voice_sample
-from functions.kokoro import kokoro_process_audio
-from functions.kitten import kitten_process_audio
 from functions.users import UserManager
 from functions.webpage import extract_readable_content
+
+# Lazy imports for TTS engines - these will be imported only when needed
+def lazy_import_piper():
+    from functions.piper import piper_process_audio
+    return piper_process_audio
+
+def lazy_import_gemini():
+    from functions.gemini import gemini_process_audio, gemini_list_voices
+    return gemini_process_audio, gemini_list_voices
+
+def lazy_import_coqui():
+    from functions.coqui import coqui_process_audio, save_voice_sample
+    return coqui_process_audio, save_voice_sample
+
+def lazy_import_kokoro():
+    from functions.kokoro import kokoro_process_audio
+    return kokoro_process_audio
+
+def lazy_import_kitten():
+    from functions.kitten import kitten_process_audio
+    return kitten_process_audio
 
 router = APIRouter()
 
@@ -171,6 +190,8 @@ def get_gemini_voices(api_key: str) -> List[Voice]:
         else:
             print(f"WARNING: The provided api_key='{api_key}' is not a valid file path. Trying to fall back on environment variables.")
     
+    # Lazy import Gemini functions
+    _, gemini_list_voices = lazy_import_gemini()
     voices = gemini_list_voices(credentials_json_path=credentials_path)
 
     for voice in voices:
@@ -196,21 +217,28 @@ def get_gemini_voices(api_key: str) -> List[Voice]:
 
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
+        # Check if engine is enabled
+        if not is_engine_enabled(request.engine):
+            raise ValueError(f"Engine '{request.engine}' is disabled")
+        
         # ---
         # Process audio with Piper
         # ---
         if request.engine == "piper":
             model_path = os.path.join(PIPER_DIR, f"{request.voice}.onnx")
+            piper_process_audio = lazy_import_piper()
             piper_process_audio(model_path, request.lang, request.text, output_path)
         # ---
         # Process audio with Coqui
         # ---
         elif request.engine == 'coqui':
+            coqui_process_audio, _ = lazy_import_coqui()
             coqui_process_audio('models/coqui/sample.wav', request.lang, request.text, output_path)
         # ---
         # Process audio with Kokoro
         # ---
         elif request.engine == "kokoro":
+            kokoro_process_audio = lazy_import_kokoro()
             kokoro_process_audio(request.voice, False, request.text, output_path)
         # ---
         # Process audio with Google Cloud TTS
@@ -218,6 +246,7 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
         elif request.engine == "gemini":
             use_env_var = "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
 
+            gemini_process_audio, _ = lazy_import_gemini()
             if os.path.exists(request.api_key):
                 print(f"Found '{request.api_key}', using it for authentication.")
                 gemini_process_audio(text=request.text, voice=request.voice, output_filename=output_path, credentials_json_path=request.api_key)
@@ -239,6 +268,7 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
         # Process audio with Kitten
         # ---
         elif request.engine == "kitten":
+            kitten_process_audio = lazy_import_kitten()
             kitten_process_audio(request.voice, False, request.text, output_path)
         # ---
         # Or fail.
@@ -276,6 +306,10 @@ async def get_piper_voices_from_hf():
 
 @router.post("/api/download_piper_voice")
 async def download_piper_voice(voice: PiperVoice):
+    # Check if Piper is enabled
+    if not is_engine_enabled("piper"):
+        raise HTTPException(status_code=403, detail="Piper is disabled")
+    
     check_model_directories()
     try:
         voice_url = voice.URL
@@ -300,6 +334,10 @@ async def download_piper_voice(voice: PiperVoice):
 
 @router.post("/api/download_kokoro_voice")
 async def download_kokoro_voice(voice: KokoroVoice):
+    # Check if Kokoro is enabled
+    if not is_engine_enabled("kokoro"):
+        raise HTTPException(status_code=403, detail="Kokoro is disabled")
+    
     check_model_directories()
     try:
         response = requests.get(voice.URL, stream=True)
@@ -316,6 +354,10 @@ async def download_kokoro_voice(voice: KokoroVoice):
 
 @router.post("/api/voice_cloning")
 async def voice_cloning(file: UploadFile = File(...)):
+    # Check if Coqui is enabled
+    if not is_engine_enabled("coqui"):
+        raise HTTPException(status_code=403, detail="Coqui is disabled")
+    
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
@@ -325,6 +367,8 @@ async def voice_cloning(file: UploadFile = File(...)):
     try:
         audio_content = await file.read()
         
+        # Lazy import Coqui functions
+        _, save_voice_sample = lazy_import_coqui()
         saved_path = save_voice_sample(audio_content, file.filename)
         
         return JSONResponse(content={"message": f"Voice sample saved successfully as {os.path.basename(saved_path)}"}, status_code=200)
@@ -334,6 +378,10 @@ async def voice_cloning(file: UploadFile = File(...)):
 
 @router.get("/api/voices", response_model=List[Voice])
 async def list_voices(engine: str, api_key: Optional[str] = None):
+    # Check if engine is enabled
+    if not is_engine_enabled(engine):
+        return []
+    
     if engine == "coqui":
         return get_coqui_voices()
     elif engine == "piper":
@@ -584,6 +632,54 @@ async def detect_lang(request: DetectLangRequest):
         return JSONResponse(content={"language": lang})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to detect language. Reason: {str(e)}")
+
+# --- Engine Management Endpoints ---
+
+class EngineConfigRequest(BaseModel):
+    enabled: bool
+
+@router.get("/api/engines")
+async def get_engines():
+    """Get all engine configurations"""
+    engines = engine_manager.get_all_engines()
+    return JSONResponse(content={
+        "engines": {
+            name: {
+                "name": config.name,
+                "enabled": config.enabled,
+                "display_name": config.display_name,
+                "description": config.description,
+                "requires_api_key": config.requires_api_key,
+                "requires_model_files": config.requires_model_files,
+                "model_directory": config.model_directory
+            }
+            for name, config in engines.items()
+        }
+    })
+
+@router.post("/api/engines/{engine_name}/enable")
+async def enable_engine(engine_name: str):
+    """Enable a specific engine"""
+    if engine_name not in engine_manager.get_all_engines():
+        raise HTTPException(status_code=404, detail=f"Engine '{engine_name}' not found")
+    
+    engine_manager.enable_engine(engine_name)
+    return JSONResponse(content={"message": f"Engine '{engine_name}' enabled"})
+
+@router.post("/api/engines/{engine_name}/disable")
+async def disable_engine(engine_name: str):
+    """Disable a specific engine"""
+    if engine_name not in engine_manager.get_all_engines():
+        raise HTTPException(status_code=404, detail=f"Engine '{engine_name}' not found")
+    
+    engine_manager.disable_engine(engine_name)
+    return JSONResponse(content={"message": f"Engine '{engine_name}' disabled"})
+
+@router.get("/api/engines/enabled")
+async def get_enabled_engines_list():
+    """Get list of enabled engines"""
+    enabled_engines = get_enabled_engines()
+    return JSONResponse(content={"enabled_engines": enabled_engines})
 
 @router.post("/api/users/create")
 async def create_user_route(user: UserCreate):

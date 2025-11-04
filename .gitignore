@@ -33,4 +33,8 @@ users/
 static/css/style.css
 static/js/pdf.min.mjs
 static/js/pdf.worker.min.mjs
-static/ionicons
+static/js/marked.umd.js
+static/icons
+
+# Ignore config files
+engine_config.json

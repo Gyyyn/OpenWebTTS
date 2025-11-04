@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenWebTTS</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/icons/css/all.min.css">
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <script type="module" src="/static/js/pdf.min.mjs"></script>
+    <script type="module" src="/static/js/marked.umd.js"></script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-800">
 
@@ -19,38 +21,13 @@
                 <!-- Modern Unified Navigation Dropdown -->
                 <div class="flex items-center justify-between mb-4">
                     <div class="hide-on-collapse flex items-center">
-                        <div class="relative">
-                            <button id="main-nav-toggle" class="flex items-center p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none">
-                                <img src="./static/image/icon.png" alt="OpenWebTTS Icon" class="dark:invert max-h-[32px] max-w-[32px] me-2">
-                                <span class="font-bold text-lg dark:text-gray-200">OpenWebTTS</span>
-                                <ion-icon name="chevron-down-outline" class="ms-2 text-sm"></ion-icon>
-                            </button>
-                            
-                            <!-- Main Navigation Dropdown -->
-                            <div id="main-nav-dropdown" class="absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 top-full mt-2 left-0 rounded-lg shadow-lg w-64 z-20 hidden">
-                                <div class="p-2">
-                                    
-                                    <!-- Theme and Links Section -->
-                                    <div class="border-b border-gray-200 dark:border-gray-700 pt-2">
-                                        <div class="flex items-center justify-between px-3 py-2">
-                                            <span class="text-sm font-medium dark:text-gray-200">Dark Mode</span>
-                                            <label class="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" id="dropdown-theme-toggle" class="sr-only peer">
-                                                <div class="w-10 h-5 bg-gray-400 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
-                                                <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <a href="/terms" class="block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200 text-sm">Terms of Service</a>
-                                        <a href="/privacy" class="block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200 text-sm">Privacy Policy</a>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="relative flex flex-row items-center">
+                            <img src="./static/image/icon.png" alt="OpenWebTTS Icon" class="dark:invert max-h-[32px] max-w-[32px] me-2">
+                            <span class="font-bold text-lg dark:text-gray-200">OpenWebTTS</span>
                         </div>
                     </div>
-                    <button id="collapse-sidebar-btn" class="cursor-[w-resize] rotate-180 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200 text-left rounded-lg px-2 py-1">
-                        <ion-icon name="log-in-outline"></ion-icon>
+                    <button aria-label="Collapse Sidebar" id="collapse-sidebar-btn" class="cursor-[w-resize] rotate-180 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200 text-left rounded-lg px-2 py-1">
+                        <i class="fas fa-sign-in-alt"></i>
                     </button>
                 </div>
 
@@ -58,39 +35,38 @@
                 <div class="mb-4">
                     <div class="grid grid-cols-1 gap-2">
                         <button id="new-book-btn" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
-                            <ion-icon name="add-circle-outline"></ion-icon>
-                            <span class="ms-2 text-xs hide-on-collapse">New Book</span>
+                            <i class="fas fa-file-circle-plus text-indigo-300"></i>
+                            <span class="ms-2 hide-on-collapse">New Book</span>
                         </button>
                         <button id="library-btn" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
-                            <ion-icon name="file-tray-full-outline"></ion-icon>
-                            <span class="ms-2 text-xs hide-on-collapse">Library</span>
+                            <i class="fas fa-folder-open"></i>
+                            <span class="ms-2 hide-on-collapse">Library</span>
                         </button>
                         <a href="/config" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
-                            <ion-icon name="cog-outline"></ion-icon>
-                            <span class="ms-2 text-xs hide-on-collapse">Config</span>
+                            <i class="fas fa-cog"></i>
+                            <span class="ms-2 hide-on-collapse">Config</span>
                         </a>
                         <button id="commands-btn" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
-                            <ion-icon name="terminal-outline"></ion-icon>
-                            <span class="ms-2 text-xs hide-on-collapse">Commands</span>
+                            <i class="fas fa-terminal"></i>
+                            <span class="ms-2 hide-on-collapse">Commands</span>
                         </button>
                     </div>
                 </div>
 
-                <hr class="my-2 border-indigo-200 dark:border-gray-700" />
-
-                <div class="m-2 text-gray-400 dark:text-gray-500 hide-on-collapse">My Books</div>
-                <ul id="online-book-list" class="space-y-1">
+                <div class="m-2 text-gray-400 dark:text-gray-700 hide-on-collapse text-xs">My Books</div>
+                <ul aria-label="List of saved books" id="online-book-list" class="space-y-1">
+                    <hr class="my-2 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
                     <!-- Populated for logged-in users -->
                 </ul>
-                <div class="m-2 text-gray-400 dark:text-gray-500 hide-on-collapse">My Podcasts</div>
-                <ul id="podcast-list" class="space-y-1">
+                <div class="m-2 text-gray-400 dark:text-gray-700 hide-on-collapse text-xs">My Podcasts</div>
+                <ul aria-label="List of podcasts" id="podcast-list" class="space-y-1">
+                    <hr class="my-2 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
                     <!-- Populated for logged-in users -->
                 </ul>
 
-                <hr class="my-2 border-indigo-200 dark:border-gray-700 hide-on-collapse">
-
-                <div class="m-2 text-gray-400 dark:text-gray-500 hide-on-collapse">Temporary Books</div>
-                <ul id="local-book-list" class="space-y-1">
+                <div class="m-2 text-gray-400 dark:text-gray-700 hide-on-collapse text-xs">Temporary Books</div>
+                <ul aria-label="List of unsaved books" id="local-book-list" class="space-y-1">
+                    <hr class="my-2 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
                     <!-- Book items will be added here dynamically -->
                 </ul>
             </div>
@@ -99,9 +75,9 @@
                 <!-- Account Switcher -->
                 <div class="relative">
                     <button id="account-switcher-btn" class="flex items-center p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition-colors focus:outline-none">
-                        <ion-icon name="person-circle-outline" class="me-2 text-lg"></ion-icon>
-                        <span class="text-sm font-medium">Account</span>
-                        <ion-icon name="chevron-down-outline" class="ms-2 text-xs"></ion-icon>
+                        <i class="fas fa-user-circle me-2 text-lg"></i>
+                        <span class="text-sm font-bold">Account</span>
+                        <i class="fas fa-chevron-up ms-2 text-xs"></i>
                     </button>
                     
                     <div id="account-switcher-menu" class="absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 bottom-full mb-2 rounded-lg shadow-lg w-56 z-10 hidden">
@@ -111,19 +87,32 @@
                         </div>
                         <div class="p-2">
                             <a href="#" id="add-account-btn" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
-                                <ion-icon name="person-add-outline" class="me-3 text-lg"></ion-icon>
+                                <i class="fas fa-user-plus me-3 text-lg"></i>
                                 <div>
                                     <div class="font-medium dark:text-gray-200">Add Account</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Sign in with existing account</div>
                                 </div>
                             </a>
                             <a href="#" id="logout-btn" class="hidden flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
-                                <ion-icon name="log-out-outline" class="me-3 text-lg"></ion-icon>
+                                <i class="fas fa-sign-out-alt me-3 text-lg"></i>
                                 <div>
                                     <div class="font-medium dark:text-gray-200">Logout</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Sign out of current account</div>
                                 </div>
                             </a>
+                            <hr class="my-2 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
+                            <div>
+                                <div class="flex items-center justify-between w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
+                                    <span class="text-sm font-medium dark:text-gray-200">Dark Mode</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="dropdown-theme-toggle" class="sr-only peer">
+                                        <div class="w-10 h-5 bg-gray-400 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
+                                        <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <a href="/terms" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm text-left dark:text-gray-200">Terms of Service</a>
+                                <a href="/privacy" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm text-left dark:text-gray-200">Privacy Policy</a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -183,7 +172,7 @@
 
     <!-- Main Content -->
     <div id="main" class="ml-[50px] md:ml-[260px] min-h-[100dvh]">
-        <div id="book-view" class="bg-white dark:bg-gray-800 2xl:bg-gray-100 2xl:dark:bg-gray-900 flex flex-col min-h-[100vh] items-center hidden">
+        <div id="book-view" class="bg-white dark:bg-gray-800 flex flex-col min-h-[100vh] items-center hidden">
 
             <!-- File Picker Modal -->
             <div id="file-picker-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-modal hidden">
@@ -191,17 +180,17 @@
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-m font-semibold text-gray-800 dark:text-gray-200">File Picker</h3>
                         <button id="close-file-picker-modal" class="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none" title="Close">
-                            <ion-icon name="close-outline" size="large"></ion-icon>
+                            <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
-                    <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub,.docx" class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 dark:file:bg-violet-900 file:text-violet-700 dark:file:text-violet-300 hover:file:bg-violet-100 dark:hover:file:bg-violet-800">
+                    <input type="file" id="pdf-file" name="pdf-file" accept=".pdf,.epub,.docx" class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800">
                     <hr class="my-4 border-indigo-200 dark:border-gray-700">
                     <div class="flex flex-col justify-between items-start mb-4">
                         <h3 class="text-m font-semibold text-gray-800 dark:text-gray-200">URL</h3>
                         <div class="relative w-full">
                             <input type="input" id="web-page-url" class="mt-1 block w-full pl-3 pr-10 py-2 bg-gray-100 dark:bg-gray-700 text-base border-gray-300 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl">
                             <div id="url-loading-indicator" class="absolute inset-y-0 right-0 pr-3 flex items-center hidden">
-                                <ion-icon class="animate-spin text-xl text-gray-500 dark:text-gray-400" name="refresh-outline"></ion-icon>
+                                <i class="fas fa-sync-alt animate-spin text-xl text-gray-500 dark:text-gray-400"></i>
                             </div>
                         </div>
                     </div>
@@ -217,36 +206,21 @@
                     <!-- TTS Section -->
                     <div class="flex">
                         <div id="generate-section" class="flex flex-row">
-                            <button id="generate-btn" class="shadow-xl shadow-indigo-600/50 dark:shadow-indigo-900/50 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-white font-bold py-2 px-4 rounded-lg justify-center">
+                            <button aria-label="Listen to current book" id="generate-btn" class="z-10 shadow-xl shadow-indigo-600/50 dark:shadow-indigo-900/50 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-white font-bold py-2 px-4 rounded-lg justify-center">
                                 <span class="hidden xl:inline">
                                     <span id="generate-btn-text" class="me-2">Listen</span>
                                 </span>
-                                <ion-icon id="generate-btn-icon" name="volume-high-outline"></ion-icon>
+                                <i id="generate-btn-icon" class="fas fa-volume-up"></i>
                                 <div id="loading" class="full hidden">
-                                    <ion-icon class="animate-spin text-xl" name="refresh-outline"></ion-icon>
+                                    <i class="fas fa-sync-alt animate-spin text-xl"></i>
                                 </div>
-                            </button>
-                            <button id="create-offline-podcast-btn" class="py-2 px-4 ms-2 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors flex items-center justify-center">
-                                <span class="hidden md:inline me-2">New Podcast</span>
-                                <ion-icon name="mic-outline"></ion-icon>
                             </button>
                         </div>
         
-                        <div id="audio-output" class="hidden flex ps-4">
+                        <div id="audio-output" class="hidden flex">
                             <audio id="audio-player" controls class="hidden w-full"></audio>
                             <div class="flex items-center">
-                                <button id="stop-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors" disabled><ion-icon name="stop"></ion-icon></button>
-                                <a id="download-link" href="#" download="speech.wav" class="hidden xl:inline button ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors"><ion-icon name="download-outline"></ion-icon></a>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <div class="ml-2">
-                                    <label for="playback-speed" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        <span class="me-1 hidden md:inline">Speed:</span>
-                                        <span id="playback-speed-display" class="mx-1 font-bold"></span>
-                                        <span class="me-1 hidden md:inline">(0.7x - 2.5x)</span>
-                                    </label>
-                                    <input type="range" id="playback-speed" min="0.7" max="2.5" step="0.3" value="1" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
-                                </div>
+                                <button aria-label="Stop audio playback" id="stop-btn" class="px-4 py-2 ps-6 -ms-4 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors" disabled><i class="fas fa-stop"></i></button>
                             </div>
                         </div>
 
@@ -255,13 +229,13 @@
                     <div class="flex flex-row">
                         <!-- Speech to Text Section -->
                         <div id="speech-to-text-section" class="flex items-center mt-1 md:mt-0 md:ms-2">
-                            <button id="record-btn" class="ms-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors py-2 px-4">
+                            <button id="record-btn" class="ms-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors py-2 px-4">
                                 <span class="hidden xl:inline me-2">Record Audio</span>
-                                <ion-icon name="chatbubble-outline"></ion-icon>
+                                <i class="fas fa-comment"></i>
                             </button>
-                            <button id="stop-record-btn" class="hidden ml-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors py-2 px-4">
+                            <button id="stop-record-btn" class="hidden ml-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors py-2 px-4">
                                 <span class="hidden xl:inline me-2">Stop Recording</span>
-                                <ion-icon name="stop"></ion-icon>
+                                <i class="fas fa-stop"></i>
                             </button>
                             <div id="recording-indicator" class="hidden ml-2 flex items-center">
                                 <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
@@ -271,9 +245,9 @@
                             <!-- Audio File Transcription -->
                             <div class="ml-2 flex items-center">
                                 <input type="file" id="audio-file-input" accept="audio/*" class="hidden">
-                                <button id="transcribe-file-btn" class="bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors py-2 px-4">
+                                <button id="transcribe-file-btn" class="bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors py-2 px-4">
                                     <span class="hidden xl:inline me-2">Transcribe File</span>
-                                    <ion-icon name="document-text-outline"></ion-icon>
+                                    <i class="fas fa-file-alt"></i>
                                 </button>
                             </div>
                         </div>
@@ -281,19 +255,21 @@
                         <!-- Settings Dropup -->
                         <div class="relative">
                             <!-- Settings Dropup Button -->
-                            <button id="settings-dropup-toggle-btn" class="ms-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors py-2 px-4">
-                                <ion-icon name="settings-outline" class="text-xl"></ion-icon>
+                            <button aria-label="Configuration tab toggle button" id="settings-dropup-toggle-btn" class="ms-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors py-2 px-4">
+                                <i class="fas fa-cog text-xl"></i>
                             </button>
                             
                             <!-- Settings Dropup Menu -->
                             <div id="settings-dropup-menu" class="absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 bottom-full mb-2 right-0 rounded-lg shadow-lg w-80 max-w-sm z-50 hidden">
                                 <div class="p-4">
+                                    <div class="font-bold dark:text-gray-200 mb-3">Engine Settings</div>
                                     <!-- TTS Engine and Voice Selection -->
                                     <div class="grid grid-cols-2 gap-3 mb-4">
                                         <div>
                                             <label for="engine" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">TTS Engine</label>
                                             <select id="engine" name="engine" class="w-full pl-2 pr-8 py-2 text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg">
                                                 <option value="piper">Piper</option>
+                                                <option value="chatterbox">Chatterbox</option>
                                                 <option value="kokoro">Kokoro</option>
                                                 <option value="kitten">Kitten</option>
                                                 <option value="coqui">Coqui</option>
@@ -310,16 +286,32 @@
             
                                     <!-- Action Buttons -->
                                     <div class="grid grid-cols-2 gap-2 mb-4">
-                                        <button id="save-book-btn" class="p-2 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors flex items-center justify-center hidden">
-                                            <ion-icon name="save-outline" class="me-2"></ion-icon>
-                                            <span class="text-sm">Save Book</span>
+                                        <button id="save-book-btn" class="p-2 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors flex items-center justify-center hidden">
+                                            <i class="fas fa-save"></i>
+                                            <span class="text-sm ms-2">Save Book</span>
+                                        </button>
+                                        <a id="download-link" href="#" download="speech.wav" class="hidden xl:inline button ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                            <i class="fas fa-download"></i>
+                                            <span class="text-sm ms-2">Audio</span>
+                                        </a>
+                                        <button id="create-offline-podcast-btn" class="button ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                            <i class="fas fa-microphone"></i>
+                                            <span class="hidden md:inline text-sm ms-2">New Podcast</span>
                                         </button>
                                     </div>
             
                                     <!-- Reading Settings -->
                                     <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
-                                        <div class="text-sm font-medium dark:text-gray-200 mb-3">Reading Settings</div>
+                                        <div class="font-bold dark:text-gray-200 mb-3">Reading Settings</div>
                                         <div class="space-y-2">
+                                            <div class="ml-2">
+                                                <label for="playback-speed" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                    <span class="me-1 hidden md:inline">Speed:</span>
+                                                    <span id="playback-speed-display" class="mx-1 font-bold"></span>
+                                                    <span class="me-1 hidden md:inline">(0.7x - 2.5x)</span>
+                                                </label>
+                                                <input type="range" id="playback-speed" min="0.7" max="2.5" step="0.3" value="1" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
+                                            </div>
                                             <div class="flex items-center justify-between">
                                                 <label for="auto-delete-chunks-checkbox" class="text-sm dark:text-gray-200 cursor-pointer">Auto-Delete Read Chunks</label>
                                                 <input id="auto-delete-chunks-checkbox" type="checkbox" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
@@ -348,14 +340,14 @@
 
                 <div id="current-chunk" class="hidden w-full border-t border-indigo-200 dark:border-gray-700 dark:text-gray-200 mt-2">
                     <div class="flex justify-between items-center">
-                        <button id="prev-audio-btn" class="p-2 me-2 rounded-xl bg-gray-100 dark:bg-gray-900 dark:text-gray-300 hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors duration-200">
-                            <ion-icon name="play-back" class="text-gray-700 dark:text-gray-300"></ion-icon>
+                        <button aria-label="Previous audio chunk button" id="prev-audio-btn" class="p-2 me-2 rounded-xl bg-gray-100 dark:bg-gray-900 dark:text-gray-300 hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors duration-200">
+                            <i class="fas fa-step-backward text-gray-700 dark:text-gray-300"></i>
                         </button>
                         <span id="current-chunk-text-span" class="mt-2 text-xs md:text-sm">
                             <!-- The current text chunk will appear here -->
                         </span>
-                        <button id="next-audio-btn" class="p-2 ms-2 rounded-xl bg-gray-100 dark:bg-gray-900 dark:text-gray-300 hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors duration-200">
-                            <ion-icon name="play-forward" class="text-gray-700 dark:text-gray-300"></ion-icon>
+                        <button aria-label="Next audio chunk button" id="next-audio-btn" class="p-2 ms-2 rounded-xl bg-gray-100 dark:bg-gray-900 dark:text-gray-300 hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors duration-200">
+                            <i class="fas fa-step-forward text-gray-700 dark:text-gray-300"></i>
                         </button>
                     </div>
                 </div>
@@ -366,40 +358,40 @@
 
                 <h2 id="book-title" class="mb-4 px-4 md:px-0 text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-200">New Book</h2>
 
-                <div id="pagination-controls" class="flex flex-col md:flex-row justify-between items-center mb-2">
+                <div id="pagination-controls" class="flex flex-row justify-between items-center mb-2">
                     <div class="flex justify-center items-center">
-                        <button id="prev-page" class="px-3 px-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors">
-                            <span><ion-icon name="arrow-back"></ion-icon></span>
+                        <button aria-label="Go to previous page" id="prev-page" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                            <span><i class="fas fa-arrow-left"></i></span>
                         </button>
-                        <span id="page-num" class="text-sm mx-2 text-gray-600 dark:text-gray-400 cursor-pointer"></span>
-                        <button id="next-page" class="px-3 px-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors">
-                            <span><ion-icon name="arrow-forward"></ion-icon></span>
+                        <span id="page-num" class="text-xs md:text-sm mx-2 text-gray-600 dark:text-gray-400 cursor-pointer"></span>
+                        <button aria-label="Go to next page" id="next-page" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                            <span><i class="fas fa-arrow-right"></i></span>
                         </button>
                     </div>
-                    <div class="flex justify-center items-center mt-4 md:mt-0">
-                        <button id="zoom-in-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors">
-                            <ion-icon name="add-circle-outline"></ion-icon>
+                    <div class="flex justify-center items-center ms-2 md:ms-0">
+                        <button aria-label="Zoom in PDF button" id="zoom-in-btn" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                            <i class="fas fa-magnifying-glass-plus"></i>
                         </button>
-                        <button id="zoom-out-btn" class="ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors">
-                            <ion-icon name="remove-circle-outline"></ion-icon>
+                        <button aria-label="Zoom out PDF button" id="zoom-out-btn" class="ml-2 px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                            <i class="fas fa-magnifying-glass-minus"></i>
                         </button>
                     </div>
                 </div>
 
                 <div id="textbox-viewer-wrapper">
                     <div class="relative">
-                        <div id="text-display" contenteditable="true" class="text-xs md:text-base p-2 bg-gray-100 dark:bg-gray-800 rounded-xl 2xl:rounded-lg min-h-[100px] relative"></div>
+                        <div id="text-display" contenteditable="true" class="markdown-content text-gray-800 dark:text-gray-200 text-xs md:text-base p-2 bg-gray-100 dark:bg-gray-900 rounded-xl 2xl:rounded-lg min-h-[100px] relative"></div>
 
                         <!-- Empty Text Overlay -->
                         <div id="empty-text-overlay" class="absolute inset-4 flex flex-col items-center justify-center rounded-lg top-0 min-h-[100px] hidden">
                             <div class="text-center p-4">
                                 <div class="flex flex-row">
-                                    <button id="open-file-picker-modal" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors duration-200 flex items-center justify-center sm:justify-start">
-                                        <ion-icon name="folder-open-outline"></ion-icon>
+                                    <button id="open-file-picker-modal" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                                        <i class="fas fa-file-import"></i>
                                         <span class="hidden xl:inline ms-2">Import from File</span>
                                     </button>
-                                    <button id="paste-clipboard-overlay-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors duration-200 flex items-center justify-center sm:justify-start">
-                                        <ion-icon name="clipboard-outline"></ion-icon>
+                                    <button id="paste-clipboard-overlay-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                                        <i class="fas fa-clipboard"></i>
                                         <span class="ms-2">Paste Clipboard</span>
                                     </button>
                                 </div>
@@ -410,7 +402,7 @@
             </div>
 
             <div id="pdf-viewer-wrapper" class="hidden relative bg-white dark:bg-gray-800 2xl:rounded-xl mx-auto">
-                <div id="pdf-viewer" class="flex"></div>
+                <div id="pdf-viewer" class="flex justify-center"></div>
                 <div id="highlight-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
             </div>
 
@@ -427,7 +419,7 @@
             <input type="text" id="login-username-input" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4" placeholder="Username or Email">
             <input type="password" id="login-password-input" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4" placeholder="Password">
             <div class="flex justify-end space-x-2">
-                <button id="login-modal-cancel-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors">Cancel</button>
+                <button id="login-modal-cancel-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">Cancel</button>
                 <button id="create-account-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-black dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Create Account</button>
                 <button id="login-modal-action-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Login</button>
             </div>
@@ -440,7 +432,7 @@
             <h2 id="modal-title" class="text-xl font-bold mb-4 dark:text-gray-200"></h2>
             <input type="text" id="book-title-input" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4" placeholder="Enter book title">
             <div class="flex justify-end space-x-2">
-                <button id="modal-cancel-btn" class="flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900 transition-colors">
+                <button id="modal-cancel-btn" class="flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
                     Cancel <span class="ml-1 p-1 text-xs border rounded">ESC</span>
                 </button>
                 <button id="modal-action-btn" class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
@@ -461,8 +453,6 @@
         </div>
     </div>
 
-    <script type="module" src="/static/ionicons/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="/static/ionicons/ionicons.js"></script>
     <script type="module" src="/static/js/index.js"></script>
 </body>
 </html>

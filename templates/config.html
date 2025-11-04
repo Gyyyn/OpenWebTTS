@@ -7,6 +7,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/icons/css/all.min.css">
     <style>
         /* Custom styles for better form elements */
         .form-radio, .form-checkbox {
@@ -26,7 +27,7 @@
         <header class="flex items-center justify-between mb-8">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Configuration</h1>
             <a id="back" href="/" class="inline-flex items-center gap-2 rounded-lg bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                <ion-icon name="arrow-back" class="text-lg"></ion-icon>
+                <i class="fas fa-arrow-left text-lg"></i>
                 <span>Back</span>
             </a>
         </header>
@@ -68,6 +69,16 @@
             <!-- Models Section -->
             <section class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-3 border-gray-200 dark:border-gray-700">Model Management</h2>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">Enable or disable TTS engines to optimize performance and resource usage.</p>
+                
+                <!-- Engine Management Section -->
+                <div id="engines-container" class="space-y-4 my-4">
+                    <!-- Engines will be dynamically loaded here -->
+                    <div class="text-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Loading engines...</p>
+                    </div>
+                </div>
                 
                 <!-- Piper and Kokoro Downloads -->
                 <div class="space-y-6">
@@ -79,7 +90,7 @@
                             </select>
                             <button id="download-btn-piper" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors">
                                 <span>Download</span>
-                                <ion-icon name="download-outline"></ion-icon>
+                                <i class="fas fa-download"></i>
                             </button>
                         </div>
                     </div>
@@ -94,7 +105,7 @@
                             <input id="kokoro-voice" name="kokoro-voice" placeholder="Paste voice link here..." class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                             <button id="download-btn-kokoro" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors">
                                 <span>Download</span>
-                                <ion-icon name="download-outline"></ion-icon>
+                                <i class="fas fa-download"></i>
                             </button>
                         </div>
                         <div id="download-status" class="text-sm mt-2"></div>
@@ -141,11 +152,11 @@
                      <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Record or upload a sample file for voice-cloning.</p>
                      <div id="speech-to-text-section" class="flex items-center gap-3 mt-4">
                         <button id="record-btn" class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                            <ion-icon name="mic-outline"></ion-icon>
+                            <i class="fas fa-microphone"></i>
                             <span>Record</span>
                         </button>
                         <button id="stop-record-btn" class="hidden ml-2 inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                            <ion-icon name="stop"></ion-icon>
+                            <i class="fas fa-stop"></i>
                             <span>Stop</span>
                         </button>
                         <div id="recording-indicator" class="hidden ml-2 flex items-center">
@@ -154,7 +165,7 @@
                         </div>
                         <input type="file" id="audio-file-input" accept="audio/wav" class="hidden">
                         <button id="upload-file-btn" class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                            <ion-icon name="cloud-upload-outline"></ion-icon>
+                            <i class="fas fa-cloud-upload-alt"></i>
                             <span>Upload</span>
                         </button>
                      </div>
@@ -195,7 +206,7 @@
                         <div class="flex items-center justify-between mt-4">
                             <p class="text-sm dark:text-gray-300">Current cache size: <span id="cache-size-display" class="font-medium">Loading...</span></p>
                             <button id="clear-cache" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 dark:bg-red-700 dark:hover:bg-red-600 transition-colors">
-                                <ion-icon name="trash-outline"></ion-icon>
+                                <i class="fas fa-trash-alt"></i>
                                 <span>Clear Cache</span>
                             </button>
                         </div>
@@ -225,8 +236,6 @@
         </main>
     </div>
 
-    <script type="module" src="/static/ionicons/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="/static/ionicons/ionicons.js"></script>
     <script type="module" src="/static/js/config.js"></script>
 </body>
 </html>

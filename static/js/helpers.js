@@ -242,3 +242,26 @@ export function setBodyFont(prefs) {
     const fontStyle = prefs.accessibleFontEnabled ? prefs.accessibleFontStyle : 'Merriweather';
     document.body.style.fontFamily = `${fontStyle}, var(--default-font-family)`;
 }
+
+export function fastFormatDetect(text) {
+    if (/<([a-z][a-z0-9]*)\b[^>]*>/i.test(text)) return 'html';
+    if (/(\*\*|__|#|`|\[.*\]\(|^-|\d+\.\s)/.test(text)) return 'markdown';
+    return 'plain';
+}
+
+export function parseTextContent(text) {
+
+    const detectedFormat = fastFormatDetect(text);
+    console.debug(`Detected format ${detectedFormat}`);
+    
+    switch (detectedFormat) {
+        case 'html':
+            return text;
+        case 'markdown':
+            console.log(marked.parse(text));
+            return marked.parse(text);
+        case 'plain':
+            return text;
+    }
+    
+}

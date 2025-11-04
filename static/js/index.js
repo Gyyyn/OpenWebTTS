@@ -20,7 +20,7 @@ import { getPodcasts, generatePodcast, deletePodcast } from './podcast.js';
 import { generateSpeech } from "./speechGen.js";
 
 // Import helpers
-import { setBodyFont, getAllPdfText, detectHeadersAndFooters } from "./helpers.js";
+import { parseTextContent, setBodyFont, getAllPdfText, detectHeadersAndFooters } from "./helpers.js";
 import { createFilesGrid, renderUserPdfs } from './library.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -69,8 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const speechToTextSection = document.getElementById('speech-to-text-section');
     const emptyTextOverlay = document.getElementById('empty-text-overlay');
     const pasteClipboardOverlayBtn = document.getElementById('paste-clipboard-overlay-btn');
-    const mainNavToggle = document.getElementById('main-nav-toggle');
-    const mainNavDropdown = document.getElementById('main-nav-dropdown');
     const textboxViewerWrapper = document.getElementById('textbox-viewer-wrapper');
     const textDisplay = document.getElementById('text-display'); // Main textarea from TTS.
     const pdfViewer = document.getElementById('pdf-viewer');
@@ -296,8 +294,9 @@ document.addEventListener('DOMContentLoaded', () => {
         podcastList.innerHTML = '';
         onlinePodcasts.forEach(podcast => {
             const li = document.createElement('li');
-            li.className = 'relative p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200 '; // Added relative for absolute positioning of player
+            li.className = 'relative p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200 '; // Added relative for absolute positioning of player
             li.title = `${podcast.title}`;
+            li.ariaLabel = `Podcast item ${podcast.title}`;
 
             const mainContentDiv = document.createElement('div');
             mainContentDiv.className = 'flex justify-between items-center whitespace-nowrap overflow-hidden text-ellipsis';
@@ -324,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
             containerSpan.classList = 'overflow-hidden cursor-pointer';
 
             const titleIcon = document.createElement('span');
-            titleIcon.innerHTML = '<ion-icon name="mic-outline"></ion-icon>';
+            titleIcon.innerHTML = '<i class="fa-solid fa-mic"></i>';
 
             containerSpan.prepend(titleIcon);
             containerSpan.append(titleSpan);
@@ -335,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
             actionsDiv.className = 'ps-2 hide-on-collapse flex items-center space-x-2';
 
             const deleteBtn = document.createElement('button');
-            deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
+            deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
             deleteBtn.className = 'hover:text-gray-500';
             deleteBtn.title = 'Delete Podcast';
             deleteBtn.addEventListener('click', async (e) => {
@@ -378,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 controlsDiv.className = 'flex items-center space-x-2';
 
                 const playPauseBtn = document.createElement('button');
-                playPauseBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                playPauseBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
                 playPauseBtn.className = 'text-lg hover:text-gray-700';
                 
                 const progressSlider = document.createElement('input');
@@ -403,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (otherPlayerContainer) {
                                 const otherPlayBtn = otherPlayerContainer.querySelector('button');
                                 if (otherPlayBtn) {
-                                    otherPlayBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                                    otherPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
                                 }
                             }
                         }
@@ -411,12 +410,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (audioElem.paused) {
                         audioElem.play();
-                        playPauseBtn.innerHTML = '<ion-icon name="pause-outline"></ion-icon>';
+                        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
                         // Also ensure the player is visible if play is clicked
                         audioPlayerContainer.classList.remove('hidden');
                     } else {
                         audioElem.pause();
-                        playPauseBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
                     }
                 });
 
@@ -433,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 audioElem.addEventListener('ended', () => {
-                    playPauseBtn.innerHTML = '<ion-icon name="play-outline"></ion-icon>';
+                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
                     progressSlider.value = 0;
                     timeDisplay.textContent = '0:00 / 0:00';
                 });
@@ -459,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Compress Button (TODO)
                 const compressBtn = document.createElement('button');
-                compressBtn.innerHTML = '<ion-icon name="contract-outline"></ion-icon>';
+                compressBtn.innerHTML = '<i class="fas fa-compress"></i>';
                 compressBtn.className = 'hover:text-gray-500';
                 compressBtn.title = 'Compress Podcast';
 
@@ -469,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Retry Button (TODO)
                 const retryBtn = document.createElement('button');
-                retryBtn.innerHTML = '<ion-icon name="reload-outline"></ion-icon>';
+                retryBtn.innerHTML = '<i class="fas fa-repeat"></i>';
                 retryBtn.className = 'hover:text-gray-500';
                 retryBtn.title = 'Retry Podcast';
 
@@ -496,8 +495,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function createBookListItem(book, source) {
         const li = document.createElement('li');
         const isActive = activeBook && activeBook.id === book.id && activeBook.source === source;
-        li.className = `flex justify-between items-center cursor-pointer p-2 rounded-lg whitespace-nowrap overflow-hidden text-ellipsis dark:hover:bg-gray-700 dark:text-gray-200  ${isActive ? 'bg-indigo-100 dark:bg-indigo-900 dark:bg-opacity-30' : 'hover:bg-gray-200'}`;
+        li.className = `flex justify-between items-center cursor-pointer p-1 rounded-lg whitespace-nowrap overflow-hidden text-ellipsis dark:hover:bg-gray-700 dark:text-gray-200  ${isActive ? 'bg-indigo-100 dark:bg-indigo-900 dark:bg-opacity-30' : 'hover:bg-gray-200'}`;
         li.title = `${book.title}`;
+        li.ariaLabel = `Book item ${book.title}`;
 
         const titleSpan = document.createElement('span');
         titleSpan.className = `ms-2 text-xs hide-on-collapse`;
@@ -510,7 +510,11 @@ document.addEventListener('DOMContentLoaded', () => {
         containerSpan.classList = 'overflow-hidden';
 
         const titleIcon = document.createElement('span');
-        titleIcon.innerHTML = '<ion-icon name="chatbubbles-outline"></ion-icon>';
+        titleIcon.innerHTML = '<i class="fas fa-book"></i>';
+
+        if (book.is_pdf) {
+            titleIcon.innerHTML = '<i class="fas fa-file-pdf"></i>';
+        }
 
         containerSpan.prepend(titleIcon);
         containerSpan.append(titleSpan);
@@ -519,12 +523,14 @@ document.addEventListener('DOMContentLoaded', () => {
         actionsDiv.className = 'ps-2 flex items-center space-x-2 hide-on-collapse';
 
         const deleteBtn = document.createElement('button');
-        deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
         deleteBtn.className = 'hover:text-gray-500';
+        deleteBtn.ariaLabel = `Delete item ${book.title}`;
 
         const renameBtn = document.createElement('button');
-        renameBtn.innerHTML = '<ion-icon name="create-outline"></ion-icon>';
+        renameBtn.innerHTML = '<i class="fas fa-i-cursor"></i>';
         renameBtn.className = 'hover:text-gray-500';
+        renameBtn.ariaLabel = `Rename item ${book.title}`;
 
         if (source === 'local') {
             renameBtn.addEventListener('click', (e) => {
@@ -871,32 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pageNumSpan.textContent = '';
     }
 
-    /** -- Events -- */
-
-    autoReadCheckbox.addEventListener('change', () => {
-        if (activeBook && activeBook.source === 'local') {
-            localBooks[activeBook.id].autoRead = autoReadCheckbox.checked;
-            saveLocalBooks();
-        }
-    });
-
-    autoDeleteChunksCheckbox.addEventListener('change', () => {
-        if (activeBook && activeBook.source === 'local') {
-            localBooks[activeBook.id].autoDeleteChunks = autoDeleteChunksCheckbox.checked;
-            saveLocalBooks();
-        }
-    });
-
-    skipHeadersNFootersCheckbox.addEventListener('change', () => {
-        if (activeBook && activeBook.source === 'local') {
-            localBooks[activeBook.id].skipHeadersNFooters = skipHeadersNFootersCheckbox.checked;
-            saveLocalBooks();
-        }
-    });
-
-    newBookBtn.addEventListener('click', createNewBook);
-
-    textDisplay.addEventListener('input', (x) => {
+    function handleTextBookUpdate() {
 
         if (activeBook && !pdfDoc) { // Only handle input for text-based content
             const newPageText = textDisplay.textContent;
@@ -929,7 +910,34 @@ document.addEventListener('DOMContentLoaded', () => {
             
         }
 
+    }
+
+    /** -- Events -- */
+
+    autoReadCheckbox.addEventListener('change', () => {
+        if (activeBook && activeBook.source === 'local') {
+            localBooks[activeBook.id].autoRead = autoReadCheckbox.checked;
+            saveLocalBooks();
+        }
     });
+
+    autoDeleteChunksCheckbox.addEventListener('change', () => {
+        if (activeBook && activeBook.source === 'local') {
+            localBooks[activeBook.id].autoDeleteChunks = autoDeleteChunksCheckbox.checked;
+            saveLocalBooks();
+        }
+    });
+
+    skipHeadersNFootersCheckbox.addEventListener('change', () => {
+        if (activeBook && activeBook.source === 'local') {
+            localBooks[activeBook.id].skipHeadersNFooters = skipHeadersNFootersCheckbox.checked;
+            saveLocalBooks();
+        }
+    });
+
+    newBookBtn.addEventListener('click', createNewBook);
+
+    textDisplay.addEventListener('input', handleTextBookUpdate);
 
     async function updateVoices() {
         const engine = engineSelect.value;
@@ -997,11 +1005,17 @@ document.addEventListener('DOMContentLoaded', () => {
         stopBtn.disabled = false;
         playbackSpeed.disabled = false;
         generateBtn.disabled = false;
+        generateBtnText.textContent = 'Play';
+        generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
+        generateBtnIcon.classList.add('fa-play');
     }
 
     function disableAudioControls() {
         stopBtn.disabled = true;
         playbackSpeed.disabled = true;
+        generateBtnText.textContent = 'Listen';
+        generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
+        generateBtnIcon.classList.add('fa-volume-high');
     }
 
     function splitTextIntoChunks(text, chunkSize) {
@@ -1035,8 +1049,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Playback will be triggered by processAndQueueChunk when the audio arrives.
             isPlaying = false;
             disableAudioControls();
-            generateBtnText.textContent = 'Listen';
-            generateBtnIcon.name = 'volume-high-outline';
             return;
         }
 
@@ -1045,7 +1057,8 @@ document.addEventListener('DOMContentLoaded', () => {
         enableAudioControls();
 
         generateBtnText.textContent = 'Pause';
-        generateBtnIcon.name = 'pause-outline';
+        generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
+        generateBtnIcon.classList.add('fa-pause');
         generateBtnText.classList.remove('hidden');
         generateBtnIcon.classList.remove('hidden');
         loadingDiv.classList.add('hidden');
@@ -1091,7 +1104,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 isPlaying = false;
                 disableAudioControls();
                 generateBtnText.textContent = 'Listen';
-                generateBtnIcon.name = 'volume-high-outline';
+                generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
+                generateBtnIcon.classList.add('fa-volume-high');
                 audioPlayer.src = ''; // Clear source to prevent further attempts
                 showNotification(`Failed to play audio for chunk ${currentChunkIndex}. Skipping.`, 'error');
                 
@@ -1108,7 +1122,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     disableAudioControls();
                     clearAllHighlights();
                     generateBtnText.textContent = 'Listen';
-                    generateBtnIcon.name = 'volume-high-outline';
+                    generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
+                    generateBtnIcon.classList.add('fa-volume-high');
                 }
             }
         }
@@ -1164,8 +1179,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                     
                 console.log("Buffer empty, waiting for network...");
-                generateBtnText.textContent = 'Listen';
-                generateBtnIcon.name = 'volume-high-outline';
             }
         };
     }
@@ -1209,7 +1222,8 @@ document.addEventListener('DOMContentLoaded', () => {
         speechToTextSection.classList.remove('hidden');
 
         generateBtnText.textContent = 'Listen';
-        generateBtnIcon.name = 'volume-high-outline';
+        generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
+        generateBtnIcon.classList.add('fa-volume-high');
         disableAudioControls();
         textDisplay.textContent = allTextChunks.map(c => c.text).join(' '); // Revert to plain text for the page
     }
@@ -1381,7 +1395,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const pageText = fullBookText.substring(start, end);
 
         currentTextPageLength = pageText.length; // Store for editing
-        textDisplay.textContent = pageText; // Display only the slice of text
+        textDisplay.innerHTML = parseTextContent(pageText); // Display only the slice of text
         allTextChunks = splitTextIntoChunks(pageText); // Prepare chunks for speech
         currentChunkIndex = 0;
 
@@ -1430,7 +1444,12 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             container.appendChild(canvas);
-            canvas.classList.add('dark:invert')
+            canvas.classList.add('dark:invert');
+            canvas.ariaLabel = 'PDF page';
+
+            if (isTwoPageView) {
+                canvas.style.width = '50%';
+            }
 
             const renderContext = {
                 canvasContext: context,
@@ -1468,7 +1487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 textDisplay.textContent = combinedText;
             }
 
-            pageNumSpan.textContent = `Pages ${num}-${Math.min(num + 1, pdfDoc.numPages)} of ${pdfDoc.numPages}`;
+            pageNumSpan.textContent = `P. ${num}-${Math.min(num + 1, pdfDoc.numPages)} of ${pdfDoc.numPages}`;
             nextPageBtn.disabled = num >= pdfDoc.numPages - 1;
 
         } else {
@@ -1848,6 +1867,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // Fallback to local IndexedDB for anonymous users
                 await handlePdfUpload(file);
+                showNotification('PDF text extracted! Sign in to save PDF files.')
             }
         } else if (fileExtension === 'epub') {
             if (activeBook.source === 'local') {
@@ -1986,12 +2006,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isPaused) {
                 isPaused = false;
                 generateBtnText.textContent = 'Pause';
-                generateBtnIcon.name = 'pause';
+                generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
+                generateBtnIcon.classList.add('fa-pause');
                 audioPlayer.play();
             } else {
                 isPaused = true;
                 generateBtnText.textContent = 'Play';
-                generateBtnIcon.name = 'play';
+                generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
+                generateBtnIcon.classList.add('fa-play');
                 audioPlayer.pause();
             }
         } else {
@@ -2055,7 +2077,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function transcribeAudio(audioBlob) {
         try {
             recordBtn.disabled = true;
-            recordBtn.innerHTML = '<ion-icon class="animate-spin" name="refresh-outline"></ion-icon> Processing...';
+            recordBtn.innerHTML = '<i class="animate-spin fas fa-rotate-right"></i> Processing...';
             
             const formData = new FormData();
             let fileExtension = 'webm';
@@ -2097,14 +2119,14 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification(`Transcription failed: ${error.message}`, 'error');
         } finally {
             recordBtn.disabled = false;
-            recordBtn.innerHTML = '<span class="me-2">Record Audio</span><ion-icon name="mic-outline"></ion-icon>';
+            recordBtn.innerHTML = '<span class="me-2">Record Audio</span><i class="fas fa-mic-outline"></i>';
         }
     }
 
     async function transcribeAudioFile(audioFile) {
         try {
             transcribeFileBtn.disabled = true;
-            transcribeFileBtn.innerHTML = '<ion-icon class="animate-spin" name="refresh-outline"></ion-icon> Processing...';
+            transcribeFileBtn.innerHTML = '<i class="animate-spin fas fa-rotate-right"></i> Processing...';
             
             const formData = new FormData();
             formData.append('file', audioFile);
@@ -2143,7 +2165,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification(`File transcription failed: ${error.message}`, 'error');
         } finally {
             transcribeFileBtn.disabled = false;
-            transcribeFileBtn.innerHTML = '<span class="me-2">Transcribe File</span><ion-icon name="document-text-outline"></ion-icon>';
+            transcribeFileBtn.innerHTML = '<span class="me-2">Transcribe File</span><i class="fas fa-file-audio"></i>';
         }
     }
 
@@ -2202,8 +2224,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const commandList = document.getElementById('command-list');
 
     const commands = [
-        { name: 'New Book', icon: 'add-circle-outline', description: 'Create a new temporary book', action: () => { createNewBook(); hideCommandPalette(); } },
-        { name: 'Delete Book', icon: 'trash-outline', description: 'Delete the currently active book', action: () => { 
+        { name: 'New Book', icon: 'fa-file-circle-plus', description: 'Create a new temporary book', action: () => { createNewBook(); hideCommandPalette(); } },
+        { name: 'Delete Book', icon: 'fa-trash', description: 'Delete the currently active book', action: () => { 
             if (activeBook) {
                 if (activeBook.source === 'online') {
                     deleteOnlineBook(activeBook.id);
@@ -2213,7 +2235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Rename Book', icon: 'create-outline', description: 'Rename the currently active book', action: () => { 
+        { name: 'Rename Book', icon: 'fa-i-cursor', description: 'Rename the currently active book', action: () => { 
             if (activeBook) {
                 if (activeBook.source === 'online') {
                     renameOnlineBook(activeBook);
@@ -2224,58 +2246,58 @@ document.addEventListener('DOMContentLoaded', () => {
             } else showNotification('No book is currently active.');
          } },
 
-        { name: 'Import File', icon: 'folder-open-outline', description: 'Import a PDF or EPUB file', action: () => {
+        { name: 'Import File', icon: 'fa-folder-open', description: 'Import a PDF or EPUB file', action: () => {
             if (activeBook) {
                 showFileModal(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Generate Speech', icon: 'volume-high-outline', description: 'Generate speech for the current text', action: () => {
+        { name: 'Generate Speech', icon: 'fa-volume-high', description: 'Generate speech for the current text', action: () => {
             if (activeBook) {
                 startSpeechGeneration(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Stop Playback', icon: 'stop', description: 'Stop current audio playback', action: () => {
+        { name: 'Stop Playback', icon: 'fa-stop', description: 'Stop current audio playback', action: () => {
             if (activeBook) {
                 stopAudioQueue(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Record Audio', icon: 'mic', description: 'Start recording audio for transcription', action: () => {
+        { name: 'Record Audio', icon: 'fa-microphone-lines', description: 'Start recording audio for transcription', action: () => {
             if (activeBook) {
                 startRecording(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Transcribe Audio File', icon: 'document-text-outline', description: 'Transcribe an audio file', action: () => {
+        { name: 'Transcribe Audio File', icon: 'fa-file-signature', description: 'Transcribe an audio file', action: () => {
             if (activeBook) {
                 audioFileInput.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Login/Create Account', icon: 'person-add-outline', description: 'Login or create a new user account', action: () => { showLoginModal(); hideCommandPalette(); } },
-        { name: 'Save Book', icon: 'save-outline', description: 'Save the current book to your online account', action: () => {
+        { name: 'Login/Create Account', icon: 'fa-user-plus', description: 'Login or create a new user account', action: () => { showLoginModal(); hideCommandPalette(); } },
+        { name: 'Save Book', icon: 'fa-floppy-disk', description: 'Save the current book to your online account', action: () => {
             if (activeBook) {
                 handleSaveBook(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Toggle Two-Page View', icon: 'book', description: 'Toggle between single and two-page PDF view', action: () => {
+        { name: 'Toggle Two-Page View', icon: 'fa-book-open', description: 'Toggle between single and two-page PDF view', action: () => {
             if (activeBook) {
                 toggleTwoPageBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Zoom In PDF', icon: 'add-circle-outline', description: 'Increase zoom level of PDF', action: () => {
+        { name: 'Zoom In PDF', icon: 'fa-magnifying-glass-plus', description: 'Increase zoom level of PDF', action: () => {
             if (activeBook) {
                 zoomInBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Zoom Out PDF', icon: 'remove-circle-outline', description: 'Decrease zoom level of PDF', action: () => {
+        { name: 'Zoom Out PDF', icon: 'fa-magnifying-glass-minus', description: 'Decrease zoom level of PDF', action: () => {
             if (activeBook) {
                 zoomOutBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Previous Page', icon: 'arrow-back', description: 'Go to the previous page', action: () => {
+        { name: 'Previous Page', icon: 'fa-arrow-left', description: 'Go to the previous page', action: () => {
             if (activeBook) {
                 prevPageBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Next Page', icon: 'arrow-forward', description: 'Go to the next page', action: () => {
+        { name: 'Next Page', icon: 'fa-arrow-right', description: 'Go to the next page', action: () => {
             if (activeBook) {
                 nextPageBtn.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
@@ -2320,7 +2342,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const li = document.createElement('li');
             
-            let commandIcon = command.icon ? `<ion-icon class="me-1" name="${command.icon}"></ion-icon>` : '';
+            let commandIcon = command.icon ? `<i class="me-2 fas ${command.icon}"></i>` : '';
             
             li.className = `p-2 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900 dark:hover:bg-opacity-30 rounded-lg ${index === selectedCommandIndex ? 'bg-indigo-200 dark:bg-indigo-900 dark:bg-opacity-30' : ''}`;
             li.innerHTML = `
@@ -2662,7 +2684,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 hideBookModal();
                 generatePodcastBtn.disabled = true;
-                generatePodcastBtn.innerHTML = '<ion-icon class="animate-spin" name="refresh-outline"></ion-icon> Generating...';
+                generatePodcastBtn.innerHTML = '<i class="animate-spin fas fa-rotate-right"></i> Generating...';
 
                 const engine = engineSelect.value;
                 const voice = voiceSelect.value;
@@ -2687,7 +2709,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     showNotification(`Failed to start podcast generation: ${result.error}`, 'error');
                 }
                 generatePodcastBtn.disabled = false;
-                generatePodcastBtn.innerHTML = '<ion-icon name="mic-outline" class="mr-2"></ion-icon><span class="me-2">Create Offline Podcast</span>';
+                generatePodcastBtn.innerHTML = '<i class="fas fa-podcast"></i><span class="ms-2">New Podcast</span>';
             },
             { showInput: true, inputValue: activeBook ? activeBook.title : '' }
         );
@@ -2750,33 +2772,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (text.trim().length > 0) {
             textDisplay.textContent = text;
-            textDisplay.oninput();
+            handleTextBookUpdate();
             checkTextContent();
         }
         
-    });
-
-    mainNavToggle.addEventListener('click', function(e) {
-        e.stopPropagation();
-        mainNavDropdown.classList.toggle('hidden');
-    });
-    
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function() {
-        mainNavDropdown.classList.add('hidden');
-    });
-    
-    // Prevent dropdown from closing when clicking inside it
-    mainNavDropdown.addEventListener('click', function(e) {
-        e.stopPropagation();
-    });
-    
-    // Handle keyboard navigation in dropdown
-    mainNavDropdown.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            mainNavDropdown.classList.add('hidden');
-            mainNavToggle.focus();
-        }
     });
     
     // Theme toggle functionality
@@ -2797,28 +2796,6 @@ document.addEventListener('DOMContentLoaded', () => {
         themeToggle.checked = true;
         document.documentElement.classList.add('dark');
     }
-    
-    // Smooth animations for dropdown
-    mainNavDropdown.style.transition = 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out';
-    mainNavToggle.addEventListener('click', function() {
-        if (mainNavDropdown.classList.contains('hidden')) {
-            mainNavDropdown.classList.remove('hidden');
-            setTimeout(() => {
-                mainNavDropdown.style.opacity = '1';
-                mainNavDropdown.style.transform = 'translateY(0)';
-            }, 10);
-        } else {
-            mainNavDropdown.style.opacity = '0';
-            mainNavDropdown.style.transform = 'translateY(-10px)';
-            setTimeout(() => {
-                mainNavDropdown.classList.add('hidden');
-            }, 200);
-        }
-    });
-    
-    // Initialize dropdown position
-    mainNavDropdown.style.opacity = '0';
-    mainNavDropdown.style.transform = 'translateY(-10px)';
     
     // Settings persistence (optional - can be implemented based on existing functionality)
     // Load saved settings from localStorage
@@ -2851,7 +2828,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Toggle settings dropup
-    settingsDropupToggleBtn.addEventListener('click', function(e) {
+    settingsDropupToggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         settingsDropupMenu.classList.toggle('hidden');
         
