@@ -185,6 +185,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             });
         }
+
+        if (prefs.highlightColor) {
+
+            document.querySelectorAll(`#highlight-customization > div`).forEach(block => {
+
+                block.classList.remove('shadow-xl');
+                
+            });
+
+            document.querySelector(`#highlight-customization > div.${prefs.highlightColor}`).classList.add('shadow-xl');
+
+        }
     }
 
     clearCacheButton.addEventListener('click', async () => {
@@ -433,7 +445,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Make toggleEngine function available globally
     window.toggleEngine = toggleEngine;
 
-    // Initial load
+    // Add events to highlight buttons
+    document.querySelectorAll("#highlight-customization button").forEach((item) => {
+        item.addEventListener('click', () => {
+            prefs.highlightColor = item.dataset.value;
+            localStorage.setItem('prefs', JSON.stringify(prefs));
+            populatePrefsInputs();
+        });
+    });
+
+    // Call init functions
     getPiperVoices();
     getCacheSize();
     populatePrefsInputs();

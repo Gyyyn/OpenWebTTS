@@ -20,7 +20,7 @@ import { getPodcasts, generatePodcast, deletePodcast } from './podcast.js';
 import { generateSpeech } from "./speechGen.js";
 
 // Import helpers
-import { parseTextContent, setBodyFont, getAllPdfText, detectHeadersAndFooters } from "./helpers.js";
+import { parseTextContent, setBodyFont, getAllPdfText, detectHeadersAndFooters, fastFormatDetect, checkPhraseSimilarity } from "./helpers.js";
 import { createFilesGrid, renderUserPdfs } from './library.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -285,6 +285,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderOnlineBooks() {
+
+        if (onlineBooks.length == 0) {
+            return;
+        }
+
         onlineBookList.innerHTML = '';
         onlineBooks.forEach(book => {
             const li = createBookListItem(book, 'online');
@@ -672,6 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // This function highlights only plain-text.
     function highlightChunk(chunkObject) {
         const fullText = textDisplay.textContent;
         const chunkText = chunkObject.text;
@@ -679,7 +685,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (startIndex === -1) {
             console.error("Could not find chunk text to highlight:", chunkObject);
+            console.debug(fullText);
             return;
+        }
+
+        let highlightClass = "highlight";
+
+        if (localPrefs.highlightColor) {
+            highlightClass += ` ${localPrefs.highlightColor}`;
         }
 
         // Create the HTML for the highlighted chunk (with spans for each word)
@@ -688,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
         words.forEach(word => {
             if (word.trim() !== '') {
                 // Use the same data-chunk-id for easy removal later
-                highlightedHtml += `<span class="highlight" data-chunk-id="${chunkObject.id}">${word}</span>`;
+                highlightedHtml += `<span class="${highlightClass}" data-chunk-id="${chunkObject.id}">${word}</span>`;
             } else {
                 highlightedHtml += word;
             }
@@ -1072,7 +1085,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pdfDoc) {
             await highlightPdfChunk(currentAudio.text);
         } else {
-            highlightChunk(currentAudio.text); // Original behavior for text view
+            if (fastFormatDetect(textDisplay.innerHTML) == 'html') {
+                highlightHTML(currentAudio.text); // HTML highlights
+            } else {
+                highlightChunk(currentAudio.text); // Plain text
+            }
         }
 
         const shouldAutoDelete = (activeBook && activeBook.source === 'local') && localBooks[activeBook.id].autoDeleteChunks;
@@ -1228,7 +1245,6 @@ document.addEventListener('DOMContentLoaded', () => {
         generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
         generateBtnIcon.classList.add('fa-volume-high');
         disableAudioControls();
-        textDisplay.textContent = allTextChunks.map(c => c.text).join(' '); // Revert to plain text for the page
     }
 
     function goToNextAudioChunk() {
@@ -1630,6 +1646,82 @@ document.addEventListener('DOMContentLoaded', () => {
         if (highlightLayer) {
             highlightLayer.innerHTML = '';
         }
+    }
+
+    function highlightHTML(chunkObject) {
+        
+        const previousHighlights = document.querySelectorAll('[data-highlighted]');        
+
+        // First clear previous highlights.
+        if (previousHighlights) {
+            previousHighlights.forEach((item) => {
+                item.classList.remove('highlight');
+                if (item.dataset.highlightClass) {
+                    item.classList.remove(item.dataset.highlightClass);
+                    item.removeAttribute('data-highlight-class');
+                }
+            });
+        }
+        
+        // Prepare a semi-flat structure
+        let textNodes = [];
+
+        textDisplay.childNodes.forEach((item) => {
+
+            if (!item.textContent || item.nodeName == '#text') {
+                return;
+            }
+
+            if (item.textContent == `\n`) {
+                return;
+            }
+
+            if (item.childNodes.length > 5) {
+                item.childNodes.forEach((itemChildNodeItem) => {
+                    textNodes.push(itemChildNodeItem);
+                });
+            } else {
+                textNodes.push(item);
+            }
+
+        });
+
+        // Get every child node inside the display area, and check them for text matches.
+        textNodes.forEach((item) => {            
+
+            let itemMatches = false;
+            const trimmedChunk = chunkObject.text.trim().replace(/\s+/g, ' ');
+            const trimmedItem = item.textContent.trim().replace(/\s+/g, ' ');            
+
+            if (trimmedChunk > trimmedItem) {
+                if (trimmedChunk.includes(trimmedItem) || checkPhraseSimilarity(trimmedChunk, trimmedItem, 50)) {
+                    itemMatches = true;
+                }
+            } else {
+                if (trimmedItem.includes(trimmedChunk)) {
+                    itemMatches = true;
+                }
+            }
+            
+            // If this item is in the main text chunk, include it in the highlight.
+            if (itemMatches) {
+
+                if (!item.classList) {
+                    return;
+                }                
+                
+                item.classList.add('highlight');
+
+                // Mark it for removal later.
+                item.dataset.highlighted = true;
+
+                if (localPrefs.highlightColor) {
+                    item.dataset.highlightClass = localPrefs.highlightColor;
+                    item.classList.add(localPrefs.highlightColor);
+                }
+            }
+        });
+        
     }
 
     libraryBtn.addEventListener('click', async () => {

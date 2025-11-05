@@ -258,7 +258,6 @@ export function parseTextContent(text) {
         case 'html':
             return text;
         case 'markdown':
-            console.log(marked.parse(text));
             return marked.parse(text);
         case 'plain':
             return text;

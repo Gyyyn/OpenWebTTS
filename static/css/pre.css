@@ -50,8 +50,11 @@ button, a.button {
     background-color: #f7f80054;
     padding: 0 4px;
     border-radius: 5px;
-    margin-right: -4px;
+    margin-right: -7px;
 }
+
+.highlight.green { background-color: #48ff0052; }
+.highlight.blue { background-color: #00c4ff54; }
 
 .pdf-highlight {
     position: absolute;

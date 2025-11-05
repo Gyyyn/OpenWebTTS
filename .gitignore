@@ -17,7 +17,6 @@ models/piper/*
 models/kokoro/*
 
 # Ignore audio files
-static/audio/*
 static/audio_cache/*
 
 # Ignore build dirs
