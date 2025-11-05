@@ -206,12 +206,12 @@
                     <!-- TTS Section -->
                     <div class="flex">
                         <div id="generate-section" class="flex flex-row">
-                            <button aria-label="Listen to current book" id="generate-btn" class="z-10 shadow-xl shadow-indigo-600/50 dark:shadow-indigo-900/50 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-white font-bold py-2 px-4 rounded-lg justify-center">
+                            <button aria-label="Listen to current book" id="generate-btn" class="z-10 inline-flex flex-row shadow-xl shadow-indigo-600/50 dark:shadow-indigo-900/50 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-white font-bold py-2 px-4 rounded-lg justify-center">
                                 <span class="hidden xl:inline">
                                     <span id="generate-btn-text" class="me-2">Listen</span>
                                 </span>
                                 <i id="generate-btn-icon" class="fas fa-volume-up"></i>
-                                <div id="loading" class="full hidden">
+                                <div id="loading" class="inline hidden px-2">
                                     <i class="fas fa-sync-alt animate-spin text-xl"></i>
                                 </div>
                             </button>
@@ -285,18 +285,19 @@
                                     </div>
             
                                     <!-- Action Buttons -->
+                                    <span class="text-sm dark:text-gray-200 cursor-pointer">Download</span>
                                     <div class="grid grid-cols-2 gap-2 mb-4">
                                         <button id="save-book-btn" class="p-2 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors flex items-center justify-center hidden">
                                             <i class="fas fa-save"></i>
                                             <span class="text-sm ms-2">Save Book</span>
                                         </button>
-                                        <a id="download-link" href="#" download="speech.wav" class="hidden xl:inline button ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                        <a id="download-link" href="#" download="speech.wav" class=" text-center hidden xl:inline button ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
                                             <i class="fas fa-download"></i>
                                             <span class="text-sm ms-2">Audio</span>
                                         </a>
                                         <button id="create-offline-podcast-btn" class="button ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
                                             <i class="fas fa-microphone"></i>
-                                            <span class="hidden md:inline text-sm ms-2">New Podcast</span>
+                                            <span class="hidden md:inline text-sm ms-2">Podcast</span>
                                         </button>
                                     </div>
             
@@ -308,9 +309,9 @@
                                                 <label for="playback-speed" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                                     <span class="me-1 hidden md:inline">Speed:</span>
                                                     <span id="playback-speed-display" class="mx-1 font-bold"></span>
-                                                    <span class="me-1 hidden md:inline">(0.7x - 2.5x)</span>
+                                                    <span class="me-1 hidden md:inline">(0.7x - 4x)</span>
                                                 </label>
-                                                <input type="range" id="playback-speed" min="0.7" max="2.5" step="0.3" value="1" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
+                                                <input type="range" id="playback-speed" min="0.7" max="4" step="0.3" value="1" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
                                             </div>
                                             <div class="flex items-center justify-between">
                                                 <label for="bg-noise-toggle" class="text-sm dark:text-gray-200 cursor-pointer">Enable background noise</label>

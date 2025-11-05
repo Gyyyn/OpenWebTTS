@@ -1075,8 +1075,6 @@ document.addEventListener('DOMContentLoaded', () => {
         generateBtnText.textContent = 'Pause';
         generateBtnIcon.classList.remove(generateBtnIcon.classList[1]);
         generateBtnIcon.classList.add('fa-pause');
-        generateBtnText.classList.remove('hidden');
-        generateBtnIcon.classList.remove('hidden');
         loadingDiv.classList.add('hidden');
         generateBtn.disabled = false;
 
@@ -1358,8 +1356,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         generateBtn.disabled = true;
-        generateBtnText.classList.add('hidden');
-        generateBtnIcon.classList.add('hidden');
         loadingDiv.classList.remove('hidden');
         speechToTextSection.classList.add('hidden');
 
@@ -1629,6 +1625,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
         const highlight = document.createElement('div');
         highlight.className = 'highlight pdf-highlight';
+
+        if (localPrefs.highlightColor) {
+            highlight.className += ` ${localPrefs.highlightColor}`;
+        }
         
         const leftOffset = (isTwoPageView && pageIndex === 1) ? pdfViewer.children[0].width : 0;
         
