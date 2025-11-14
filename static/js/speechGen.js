@@ -1,31 +1,30 @@
-export async function generateSpeech(text, lang='en', engine, voice) {
+/**
+ * Call the API to generate a chunk of text using a selected TTS engine and voice.
+ * It is recommended to be careful with this function and audio chunking, as it is
+ * async, and it's easy to mess up the audio queue.
+ * @param {string} textChunk Text to generate.
+ * @param {string} [lang] ISO language code.
+ * @param {string} engine Available engines: gemini, piper, kokoro, kitten, coqui.
+ * @param {string} voice This must be previously adquired from the API.
+ * @returns 
+ */
+export async function generateSpeech(textChunk, lang='en', engine, voice) {
 
-    if (!text) {
-        return;
-    }
-    if (!voice) {
-        alert('Please select a voice.');
-        return;
-    }
+    if (!textChunk) return false;
+    if (!voice) return false;
 
     let apiKey = null;
     if (engine === 'gemini') {
         apiKey = localStorage.getItem('geminiApiKey');
-        if (!apiKey) {
-            alert('Please set your Gemini API Key in the Config page.');
-            return; // Stop execution if API key is missing
-        }
+        if (!apiKey) return false
     }
 
     try {
-        
-        const requestBody = { engine, lang, voice, text: text.text };
+        const requestBody = { engine, lang, voice, text: textChunk };
 
         console.debug('Generating request: ', requestBody);        
 
-        if (apiKey) { // Only add apiKey if it's present (i.e., for Gemini engine)
-            requestBody.api_key = apiKey;
-        }
+        if (apiKey) requestBody.api_key = apiKey;
 
         const response = await fetch('/api/synthesize', {
             method: 'POST',
@@ -57,7 +56,7 @@ export async function generateSpeech(text, lang='en', engine, voice) {
                         // Network error, keep polling, but log it for debugging
                         console.warn('Polling for audio file, network error:', error);
                     }
-                }, 500); // Polling rate
+                }, 2000); // Polling rate
             });
         } else {
             return data.audio_url;
@@ -65,7 +64,6 @@ export async function generateSpeech(text, lang='en', engine, voice) {
 
     } catch (error) {
         console.error('Error generating speech:', error);
-        alert(`An error occurred: ${error.message}`);
-        return null; // Ensure we return null on failure
+        return false;
     }
 }

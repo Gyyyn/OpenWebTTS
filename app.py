@@ -9,13 +9,13 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 # Import config and router
-from config import STATIC_DIR, DATA_DIR
+import config
 from functions.routes import router
 from functions.openai_api import openai_api_router
 
 # --- FastAPI Setup ---
 app = FastAPI()
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
 
 app.include_router(router)
 app.include_router(openai_api_router)
@@ -38,11 +38,14 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to")
     parser.add_argument("--app", action="store_true", help="Launch as a desktop app using a webview")
     parser.add_argument("--debug", action="store_true", help="Toggle various debug features")
-    parser.add_argument("--cpu", default=False, help="Use CPU for inference with AI models")
+    parser.add_argument("--device", default="cpu", help="Use specific device for inference with AI models")
     args = parser.parse_args()
 
     host = args.host
     port = _find_free_port(args.port)
+
+    if args.device == 'cuda':
+        config.DEVICE = 'cuda'
 
     if not args.app:
         print("Starting OpenWebTTS server...")
@@ -79,7 +82,7 @@ if __name__ == "__main__":
         try:
             window = webview.create_window("OpenWebTTS", url,
             width=1280, height=720, resizable=True, text_select=True, fullscreen=False)
-            window.icon = f"{DATA_DIR}/maskable_icon_x128.png"
+            window.icon = f"{config.DATA_DIR}/maskable_icon_x128.png"
 
             webview.start(debug=server_debug, private_mode=False)
         finally:

@@ -19,6 +19,11 @@ COQUI_DIR = os.path.join(MODELS_DIR, "coqui")
 PIPER_DIR = os.path.join(MODELS_DIR, "piper")
 KOKORO_DIR = os.path.join(MODELS_DIR, "kokoro")
 USERS_DIR = "users"
+DEVICE = 'cpu';
+
+def set_device(str):
+    global DEVICE
+    DEVICE = str
 
 # --- Templates ---
 templates = Jinja2Templates(directory=TEMPLATES_DIR)

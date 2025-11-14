@@ -2,6 +2,7 @@ from kokoro import KPipeline
 import soundfile as sf
 import torch
 from functions.audio import normalize_audio
+from config import DEVICE
 
 def kokoro_process_audio(voice, lang, text, output):
 
@@ -9,7 +10,7 @@ def kokoro_process_audio(voice, lang, text, output):
     if lang == False:
         lang = voice[0]
     
-    pipeline = KPipeline(lang)
+    pipeline = KPipeline(lang, device=DEVICE)
     generator = pipeline(text, voice)
 
     for i, (gs, ps, audio) in enumerate(generator):

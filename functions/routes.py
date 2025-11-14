@@ -20,10 +20,7 @@ from pydantic import BaseModel, Field
 from langdetect import detect
 
 # Import shared objects from app.py
-from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, KOKORO_DIR, USERS_DIR
-
-# Import engine configuration system
-from engine_config import engine_manager, is_engine_enabled, get_enabled_engines
+from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, KOKORO_DIR, USERS_DIR, DEVICE
 
 # Import other function modules
 from functions.users import UserManager
@@ -49,6 +46,10 @@ def lazy_import_kokoro():
 def lazy_import_kitten():
     from functions.kitten import kitten_process_audio
     return kitten_process_audio
+
+def lazy_import_chatterbox():
+    from functions.chatterbox import chatterbox_process_audio
+    return chatterbox_process_audio
 
 router = APIRouter()
 
@@ -217,10 +218,6 @@ def get_gemini_voices(api_key: str) -> List[Voice]:
 
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
     try:
-        # Check if engine is enabled
-        if not is_engine_enabled(request.engine):
-            raise ValueError(f"Engine '{request.engine}' is disabled")
-        
         # ---
         # Process audio with Piper
         # ---
@@ -232,8 +229,13 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
         # Process audio with Coqui
         # ---
         elif request.engine == 'coqui':
+            voice_path = os.path.join(COQUI_DIR, f"{request.voice}.wav")
             coqui_process_audio, _ = lazy_import_coqui()
-            coqui_process_audio('models/coqui/sample.wav', request.lang, request.text, output_path)
+            coqui_process_audio(voice_path, request.lang, request.text, output_path)
+        elif request.engine == 'chatterbox':
+            voice_path = os.path.join(COQUI_DIR, f"{request.voice}.wav")
+            chatterbox_process_audio = lazy_import_chatterbox()
+            chatterbox_process_audio(voice_path, request.lang, request.text, output_path)
         # ---
         # Process audio with Kokoro
         # ---
@@ -305,11 +307,7 @@ async def get_piper_voices_from_hf():
         raise HTTPException(status_code=500, detail=f"Failed to fetch voices from Hugging Face: {e}")
 
 @router.post("/api/download_piper_voice")
-async def download_piper_voice(voice: PiperVoice):
-    # Check if Piper is enabled
-    if not is_engine_enabled("piper"):
-        raise HTTPException(status_code=403, detail="Piper is disabled")
-    
+async def download_piper_voice(voice: PiperVoice):    
     check_model_directories()
     try:
         voice_url = voice.URL
@@ -333,11 +331,7 @@ async def download_piper_voice(voice: PiperVoice):
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
 @router.post("/api/download_kokoro_voice")
-async def download_kokoro_voice(voice: KokoroVoice):
-    # Check if Kokoro is enabled
-    if not is_engine_enabled("kokoro"):
-        raise HTTPException(status_code=403, detail="Kokoro is disabled")
-    
+async def download_kokoro_voice(voice: KokoroVoice):    
     check_model_directories()
     try:
         response = requests.get(voice.URL, stream=True)
@@ -353,11 +347,7 @@ async def download_kokoro_voice(voice: KokoroVoice):
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
 @router.post("/api/voice_cloning")
-async def voice_cloning(file: UploadFile = File(...)):
-    # Check if Coqui is enabled
-    if not is_engine_enabled("coqui"):
-        raise HTTPException(status_code=403, detail="Coqui is disabled")
-    
+async def voice_cloning(file: UploadFile = File(...)):    
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
@@ -378,11 +368,10 @@ async def voice_cloning(file: UploadFile = File(...)):
 
 @router.get("/api/voices", response_model=List[Voice])
 async def list_voices(engine: str, api_key: Optional[str] = None):
-    # Check if engine is enabled
-    if not is_engine_enabled(engine):
-        return []
     
     if engine == "coqui":
+        return get_coqui_voices()
+    elif engine == "chatterbox":
         return get_coqui_voices()
     elif engine == "piper":
         return get_piper_voices()
@@ -495,18 +484,12 @@ async def read_epub(file: UploadFile = File(...)):
             temp_epub_path = temp_epub_file.name
         try:
             book = epub.read_epub(temp_epub_path)
-            full_text = []
+            full_html = []
             for item in book.get_items():
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
                     soup = BeautifulSoup(item.content, 'html.parser')
-                    for tag in ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'div']:
-                        for element in soup.find_all(tag):
-                            text_content = element.get_text(separator=' ', strip=True)
-                            if text_content:
-                                full_text.append(text_content)
-            return PdfText(text="""
-
-""".join(full_text))
+                    full_html.append(str(soup))
+            return PdfText(text="\n".join(full_html))
         finally:
             os.unlink(temp_epub_path)
     except Exception as e:
@@ -632,54 +615,6 @@ async def detect_lang(request: DetectLangRequest):
         return JSONResponse(content={"language": lang})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to detect language. Reason: {str(e)}")
-
-# --- Engine Management Endpoints ---
-
-class EngineConfigRequest(BaseModel):
-    enabled: bool
-
-@router.get("/api/engines")
-async def get_engines():
-    """Get all engine configurations"""
-    engines = engine_manager.get_all_engines()
-    return JSONResponse(content={
-        "engines": {
-            name: {
-                "name": config.name,
-                "enabled": config.enabled,
-                "display_name": config.display_name,
-                "description": config.description,
-                "requires_api_key": config.requires_api_key,
-                "requires_model_files": config.requires_model_files,
-                "model_directory": config.model_directory
-            }
-            for name, config in engines.items()
-        }
-    })
-
-@router.post("/api/engines/{engine_name}/enable")
-async def enable_engine(engine_name: str):
-    """Enable a specific engine"""
-    if engine_name not in engine_manager.get_all_engines():
-        raise HTTPException(status_code=404, detail=f"Engine '{engine_name}' not found")
-    
-    engine_manager.enable_engine(engine_name)
-    return JSONResponse(content={"message": f"Engine '{engine_name}' enabled"})
-
-@router.post("/api/engines/{engine_name}/disable")
-async def disable_engine(engine_name: str):
-    """Disable a specific engine"""
-    if engine_name not in engine_manager.get_all_engines():
-        raise HTTPException(status_code=404, detail=f"Engine '{engine_name}' not found")
-    
-    engine_manager.disable_engine(engine_name)
-    return JSONResponse(content={"message": f"Engine '{engine_name}' disabled"})
-
-@router.get("/api/engines/enabled")
-async def get_enabled_engines_list():
-    """Get list of enabled engines"""
-    enabled_engines = get_enabled_engines()
-    return JSONResponse(content={"enabled_engines": enabled_engines})
 
 @router.post("/api/users/create")
 async def create_user_route(user: UserCreate):

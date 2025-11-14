@@ -66,6 +66,23 @@
                         </div>
                     </div>
                 </div>
+                <hr class="my-6 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
+                <div>
+                    <h3 class="font-medium text-gray-900 dark:text-gray-100">Theme</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Customize the default theme.</p>
+                </div>
+                <div class="mt-4 w-full grid grid-cols-2">
+                    <div class="flex justify-start items-center">
+                        <span>Use pure black background in dark mode.</span>
+                    </div>
+                    <div class="flex justify-end items-center">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="pureblack-bg-toggle" class="sr-only peer">
+                            <div class="w-10 h-5 bg-gray-400 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
+                            <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                        </label>
+                    </div>
+                </div>
             </section>
 
             <!-- Accessibility Section -->
@@ -77,11 +94,27 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enable an accessibility-focused font.</p>
                     </div>
                     <div>
-                        <label for="use-accessible-font-checkbox" class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="accessible-font" id="use-accessible-font-checkbox" class="form-checkbox h-4 w-4 rounded">
-                            <span class="font-medium dark:text-gray-300">Use an easier to read font</span>
-                        </label>
+                        <div class="flex flex-row items-center">
+                            <label for="use-accessible-font-checkbox" class="relative inline-flex items-center cursor-pointer me-3">
+                                <input type="checkbox" name="accessible-font" id="use-accessible-font-checkbox" class="sr-only peer">
+                                <div class="w-10 h-5 bg-gray-400 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
+                                <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                            </label>
+                            <span class="font-medium dark:text-gray-300">Use an easier to read font.</span>
+                        </div>
+                        <div class="flex flex-row items-center">
+                            <label for="accessible-font-ui-checkbox" class="relative inline-flex items-center cursor-pointer me-3">
+                                <input type="checkbox" name="accessible-font-ui" id="accessible-font-ui-checkbox" class="sr-only peer">
+                                <div class="w-10 h-5 bg-gray-400 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
+                                <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                            </label>
+                            <span class="font-medium dark:text-gray-300">Use font in UI too.</span>
+                        </div>
                         <div class="mt-4 space-y-3 pl-7">
+                            <label class="flex items-center space-x-3">
+                                <input type="radio" name="accessible-font-style" value="Atkinson" class="form-radio h-4 w-4">
+                                <span class="dark:text-gray-300">Atkinson</span>
+                            </label>
                             <label class="flex items-center space-x-3">
                                 <input type="radio" name="accessible-font-style" value="OpenDyslexic" class="form-radio h-4 w-4">
                                 <span class="dark:text-gray-300">OpenDyslexic</span>
@@ -94,7 +127,7 @@
                                 <input type="radio" name="accessible-font-style" value="Verdana" class="form-radio h-4 w-4">
                                 <span class="dark:text-gray-300">Verdana*</span>
                             </label>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 pt-1">* Requires local installation.</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 pt-1">* Not bundled. Requires local installation.</p>
                         </div>
                     </div>
                 </div>
@@ -103,16 +136,6 @@
             <!-- Models Section -->
             <section class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-3 border-gray-200 dark:border-gray-700">Model Management</h2>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">Enable or disable TTS engines to optimize performance and resource usage.</p>
-                
-                <!-- Engine Management Section -->
-                <div id="engines-container" class="space-y-4 my-4">
-                    <!-- Engines will be dynamically loaded here -->
-                    <div class="text-center py-8">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Loading engines...</p>
-                    </div>
-                </div>
                 
                 <!-- Piper and Kokoro Downloads -->
                 <div class="space-y-6">
@@ -146,8 +169,10 @@
                     </div>
                 </div>
 
+                <hr class="my-6 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
+
                 <!-- Gemini / Google Cloud -->
-                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div>
                     <h3 class="font-semibold text-gray-900 dark:text-gray-100">Gemini/Google Cloud TTS</h3>
                     <div class="p-4 mt-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-700/50 dark:text-yellow-300">
                         <strong>Warning:</strong> Setting your API key here could incur charges if you exceed your free tier. Use with care.
@@ -180,8 +205,10 @@
                     </details>
                 </div>
 
+                <hr class="my-6 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
+
                 <!-- Coqui -->
-                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div>
                      <h3 class="font-semibold text-gray-900 dark:text-gray-100">Coqui Voice Cloning</h3>
                      <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Record or upload a sample file for voice-cloning.</p>
                      <div id="speech-to-text-section" class="flex items-center gap-3 mt-4">
@@ -205,8 +232,10 @@
                      </div>
                 </div>
 
+                <hr class="my-6 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
+
                 <!-- OpenAI -->
-                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div>
                     <h3 class="font-semibold text-gray-900 dark:text-gray-100">OpenAI Compatibility <span class="text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-0.5 px-2 rounded-full">WIP</span></h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Map which local voice will be used for each OpenAI voice.</p>
                 </div>
@@ -219,15 +248,15 @@
                 <div class="grid md:grid-cols-2 gap-8">
                     <!-- Chunk Size -->
                     <div>
-                        <h3 class="font-semibold text-gray-900 dark:text-gray-100">Chunk Size</h3>
+                        <h3 class="font-semibold text-gray-900 dark:text-gray-100">Chunk Size (in characters)</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Smaller chunks generate faster but may have less natural pronunciation. Larger chunks provide better context but may be slower.</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Additionally, Coqui does not work well with big chunks, clipping the text when it exceeds the limit. If you are planning to use Coqui, keep the Chunk below 50.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Additionally, Coqui does not work well with big chunks, clipping the text when it exceeds the limit. If you are planning to use Coqui, keep the Chunk below 500.</p>
                         <div class="mt-4">
                             <div class="flex justify-between items-center text-sm font-medium">
                                 <label for="chunk-size-slider" class="dark:text-gray-300">Words per chunk:</label>
                                 <span id="chunk-size-display" class="font-semibold text-indigo-600 dark:text-indigo-400"></span>
                             </div>
-                            <input id="chunk-size-slider" name="chunk-size" type="range" step="5" min="10" max="250" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer mt-2">
+                            <input id="chunk-size-slider" name="chunk-size" type="range" step="5" min="50" max="1000" class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer mt-2">
                         </div>
                     </div>
 
@@ -247,8 +276,10 @@
                     </div>
                 </div>
 
+                <hr class="my-6 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
+
                 <!-- Model Info -->
-                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div>
                     <h3 class="font-semibold text-gray-900 dark:text-gray-100">Choosing a Model</h3>
                     <div class="grid md:grid-cols-2 gap-6 mt-2 items-center">
                         <div class="text-sm text-gray-600 dark:text-gray-400 space-y-2">

@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
   libcairo2-dev \
   ffmpeg \
   pkg-config \
+  espeak-ng \
   && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -20,9 +21,13 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install https://github.com/KittenML/KittenTTS/releases/download/0.1/kittentts-0.1.0-py3-none-any.whl
+RUN pip install https://github.com/rsxdalv/chatterbox/releases/download/v0.4.4/tts_webui_chatterbox_tts-0.4.4-py3-none-any.whl
 
 # Copy application code
 COPY . .
+
+# Build using npm
+RUN npm run build
 
 # Create directories for models and audio
 RUN mkdir -p models/coqui models/piper models/kokoro static/audio static/audio_cache

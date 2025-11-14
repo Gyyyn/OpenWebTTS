@@ -80,7 +80,7 @@ def extract_readable_content(html_content):
             score -= 25
 
         # Add points based on the length of the text content.
-        text_content = element.get_text(strip=True)
+        text_content = element.get_text(strip=False)
         score += len(text_content.split(','))
         score += min(len(text_content) // 100, 3)
 
@@ -149,4 +149,4 @@ def extract_readable_content(html_content):
         for child_to_remove in elements_to_remove:
             child_to_remove.decompose()
 
-    return top_candidate.get_text(strip=True) if top_candidate else ""
+    return top_candidate.get_text(strip=False) if top_candidate else ""

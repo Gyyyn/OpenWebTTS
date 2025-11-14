@@ -81,6 +81,7 @@ Install all the required Python libraries using the `requirements.txt` file.
 ```bash
 pip install -r requirements.txt
 pip install https://github.com/KittenML/KittenTTS/releases/download/0.1/kittentts-0.1.0-py3-none-any.whl
+pip install https://github.com/rsxdalv/chatterbox/releases/download/v0.4.4/tts_webui_chatterbox_tts-0.4.4-py3-none-any.whl
 ```
 
 Next, adquire dependencies using npm:

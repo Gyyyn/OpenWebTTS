@@ -6,6 +6,8 @@ uvicorn[standard]
 python-multipart
 piper-tts
 kokoro
+misaki
+misaki[ja]
 coqui-tts
 PyMuPDF
 requests

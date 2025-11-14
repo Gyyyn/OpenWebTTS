@@ -10,7 +10,10 @@
     <script type="module" src="/static/js/pdf.min.mjs"></script>
     <script type="module" src="/static/js/marked.umd.js"></script>
 </head>
-<body class="bg-gray-100 dark:bg-gray-800">
+<body class="bg-gray-50 dark:bg-gray-900">
+
+    <!-- This div "imports" Tailwind classes used by the JS -->
+    <div class="bg-black dark:bg-black hidden"></div>
 
     <!-- Sidebar for Books -->
     <div id="sidebar" class="fixed left-0 top-0 h-full bg-gray-100 dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 overflow-y-auto z-10">
@@ -73,15 +76,17 @@
 
             <div class="hide-on-collapse border-t border-indigo-200 dark:border-gray-700 flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 shadow-inner">
                 <!-- Account Switcher -->
-                <div class="relative">
-                    <button id="account-switcher-btn" class="flex items-center p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition-colors focus:outline-none">
-                        <i class="fas fa-user-circle me-2 text-lg"></i>
-                        <span class="text-sm font-bold">Account</span>
+                <div class="relative w-full">
+                    <button id="account-switcher-btn" class="w-full justify-between flex items-center p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition-colors focus:outline-none">
+                        <div class="flex flex-row items-center justify-start">
+                            <i class="fas fa-user-circle me-2 text-lg"></i>
+                            <span class="text-sm font-bold">Account</span>
+                        </div>
                         <i class="fas fa-chevron-up ms-2 text-xs"></i>
                     </button>
                     
                     <div id="account-switcher-menu" class="absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 bottom-full mb-2 rounded-lg shadow-lg w-56 z-10 hidden">
-                        <div class="p-3 border-b border-gray-200 dark:border-gray-700">
+                        <div id="current-user-button" class="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
                             <div class="text-sm font-medium dark:text-gray-200" id="current-user">Anonymous</div>
                             <div class="text-xs text-gray-500 dark:text-gray-400">Not signed in</div>
                         </div>
@@ -108,72 +113,44 @@
                                         <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
                                     </label>
                                 </div>
-                            </div>
-                            <div>
                                 <a href="/terms" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm text-left dark:text-gray-200">Terms of Service</a>
                                 <a href="/privacy" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm text-left dark:text-gray-200">Privacy Policy</a>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Account Switcher JavaScript -->
-                <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    const accountSwitcherBtn = document.getElementById('account-switcher-btn');
-                    const accountSwitcherMenu = document.getElementById('account-switcher-menu');
-                    
-                    // Toggle account switcher dropdown
-                    accountSwitcherBtn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        accountSwitcherMenu.classList.toggle('hidden');
-                        
-                        // Animate dropdown
-                        if (!accountSwitcherMenu.classList.contains('hidden')) {
-                            accountSwitcherMenu.style.opacity = '0';
-                            accountSwitcherMenu.style.transform = 'translateY(10px)';
-                            setTimeout(() => {
-                                accountSwitcherMenu.style.opacity = '1';
-                                accountSwitcherMenu.style.transform = 'translateY(0)';
-                            }, 10);
-                        }
-                    });
-                    
-                    // Close dropdown when clicking outside
-                    document.addEventListener('click', function() {
-                        accountSwitcherMenu.classList.add('hidden');
-                    });
-                    
-                    // Prevent dropdown from closing when clicking inside it
-                    accountSwitcherMenu.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                    });
-                    
-                    // Handle keyboard navigation
-                    accountSwitcherMenu.addEventListener('keydown', function(e) {
-                        if (e.key === 'Escape') {
-                            accountSwitcherMenu.classList.add('hidden');
-                            accountSwitcherBtn.focus();
-                        }
-                    });
-                    
-                    // Smooth close animation
-                    accountSwitcherMenu.style.transition = 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out';
-                    
-                    // Initialize dropdown position
-                    accountSwitcherMenu.style.opacity = '0';
-                    accountSwitcherMenu.style.transform = 'translateY(10px)';
-                });
-                </script>
-            </div>
-            
+            </div>            
         </div>
+    </div>
+
+    <!-- Dropdown container -->
+    <div id="notification-dropdown" class="absolute left-0 bottom-2 md:ml-[260px] mb-2 p-6 bg-white shadow-lg rounded-md z-50 hidden">
+        <div class="p-4 border-b border-gray-200">
+            <h3 class="text-sm font-semibold text-gray-700">Notifications</h3>
+        </div>
+        <ul id="notification-list" class="max-h-60 overflow-y-auto divide-y divide-gray-100">
+            <li>No new notifications</li>
+        </ul>
     </div>
 
     <!-- Main Content -->
     <div id="main" class="ml-[50px] md:ml-[260px] min-h-[100dvh]">
-        <div id="book-view" class="bg-white dark:bg-gray-800 flex flex-col min-h-[100vh] items-center hidden">
-
+        <div id="book-view" class="flex flex-col min-h-[100vh] items-center hidden">
+            <!-- Empty Text Overlay -->
+            <div id="empty-text-overlay" class="fixed z-10 top-[50dvh] hidden">
+                <div class="text-center p-4">
+                    <div class="flex flex-row">
+                        <button id="open-file-picker-modal" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                            <i class="fas fa-file-import"></i>
+                            <span class="hidden xl:inline ms-2">Import</span>
+                        </button>
+                        <button id="paste-clipboard-overlay-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors duration-200 flex items-center justify-center sm:justify-start">
+                            <i class="fas fa-clipboard"></i>
+                            <span class="ms-2">Paste Clipboard</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
             <!-- File Picker Modal -->
             <div id="file-picker-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-modal hidden">
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-full max-w-md">
@@ -196,13 +173,9 @@
                     </div>
                 </div>
             </div>
-            
-            <div class="mt-6"></div> <!-- Spacer where the top bar used to be -->
 
             <div class="backdrop-blur-lg w-[90dvw] md:w-[750px] z-10 border border-indigo-200 dark:border-gray-700 left-0 md:left-[inherit] bottom-0 fixed flex flex-col items-center justify-between m-4 p-4 rounded-xl shadow-xl">
-                
                 <div class="flex flex-row items-center justify-between w-full z-10">
-
                     <!-- TTS Section -->
                     <div class="flex">
                         <div id="generate-section" class="flex flex-row">
@@ -211,19 +184,14 @@
                                     <span id="generate-btn-text" class="me-2">Listen</span>
                                 </span>
                                 <i id="generate-btn-icon" class="fas fa-volume-up"></i>
-                                <div id="loading" class="inline hidden px-2">
-                                    <i class="fas fa-sync-alt animate-spin text-xl"></i>
-                                </div>
                             </button>
                         </div>
-        
                         <div id="audio-output" class="hidden flex">
                             <audio id="audio-player" controls class="hidden w-full"></audio>
                             <div class="flex items-center">
                                 <button aria-label="Stop audio playback" id="stop-btn" class="px-4 py-2 ps-6 -ms-4 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors" disabled><i class="fas fa-stop"></i></button>
                             </div>
                         </div>
-
                     </div>
 
                     <div class="flex flex-row">
@@ -291,11 +259,11 @@
                                             <i class="fas fa-save"></i>
                                             <span class="text-sm ms-2">Save Book</span>
                                         </button>
-                                        <a id="download-link" href="#" download="speech.wav" class=" text-center hidden xl:inline button ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                        <a id="download-link" href="#" download="speech.wav" class=" text-center hidden xl:inline button px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
                                             <i class="fas fa-download"></i>
                                             <span class="text-sm ms-2">Audio</span>
                                         </a>
-                                        <button id="create-offline-podcast-btn" class="button ml-2 px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                        <button id="create-offline-podcast-btn" class="button px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
                                             <i class="fas fa-microphone"></i>
                                             <span class="hidden md:inline text-sm ms-2">Podcast</span>
                                         </button>
@@ -326,18 +294,6 @@
                                                 </select>
                                             </div>
                                             <div class="flex items-center justify-between">
-                                                <label for="auto-delete-chunks-checkbox" class="text-sm dark:text-gray-200 cursor-pointer">Auto-Delete Read Chunks</label>
-                                                <input id="auto-delete-chunks-checkbox" type="checkbox" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                            </div>
-                                            <div class="flex items-center justify-between">
-                                                <label for="two-page-view-checkbox" class="text-sm dark:text-gray-200 cursor-pointer">Two-Page View</label>
-                                                <input id="two-page-view-checkbox" type="checkbox" checked class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                            </div>
-                                            <div class="flex items-center justify-between">
-                                                <label for="auto-read-checkbox" class="text-sm dark:text-gray-200 cursor-pointer">Auto-Read Next Page</label>
-                                                <input id="auto-read-checkbox" type="checkbox" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                            </div>
-                                            <div class="flex items-center justify-between">
                                                 <label for="skip-headers-checkbox" class="text-sm dark:text-gray-200 cursor-pointer">Skip Headers/Footers</label>
                                                 <input id="skip-headers-checkbox" type="checkbox" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
                                             </div>
@@ -346,9 +302,7 @@
                                 </div>
                             </div>
                         </div>
-
                     </div>
-
                 </div>
 
                 <div id="current-chunk" class="hidden w-full border-t border-indigo-200 dark:border-gray-700 dark:text-gray-200 mt-2">
@@ -364,63 +318,39 @@
                         </button>
                     </div>
                 </div>
-
             </div>
 
             <div class="xl:w-[750px] xl:mx-auto">
+                <div id="book-info" class="hidden opacity-0 transition backdrop-blur-lg w-[90dvw] md:w-[350px] z-10 border border-indigo-200 dark:border-gray-700 fixed items-center justify-between m-4 p-4 rounded-xl shadow-xl top-0 right-0">
+                    <header id="book-title" class="text-gray-800 dark:text-gray-200">New Book</header>
 
-                <h2 id="book-title" class="mb-4 px-4 md:px-0 text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-200">New Book</h2>
-
-                <div id="pagination-controls" class="flex flex-row justify-between items-center mb-2">
-                    <div class="flex justify-center items-center">
-                        <button aria-label="Go to previous page" id="prev-page" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                            <span><i class="fas fa-arrow-left"></i></span>
-                        </button>
-                        <span id="page-num" class="text-xs md:text-sm mx-2 text-gray-600 dark:text-gray-400 cursor-pointer"></span>
-                        <button aria-label="Go to next page" id="next-page" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                            <span><i class="fas fa-arrow-right"></i></span>
-                        </button>
-                    </div>
-                    <div class="flex justify-center items-center ms-2 md:ms-0">
-                        <button aria-label="Zoom in PDF button" id="zoom-in-btn" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                            <i class="fas fa-magnifying-glass-plus"></i>
-                        </button>
-                        <button aria-label="Zoom out PDF button" id="zoom-out-btn" class="ml-2 px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                            <i class="fas fa-magnifying-glass-minus"></i>
-                        </button>
+                    <div id="pagination-controls" class="flex flex-row justify-between items-center">
+                        <div class="flex justify-center items-center">
+                            <span id="page-num" class="text-xs md:text-sm text-gray-600 dark:text-gray-400 cursor-pointer"></span>
+                        </div>
+                        <div class="flex justify-center items-center ms-2 md:ms-0">
+                            <button aria-label="Zoom in PDF button" id="zoom-in-btn" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                <i class="fas fa-magnifying-glass-plus"></i>
+                            </button>
+                            <button aria-label="Zoom out PDF button" id="zoom-out-btn" class="ml-2 px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                <i class="fas fa-magnifying-glass-minus"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div id="textbox-viewer-wrapper">
-                    <div class="relative">
-                        <div id="text-display" contenteditable="true" class="markdown-content text-gray-800 dark:text-gray-200 text-xs md:text-base p-2 bg-gray-100 dark:bg-gray-900 rounded-xl 2xl:rounded-lg min-h-[100px] relative"></div>
-
-                        <!-- Empty Text Overlay -->
-                        <div id="empty-text-overlay" class="absolute inset-4 flex flex-col items-center justify-center rounded-lg top-0 min-h-[100px] hidden">
-                            <div class="text-center p-4">
-                                <div class="flex flex-row">
-                                    <button id="open-file-picker-modal" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors duration-200 flex items-center justify-center sm:justify-start">
-                                        <i class="fas fa-file-import"></i>
-                                        <span class="hidden xl:inline ms-2">Import from File</span>
-                                    </button>
-                                    <button id="paste-clipboard-overlay-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors duration-200 flex items-center justify-center sm:justify-start">
-                                        <i class="fas fa-clipboard"></i>
-                                        <span class="ms-2">Paste Clipboard</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <div id="text-display" class="markdown-content text-gray-800 dark:text-gray-200 text-xs md:text-base px-4 rounded-xl 2xl:rounded-lg min-h-[100px] relative"></div>
                 </div>
             </div>
 
             <div id="pdf-viewer-wrapper" class="hidden relative bg-white dark:bg-gray-800 2xl:rounded-xl mx-auto">
-                <div id="pdf-viewer" class="flex justify-center"></div>
-                <div id="highlight-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
+                <div id="pdf-viewer" class="flex flex-col justify-center"></div>
+                <div id="highlight-layer" class="absolute top-0 h-[100dvh] pointer-events-none"></div>
             </div>
 
-            <!-- Extra space for the floating toolbar -->
-            <div class="h-[200px]"></div>
+            <!-- Spacer -->
+            <div id="toolbar-space" style="height: 1000px;"></div>
         </div>
 
     </div>

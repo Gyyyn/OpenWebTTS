@@ -34,6 +34,3 @@ static/js/pdf.min.mjs
 static/js/pdf.worker.min.mjs
 static/js/marked.umd.js
 static/icons
-
-# Ignore config files
-engine_config.json

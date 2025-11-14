@@ -10,12 +10,13 @@
  * Imports.
  */
 
-import { setBodyFont } from "./helpers.js";
+import { setBodyFont, handlePrefs } from "./helpers.js";
 
 const clearCacheButton = document.getElementById('clear-cache');
 
 document.addEventListener('DOMContentLoaded', () => {
     const accessibleFontCheckbox = document.getElementById('use-accessible-font-checkbox');
+    const accessibleFontUICheckbox = document.getElementById('accessible-font-ui-checkbox');
     const piperVoiceSelect = document.getElementById('piper-voice');
     const kokoroVoiceSelect = document.getElementById('kokoro-voice');
     const downloadBtnPiper = document.getElementById('download-btn-piper');
@@ -28,12 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const googleVoiceInput = document.getElementById('google-voice');
     const GEMINI_API_KEY_STORAGE_KEY = 'geminiApiKey';
 
-    let prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
+    let prefs = handlePrefs();
 
-    // Load saved API key on page load
-    if (localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY)) {
-        googleVoiceInput.value = localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY);
-    }
+    googleVoiceInput.value = localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY) ?? null;
 
     // Save API key on input change
     googleVoiceInput.addEventListener('input', () => {
@@ -172,30 +170,27 @@ document.addEventListener('DOMContentLoaded', () => {
             chunkSizeDisplay.textContent = prefs.chunkSize;
         }
 
-        if (prefs.accessibleFontEnabled === true) {
-            accessibleFontCheckbox.checked = true;
-        }
+        prefs.accessibleFontEnabled = accessibleFontCheckbox.checked || false;
+        prefs.accessibleFontUIEnabled = accessibleFontUICheckbox.checked || false;
 
         if (prefs.accessibleFontStyle) {
             document.querySelectorAll('input[name="accessible-font-style"]').forEach((input) => {
-
                 if (input.value == prefs.accessibleFontStyle) {
                     input.checked = true;
                 }
-
             });
         }
 
         if (prefs.highlightColor) {
-
             document.querySelectorAll(`#highlight-customization > div`).forEach(block => {
-
                 block.classList.remove('shadow-xl');
-                
             });
 
             document.querySelector(`#highlight-customization > div.${prefs.highlightColor}`).classList.add('shadow-xl');
+        }
 
+        if (prefs.useBlackBG) {
+            document.querySelector('#pureblack-bg-toggle').checked = true;
         }
     }
 
@@ -219,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chunkSizeDisplay.textContent = chunkSizeSlider.value;
 
         prefs.chunkSize = parseInt(chunkSizeSlider.value);
-        localStorage.setItem('prefs', JSON.stringify(prefs));
+        handlePrefs(prefs);
 
     });
 
@@ -233,8 +228,16 @@ document.addEventListener('DOMContentLoaded', () => {
     accessibleFontCheckbox.addEventListener('change', () => {
 
         prefs.accessibleFontEnabled = accessibleFontCheckbox.checked;
-        localStorage.setItem('prefs', JSON.stringify(prefs));
+        handlePrefs(prefs);
+        setBodyFont(prefs);
+        populatePrefsInputs();
 
+    });
+
+    accessibleFontUICheckbox.addEventListener('change', () => {
+
+        prefs.accessibleFontUIEnabled = accessibleFontUICheckbox.checked;
+        handlePrefs(prefs);
         setBodyFont(prefs);
         populatePrefsInputs();
 
@@ -247,8 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
             prefs.accessibleFontEnabled = true;
             prefs.accessibleFontStyle = document.querySelector('input[name="accessible-font-style"]:checked')?.value || 'default'; 
             
-            localStorage.setItem('prefs', JSON.stringify(prefs));
-            
+            handlePrefs(prefs);
             setBodyFont(prefs);
 
         });
@@ -330,102 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Engine Management
-    const enginesContainer = document.getElementById('engines-container');
-
-    async function loadEngines() {
-        try {
-            const response = await fetch('/api/engines');
-            if (!response.ok) {
-                throw new Error('Failed to fetch engine configurations');
-            }
-            const data = await response.json();
-            displayEngines(data.engines);
-        } catch (error) {
-            console.error('Error loading engines:', error);
-            enginesContainer.innerHTML = `
-                <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 dark:bg-red-900/20 dark:border-red-700/50 dark:text-red-300">
-                    <strong>Error:</strong> Failed to load engine configurations. Please refresh the page.
-                </div>
-            `;
-        }
-    }
-
-    function displayEngines(engines) {
-        enginesContainer.innerHTML = '';
-        
-        Object.entries(engines).forEach(([engineName, engine]) => {
-            const engineCard = document.createElement('div');
-            engineCard.className = 'bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 mb-2';
-            
-            engineCard.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-3">
-                            <h3 class="font-semibold text-gray-900 dark:text-gray-100">${engine.display_name}</h3>
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                engine.enabled 
-                                    ? 'bg-green-100 bg-opacity-50 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                            }">
-                                ${engine.enabled ? 'Enabled' : 'Disabled'}
-                            </span>
-                        </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${engine.description}</p>
-                        <div class="flex flex-wrap gap-2 mt-2">
-                            ${engine.requires_api_key ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs text-gray-700 dark:text-gray-300 bg-gray-200">Requires API Key</span>' : ''}
-                            ${engine.requires_model_files ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs text-gray-700 dark:text-gray-300 bg-gray-200">Requires Model Files</span>' : ''}
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2 ml-4">
-                        <button 
-                            onclick="toggleEngine('${engineName}', true)" 
-                            class="items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${engine.enabled ? 'hidden' : 'inline-flex'}"
-                        >
-                            <i class="fa-solid fa-plug-circle-plus"></i>
-                            <span>Enable</span>
-                        </button>
-                        <button 
-                            onclick="toggleEngine('${engineName}', false)" 
-                            class="items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${!engine.enabled ? 'hidden' : 'inline-flex'}"
-                        >
-                            <i class="fa-solid fa-plug-circle-minus"></i>
-                            <span>Disable</span>
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            enginesContainer.appendChild(engineCard);
-        });
-    }
-
-    async function toggleEngine(engineName, enable) {
-        const endpoint = enable ? 'enable' : 'disable';
-        
-        try {
-            const response = await fetch(`/api/engines/${engineName}/${endpoint}`, {
-                method: 'POST'
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `Failed to ${enable ? 'enable' : 'disable'} engine`);
-            }
-            
-            // Reload engines to update the UI
-            await loadEngines();
-            
-            // Show success message
-            const message = `${engineName} ${enable ? 'enabled' : 'disabled'} successfully`;
-            showNotification(message, 'success');
-            
-        } catch (error) {
-            console.error(`Error ${enable ? 'enabling' : 'disabling'} engine:`, error);
-            showNotification(error.message, 'error');
-        }
-    }
-
     function showNotification(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
@@ -442,14 +348,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
-    // Make toggleEngine function available globally
-    window.toggleEngine = toggleEngine;
+    const pureblackBgToggle = document.getElementById('pureblack-bg-toggle');
+    
+    pureblackBgToggle.addEventListener('change', (e) => {
+        prefs.useBlackBG = e.target.checked;
+        handlePrefs(prefs);
+    });
 
     // Add events to highlight buttons
     document.querySelectorAll("#highlight-customization button").forEach((item) => {
         item.addEventListener('click', () => {
             prefs.highlightColor = item.dataset.value;
-            localStorage.setItem('prefs', JSON.stringify(prefs));
+            handlePrefs(prefs);
             populatePrefsInputs();
         });
     });
@@ -459,5 +369,4 @@ document.addEventListener('DOMContentLoaded', () => {
     getCacheSize();
     populatePrefsInputs();
     setBodyFont();
-    loadEngines();
 });
