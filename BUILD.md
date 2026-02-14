@@ -50,6 +50,10 @@ OpenWebTTS/
 2. `pip` for managing dependencies (usually comes with Python).
 3. `espeak-ng` for fallback.
 4. `ffmpeg` or `libav` for audio processing.
+5. **Tesseract OCR** for PDF text extraction (scanned PDFs). [Download for Windows](https://github.com/UB-Mannheim/tesseract/wiki)
+6. **Poppler** for PDF rendering and OCR preprocessing. [Download for Windows](https://github.com/oschwartz10612/poppler-windows/releases/)
+   - After installation, add Poppler's `bin` directory to your system PATH
+   - Or use Chocolatey: `choco install poppler` (requires admin)
 
 > **Note:** Other Python versions might not be fully compatible due to dependencies. Later version might work, but use at your own risk.
 

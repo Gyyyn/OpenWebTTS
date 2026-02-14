@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PDF Click Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .test-box {
+            position: relative;
+            width: 600px;
+            height: 400px;
+            background: #ddd;
+            margin: 20px 0;
+            border: 2px solid #999;
+        }
+        .canvas-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0),
+                        linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+        .text-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .text-chunk {
+            position: absolute;
+            pointer-events: auto;
+            cursor: pointer;
+            background: transparent;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .text-chunk:hover {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        .text-chunk:active {
+            background: rgba(59, 130, 246, 0.25);
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.show {
+            display: block;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>PDF Click-to-Read Test</h1>
+        
+        <div class="instructions">
+            <h3>📋 Test Instructions:</h3>
+            <ol>
+                <li>Hover over the colored boxes below</li>
+                <li>You should see a blue highlight when hovering</li>
+                <li>Click on any box to test the click functionality</li>
+                <li>The canvas (checkered pattern) should remain visible under the boxes</li>
+            </ol>
+        </div>
+
+        <h2>Layering Test</h2>
+        <p>This simulates the PDF viewer structure with canvas and text layer.</p>
+        
+        <div class="test-box">
+            <div class="canvas-layer">
+                <div style="padding: 20px;">
+                    <h2>Canvas Layer (PDF)</h2>
+                    <p>This represents the PDF canvas. You should be able to see this clearly.</p>
+                </div>
+            </div>
+            <div class="text-layer">
+                <div class="text-chunk" style="left: 50px; top: 100px; width: 200px; height: 40px;" data-text="First chunk">
+                    <div style="pointer-events: none; color: rgba(0,0,0,0.3); padding: 10px;">Chunk 1</div>
+                </div>
+                <div class="text-chunk" style="left: 300px; top: 100px; width: 250px; height: 40px;" data-text="Second chunk">
+                    <div style="pointer-events: none; color: rgba(0,0,0,0.3); padding: 10px;">Chunk 2</div>
+                </div>
+                <div class="text-chunk" style="left: 50px; top: 200px; width: 500px; height: 40px;" data-text="Third chunk">
+                    <div style="pointer-events: none; color: rgba(0,0,0,0.3); padding: 10px;">Chunk 3 (long)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="result" id="result">
+            <strong>✅ Click detected!</strong>
+            <div id="result-text"></div>
+        </div>
+
+        <h2>Test Results:</h2>
+        <ul>
+            <li>✓ You should see the checkered pattern (canvas layer)</li>
+            <li>✓ You should see "Chunk 1", "Chunk 2", "Chunk 3" labels</li>
+            <li>✓ Hovering over chunks shows blue highlight</li>
+            <li>✓ Clicking chunks triggers the event below</li>
+        </ul>
+    </div>
+
+    <script>
+        // Test the click-to-read functionality
+        const chunks = document.querySelectorAll('.text-chunk');
+        const result = document.getElementById('result');
+        const resultText = document.getElementById('result-text');
+
+        chunks.forEach(chunk => {
+            chunk.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const text = this.dataset.text;
+                result.classList.add('show');
+                resultText.innerHTML = `
+                    <p>Clicked on: <strong>${text}</strong></p>
+                    <p>In a real PDF, this would start reading from this position.</p>
+                `;
+                console.log('Click detected on:', text);
+            });
+        });
+
+        // Test results
+        console.log('Test page loaded');
+        console.log('Text layer pointer-events:', getComputedStyle(document.querySelector('.text-layer')).pointerEvents);
+        console.log('Text chunk pointer-events:', getComputedStyle(document.querySelector('.text-chunk')).pointerEvents);
+    </script>
+</body>
+</html>

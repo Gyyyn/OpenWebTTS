@@ -1,0 +1,71 @@
+{
+  "manifest_version": 2,
+  "name": "OpenWebTTS - Text to Speech Reader",
+  "version": "1.0.0",
+  "description": "Read any webpage aloud with word-by-word highlighting. Powered by OpenWebTTS.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "<all_urls>",
+    "contextMenus",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "commands": {
+    "read-page": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R"
+      },
+      "description": "Read entire page"
+    },
+    "read-selection": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S"
+      },
+      "description": "Read selected text"
+    },
+    "stop-reading": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+X"
+      },
+      "description": "Stop reading"
+    },
+    "toggle-menu": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+M"
+      },
+      "description": "Toggle floating menu"
+    }
+  },
+  "browser_action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "scripts": ["background/background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": ["icons/*.png"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "openwebtts@extension.local",
+      "strict_min_version": "57.0"
+    }
+  }
+}

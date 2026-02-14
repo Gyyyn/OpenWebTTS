@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cacheSizeDisplay = document.getElementById('cache-size-display');
     const chunkSizeSlider = document.getElementById('chunk-size-slider');
     const chunkSizeDisplay = document.getElementById('chunk-size-display');
+    const semanticSplittingToggle = document.getElementById('semantic-splitting-toggle');
 
     const downloadStatus = document.getElementById('download-status');
     const googleVoiceInput = document.getElementById('google-voice');
@@ -169,6 +170,14 @@ document.addEventListener('DOMContentLoaded', () => {
             chunkSizeSlider.value = parseInt(prefs.chunkSize);
             chunkSizeDisplay.textContent = prefs.chunkSize;
         }
+        
+        // Set semantic splitting toggle state
+        if (prefs.useSemanticSplitting !== undefined) {
+            semanticSplittingToggle.checked = prefs.useSemanticSplitting;
+        } else {
+            prefs.useSemanticSplitting = true; // Default to enabled
+            semanticSplittingToggle.checked = true;
+        }
 
         prefs.accessibleFontEnabled = accessibleFontCheckbox.checked || false;
         prefs.accessibleFontUIEnabled = accessibleFontUICheckbox.checked || false;
@@ -186,7 +195,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 block.classList.remove('shadow-xl');
             });
 
-            document.querySelector(`#highlight-customization > div.${prefs.highlightColor}`).classList.add('shadow-xl');
+            document.querySelector(`#highlight-customization > div.${prefs.highlightColor}`)?.classList.add('shadow-xl');
+        }
+        
+        // Handle word highlight color
+        if (prefs.wordHighlightColor) {
+            document.querySelectorAll(`#word-highlight-customization > div`).forEach(block => {
+                block.classList.remove('shadow-xl');
+            });
+            document.querySelector(`#word-highlight-customization > div.${prefs.wordHighlightColor}`)?.classList.add('shadow-xl');
+        } else {
+            // Default to same as chunk color if not set
+            prefs.wordHighlightColor = prefs.highlightColor || 'yellow';
+            handlePrefs(prefs);
         }
 
         if (prefs.useBlackBG) {
@@ -196,11 +217,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     clearCacheButton.addEventListener('click', async () => {
         
+        // Clear server-side caches (audio + PDF)
         const response = await fetch('/api/clear_cache');
 
         if (!response.ok) {
             throw new Error('Failed to clear cache.');
         }
+
+        // Clear client-side PDF caches from localStorage
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('pdf_positions_')) {
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        console.log(`🗑️ Cleared ${keysToRemove.length} PDF caches from localStorage`);
+        
+        const data = await response.json();
+        alert(`Cache cleared successfully!\n\n${data.message}\n\nCleared ${keysToRemove.length} PDF caches from browser storage.`);
 
         getCacheSize(); // Refresh cache size after clearing
 
@@ -216,6 +254,12 @@ document.addEventListener('DOMContentLoaded', () => {
         prefs.chunkSize = parseInt(chunkSizeSlider.value);
         handlePrefs(prefs);
 
+    });
+    
+    semanticSplittingToggle.addEventListener('change', () => {
+        prefs.useSemanticSplitting = semanticSplittingToggle.checked;
+        handlePrefs(prefs);
+        console.log('Semantic splitting:', prefs.useSemanticSplitting ? 'enabled' : 'disabled');
     });
 
     const apiKeyContainer = document.getElementById('explanation-container');
@@ -355,10 +399,28 @@ document.addEventListener('DOMContentLoaded', () => {
         handlePrefs(prefs);
     });
 
-    // Add events to highlight buttons
+    // Add events to highlight buttons (chunk colors)
     document.querySelectorAll("#highlight-customization button").forEach((item) => {
         item.addEventListener('click', () => {
             prefs.highlightColor = item.dataset.value;
+            handlePrefs(prefs);
+            populatePrefsInputs();
+        });
+    });
+    
+    // Add events to highlight buttons (chunk colors)
+    document.querySelectorAll("#highlight-customization button").forEach((item) => {
+        item.addEventListener('click', () => {
+            prefs.highlightColor = item.dataset.value;
+            handlePrefs(prefs);
+            populatePrefsInputs();
+        });
+    });
+    
+    // Add events to word highlight buttons  
+    document.querySelectorAll("#word-highlight-customization button").forEach((item) => {
+        item.addEventListener('click', () => {
+            prefs.wordHighlightColor = item.dataset.value;
             handlePrefs(prefs);
             populatePrefsInputs();
         });

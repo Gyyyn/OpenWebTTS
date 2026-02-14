@@ -1,0 +1,31 @@
+# Node modules
+node_modules/
+npm-debug.log
+package-lock.json
+
+# Build artifacts
+dist/
+*.zip
+*.xpi
+*.crx
+
+# Generated icons (if regenerated)
+icons/*.png
+
+# Development files
+.web-ext-config.js
+web-ext-artifacts/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

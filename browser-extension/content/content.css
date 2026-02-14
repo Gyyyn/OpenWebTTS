@@ -1,0 +1,313 @@
+/* 
+ * Content styles for OpenWebTTS browser extension
+ * Applied to web pages for highlighting during reading
+ */
+
+/* Chunk-level highlighting (sentence/paragraph) */
+.owtts-chunk-highlight {
+    background-color: transparent !important;
+    border-radius: 4px !important;
+    padding: 2px 0 !important;
+    transition: background-color 0.3s ease !important;
+}
+
+/* Word-level highlighting */
+.owtts-word-highlight {
+    background-color: transparent !important;
+    border-radius: 3px !important;
+    padding: 1px 2px !important;
+    transition: background-color 0.15s ease !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    display: inline-block !important;
+    transform: scale(1.02) !important;
+}
+
+/* Word span wrapper */
+.owtts-word {
+    display: inline !important;
+    transition: all 0.15s ease !important;
+}
+
+/* Color variants for chunk highlighting */
+.owtts-chunk-highlight.owtts-color-yellow {
+    background-color: rgba(255, 248, 0, 0.25) !important;
+    box-shadow: 0 0 0 2px rgba(255, 248, 0, 0.15) !important;
+}
+
+.owtts-chunk-highlight.owtts-color-green {
+    background-color: rgba(72, 255, 0, 0.25) !important;
+    box-shadow: 0 0 0 2px rgba(72, 255, 0, 0.15) !important;
+}
+
+.owtts-chunk-highlight.owtts-color-blue {
+    background-color: rgba(0, 196, 255, 0.25) !important;
+    box-shadow: 0 0 0 2px rgba(0, 196, 255, 0.15) !important;
+}
+
+.owtts-chunk-highlight.owtts-color-pink {
+    background-color: rgba(249, 168, 212, 0.35) !important;
+    box-shadow: 0 0 0 2px rgba(249, 168, 212, 0.2) !important;
+}
+
+.owtts-chunk-highlight.owtts-color-orange {
+    background-color: rgba(253, 186, 116, 0.35) !important;
+    box-shadow: 0 0 0 2px rgba(253, 186, 116, 0.2) !important;
+}
+
+/* Color variants for word highlighting */
+.owtts-word-highlight.owtts-word-color-yellow {
+    background-color: rgba(255, 248, 0, 0.65) !important;
+}
+
+.owtts-word-highlight.owtts-word-color-green {
+    background-color: rgba(72, 255, 0, 0.65) !important;
+}
+
+.owtts-word-highlight.owtts-word-color-blue {
+    background-color: rgba(0, 196, 255, 0.65) !important;
+}
+
+.owtts-word-highlight.owtts-word-color-pink {
+    background-color: rgba(249, 168, 212, 0.75) !important;
+}
+
+.owtts-word-highlight.owtts-word-color-orange {
+    background-color: rgba(253, 186, 116, 0.75) !important;
+}
+
+/* Legacy support - keep old color classes for backward compatibility */
+.owtts-word-highlight.owtts-color-yellow {
+    background-color: rgba(255, 248, 0, 0.65) !important;
+}
+
+.owtts-word-highlight.owtts-color-green {
+    background-color: rgba(72, 255, 0, 0.65) !important;
+}
+
+.owtts-word-highlight.owtts-color-blue {
+    background-color: rgba(0, 196, 255, 0.65) !important;
+}
+
+.owtts-word-highlight.owtts-color-pink {
+    background-color: rgba(249, 168, 212, 0.75) !important;
+}
+
+.owtts-word-highlight.owtts-color-orange {
+    background-color: rgba(253, 186, 116, 0.75) !important;
+}
+
+/* Animation for highlights */
+@keyframes owtts-highlight-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.owtts-chunk-highlight {
+    animation: owtts-highlight-fade-in 0.2s ease-out !important;
+}
+
+.owtts-word-highlight {
+    animation: owtts-highlight-fade-in 0.1s ease-out !important;
+}
+
+/* Ensure highlights work on different backgrounds */
+.owtts-chunk-highlight,
+.owtts-word-highlight {
+    -webkit-text-fill-color: inherit !important;
+    color: inherit !important;
+    text-decoration: inherit !important;
+}
+
+/* Dark mode compatibility */
+@media (prefers-color-scheme: dark) {
+    .owtts-chunk-highlight {
+        box-shadow: 0 0 0 2px rgba(255, 248, 0, 0.25) !important;
+    }
+    
+    .owtts-word-highlight {
+        box-shadow: 0 1px 3px rgba(255, 255, 255, 0.1) !important;
+    }
+}
+
+/* Print: hide highlights */
+@media print {
+    .owtts-chunk-highlight,
+    .owtts-word-highlight {
+        background-color: transparent !important;
+        box-shadow: none !important;
+    }
+}
+/* ========== Enhanced UI Elements ========== */
+
+/* Paragraph floating button (single reusable button) */
+.owtts-para-btn {
+    font-family: Arial, sans-serif !important;
+}
+
+.owtts-para-btn:hover {
+    transform: scale(1.1) !important;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+}
+
+.owtts-para-btn:active {
+    transform: scale(1.0) !important;
+}
+
+/* Ctrl indicator */
+.owtts-ctrl-indicator {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
+}
+
+/* Floating menu animations */
+@keyframes owtts-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.owtts-floating-menu {
+    animation: owtts-slide-in 0.3s ease-out !important;
+}
+
+.owtts-floating-menu * {
+    box-sizing: border-box !important;
+}
+
+/* Custom scrollbar for menu */
+.owtts-floating-menu::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+.owtts-floating-menu::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 3px !important;
+}
+
+.owtts-floating-menu::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-radius: 3px !important;
+}
+
+.owtts-floating-menu::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Button hover effects */
+.owtts-btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.owtts-btn-primary:hover {
+    background: rgba(255, 255, 255, 0.95) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15) !important;
+}
+
+.owtts-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.owtts-btn-danger:hover {
+    background: #dc2626 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
+}
+
+/* kbd element styling */
+kbd {
+    background: rgba(255, 255, 255, 0.2) !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-size: 10px !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Focus states for accessibility */
+.owtts-btn:focus {
+    outline: 2px solid white !important;
+    outline-offset: 2px !important;
+}
+
+.owtts-para-btn:focus {
+    outline: 2px solid #667eea !important;
+    outline-offset: 2px !important;
+}
+
+/* Smooth transitions for all interactive elements */
+.owtts-btn,
+.owtts-para-btn,
+#owtts-close-menu {
+    will-change: transform !important;
+}
+
+/* Prevent text selection in UI elements */
+.owtts-floating-menu,
+.owtts-para-btn,
+.owtts-ctrl-indicator {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+/* Glass morphism effect for menu */
+.owtts-floating-menu::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)) !important;
+    border-radius: 16px !important;
+    pointer-events: none !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .owtts-floating-menu {
+        width: 240px !important;
+        padding: 15px !important;
+    }
+    
+    .owtts-para-btn {
+        width: 28px !important;
+        height: 28px !important;
+        left: -35px !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .owtts-floating-menu {
+        border: 2px solid white !important;
+    }
+    
+    .owtts-para-btn {
+        border: 3px solid white !important;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .owtts-chunk-highlight,
+    .owtts-word-highlight,
+    .owtts-floating-menu,
+    .owtts-btn,
+    .owtts-para-btn {
+        animation: none !important;
+        transition: none !important;
+    }
+}

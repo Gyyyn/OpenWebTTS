@@ -1,0 +1,28 @@
+{
+  "name": "openwebtts-extension",
+  "version": "1.0.0",
+  "description": "Browser extension for OpenWebTTS - Text to Speech Reader",
+  "scripts": {
+    "start:chrome": "echo 'Load extension manually in chrome://extensions/'",
+    "start:firefox": "web-ext run --source-dir=. --firefox-profile=dev",
+    "build:firefox": "web-ext build --source-dir=. --artifacts-dir=../dist --overwrite-dest",
+    "lint": "web-ext lint --source-dir=.",
+    "package": "npm run build:firefox"
+  },
+  "devDependencies": {
+    "web-ext": "^7.11.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gyyyn/OpenWebTTS.git"
+  },
+  "keywords": [
+    "tts",
+    "text-to-speech",
+    "accessibility",
+    "browser-extension",
+    "speech-synthesis"
+  ],
+  "author": "OpenWebTTS Contributors",
+  "license": "MIT"
+}

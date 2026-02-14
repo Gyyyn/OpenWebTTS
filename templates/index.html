@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/icons/css/all.min.css">
     <link rel="icon" type="image/png" href="/static/favicon.png">
-    <script type="module" src="/static/js/pdf.min.mjs"></script>
     <script type="module" src="/static/js/marked.umd.js"></script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900">
@@ -52,6 +51,10 @@
                         <button id="commands-btn" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
                             <i class="fas fa-terminal"></i>
                             <span class="ms-2 hide-on-collapse">Commands</span>
+                        </button>
+                        <button id="shortcuts-btn" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200" title="View keyboard shortcuts (?)">
+                            <i class="fas fa-keyboard"></i>
+                            <span class="ms-2 hide-on-collapse">Shortcuts</span>
                         </button>
                     </div>
                 </div>
@@ -236,9 +239,9 @@
                                         <div>
                                             <label for="engine" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">TTS Engine</label>
                                             <select id="engine" name="engine" class="w-full pl-2 pr-8 py-2 text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg">
+                                                <option value="kokoro" selected>Kokoro</option>
                                                 <option value="piper">Piper</option>
                                                 <option value="chatterbox">Chatterbox</option>
-                                                <option value="kokoro">Kokoro</option>
                                                 <option value="kitten">Kitten</option>
                                                 <option value="coqui">Coqui</option>
                                                 <option value="gemini">Gemini Voice</option>
@@ -299,6 +302,37 @@
                                             </div>
                                         </div>
                                     </div>
+            
+                                    <!-- Highlighting Settings -->
+                                    <div class="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
+                                        <div class="font-bold dark:text-gray-200 mb-3">Highlighting</div>
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between">
+                                                <label for="word-highlight-toggle" class="text-sm dark:text-gray-200 cursor-pointer">Word-by-word highlighting</label>
+                                                <input id="word-highlight-toggle" type="checkbox" checked class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                            </div>
+                                            <div>
+                                                <label for="chunk-highlight-color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Chunk Color</label>
+                                                <select id="chunk-highlight-color" class="w-full pl-2 pr-8 py-2 text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg">
+                                                    <option value="yellow" selected>Yellow</option>
+                                                    <option value="green">Green</option>
+                                                    <option value="blue">Blue</option>
+                                                    <option value="pink">Pink</option>
+                                                    <option value="orange">Orange</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label for="word-highlight-color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Word Color</label>
+                                                <select id="word-highlight-color" class="w-full pl-2 pr-8 py-2 text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg">
+                                                    <option value="yellow" selected>Yellow</option>
+                                                    <option value="green">Green</option>
+                                                    <option value="blue">Blue</option>
+                                                    <option value="pink">Pink</option>
+                                                    <option value="orange">Orange</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -321,21 +355,87 @@
             </div>
 
             <div class="xl:w-[750px] xl:mx-auto">
-                <div id="book-info" class="hidden opacity-0 transition backdrop-blur-lg w-[90dvw] md:w-[350px] z-10 border border-indigo-200 dark:border-gray-700 fixed items-center justify-between m-4 p-4 rounded-xl shadow-xl top-0 right-0">
-                    <header id="book-title" class="text-gray-800 dark:text-gray-200">New Book</header>
+                <div id="book-info" class="hidden opacity-0 transition backdrop-blur-lg w-[90dvw] md:w-[450px] z-10 border border-indigo-200 dark:border-gray-700 fixed items-center justify-between m-4 p-4 rounded-xl shadow-xl top-0 right-0">
+                    <header id="book-title" class="text-gray-800 dark:text-gray-200 mb-3">New Book</header>
 
-                    <div id="pagination-controls" class="flex flex-row justify-between items-center">
-                        <div class="flex justify-center items-center">
-                            <span id="page-num" class="text-xs md:text-sm text-gray-600 dark:text-gray-400 cursor-pointer"></span>
-                        </div>
-                        <div class="flex justify-center items-center ms-2 md:ms-0">
-                            <button aria-label="Zoom in PDF button" id="zoom-in-btn" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                                <i class="fas fa-magnifying-glass-plus"></i>
+                    <!-- PDF Search Bar -->
+                    <div id="pdf-search-bar" class="hidden mb-3">
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="pdf-search-input" placeholder="Search in PDF..." class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            <button aria-label="Previous search result" id="pdf-search-prev" class="px-2 py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                <i class="fas fa-chevron-up"></i>
                             </button>
-                            <button aria-label="Zoom out PDF button" id="zoom-out-btn" class="ml-2 px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                                <i class="fas fa-magnifying-glass-minus"></i>
+                            <button aria-label="Next search result" id="pdf-search-next" class="px-2 py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <button aria-label="Close search" id="pdf-search-close" class="px-2 py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition-colors">
+                                <i class="fas fa-times"></i>
                             </button>
                         </div>
+                        <div id="pdf-search-results" class="text-xs text-gray-600 dark:text-gray-400 mt-1 hidden"></div>
+                    </div>
+
+                    <div id="pagination-controls" class="flex flex-col gap-2">
+                        <!-- Page Navigation Row -->
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1">
+                                <button aria-label="First page" id="first-page-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors text-sm" title="Go to first page">
+                                    <i class="fas fa-angles-left"></i>
+                                </button>
+                                <input type="number" id="page-input" min="1" placeholder="Page" class="w-16 px-2 py-1 text-sm text-center border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                <span id="page-num" class="text-xs md:text-sm text-gray-600 dark:text-gray-400 cursor-pointer"></span>
+                                <button aria-label="Last page" id="last-page-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors text-sm" title="Go to last page">
+                                    <i class="fas fa-angles-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Zoom and View Controls Row -->
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <div class="flex items-center gap-1">
+                                <button aria-label="Zoom out PDF button" id="zoom-out-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors" title="Zoom out">
+                                    <i class="fas fa-magnifying-glass-minus"></i>
+                                </button>
+                                <span id="zoom-level" class="text-xs text-gray-600 dark:text-gray-400 min-w-[45px] text-center">100%</span>
+                                <button aria-label="Zoom in PDF button" id="zoom-in-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors" title="Zoom in">
+                                    <i class="fas fa-magnifying-glass-plus"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button aria-label="Fit to width" id="fit-width-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors text-xs" title="Fit to width">
+                                    <i class="fas fa-arrows-left-right"></i>
+                                </button>
+                                <button aria-label="Fit to page" id="fit-page-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors text-xs" title="Fit to page">
+                                    <i class="fas fa-maximize"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Additional Tools Row -->
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <div class="flex items-center gap-1">
+                                <button aria-label="Rotate left" id="rotate-left-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors text-xs" title="Rotate counterclockwise">
+                                    <i class="fas fa-rotate-left"></i>
+                                </button>
+                                <button aria-label="Rotate right" id="rotate-right-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors text-xs" title="Rotate clockwise">
+                                    <i class="fas fa-rotate-right"></i>
+                                </button>
+                                <button aria-label="Search in PDF" id="pdf-search-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors text-xs" title="Search in PDF">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button aria-label="Toggle debug mode" id="debug-mode-btn" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors text-xs" title="Toggle debug mode (show text boundaries)">
+                                    <i class="fas fa-bug"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PDF Loading Indicator -->
+                <div id="pdf-loading" class="hidden absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50">
+                    <div class="text-center">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
+                        <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">Loading PDF...</p>
                     </div>
                 </div>
 
@@ -346,7 +446,8 @@
 
             <div id="pdf-viewer-wrapper" class="hidden relative bg-white dark:bg-gray-800 2xl:rounded-xl mx-auto">
                 <div id="pdf-viewer" class="flex flex-col justify-center"></div>
-                <div id="highlight-layer" class="absolute top-0 h-[100dvh] pointer-events-none"></div>
+                <div id="pdf-text-layer" class="absolute top-0 left-0 w-full h-full" style="overflow: hidden;"></div>
+                <div id="highlight-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
             </div>
 
             <!-- Spacer -->
@@ -359,8 +460,10 @@
     <div id="login-modal" class="modal bg-modal hidden">
         <div class="modal-content bg-white dark:bg-gray-800 bg-opacity-40">
             <h2 class="text-xl font-bold mb-4 dark:text-gray-200">Login</h2>
-            <input type="text" id="login-username-input" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4" placeholder="Username or Email">
-            <input type="password" id="login-password-input" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4" placeholder="Password">
+            <form id="login-form" autocomplete="on">
+                <input type="text" id="login-username-input" name="username" autocomplete="username" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4" placeholder="Username or Email">
+                <input type="password" id="login-password-input" name="password" autocomplete="current-password" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4" placeholder="Password">
+            </form>
             <div class="flex justify-end space-x-2">
                 <button id="login-modal-cancel-btn" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">Cancel</button>
                 <button id="create-account-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-black dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Create Account</button>
@@ -393,6 +496,91 @@
             <ul id="command-list" class="max-h-60 overflow-y-auto">
                 <!-- Command items will be added here dynamically -->
             </ul>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Help Modal -->
+    <div id="shortcuts-modal" class="fixed inset-0 z-[100] flex items-center justify-center shadow-xl bg-modal hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800 dark:text-gray-200">⌨️ Keyboard Shortcuts</h3>
+                <button id="shortcuts-close-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl leading-none">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- Text Reading Shortcuts -->
+                <div>
+                    <h4 class="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mb-3">📖 Reading Controls</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Read selected text</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">Alt + Q</kbd>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Click text to start reading from that point</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">Click</kbd>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Click chunks to start reading</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">Ctrl + Click</kbd>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Play/Pause</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">Space</kbd>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Shortcuts -->
+                <div>
+                    <h4 class="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mb-3">🧭 Navigation</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Next page</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">→</kbd>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Previous page</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">←</kbd>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Scroll to top</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">Home</kbd>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Scroll to bottom</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">End</kbd>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- General Shortcuts -->
+                <div>
+                    <h4 class="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mb-3">⚙️ General</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Show keyboard shortcuts</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">?</kbd>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Close modal</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">Esc</kbd>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="text-gray-700 dark:text-gray-300">Confirm action</span>
+                            <kbd class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono">Enter</kbd>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-sm text-gray-600 dark:text-gray-400 text-center">
+                    💡 Tip: Hover over buttons to see tooltips with shortcuts
+                </p>
+            </div>
         </div>
     </div>
 

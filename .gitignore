@@ -19,6 +19,10 @@ models/kokoro/*
 # Ignore audio files
 static/audio_cache/*
 
+# Ignore PDF position caches
+users/**/.pdf_cache/
+**/.pdf_cache/
+
 # Ignore build dirs
 .flatpak-builder
 build-dir

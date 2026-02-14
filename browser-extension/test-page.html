@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenWebTTS Extension Test Page</title>
+    <style>
+        body {
+            font-family: Georgia, serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.8;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #667eea;
+            border-bottom: 3px solid #764ba2;
+            padding-bottom: 10px;
+        }
+        
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        
+        p {
+            margin: 15px 0;
+            text-align: justify;
+        }
+        
+        .highlight-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        
+        li {
+            margin: 8px 0;
+        }
+        
+        blockquote {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            margin: 20px 0;
+            padding: 15px 20px;
+            font-style: italic;
+        }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OpenWebTTS Browser Extension Test Page</h1>
+        
+        <p>
+            Welcome to the OpenWebTTS browser extension test page! This page contains various types of text content
+            to help you test all the features of the extension, including paragraph reading, heading detection,
+            and word-by-word highlighting.
+        </p>
+
+        <h2>About Text-to-Speech Technology</h2>
+        
+        <p>
+            Text-to-speech (TTS) technology has revolutionized how we consume written content. From helping individuals
+            with visual impairments to allowing multitasking while learning, TTS has become an essential accessibility
+            tool in the modern digital age.
+        </p>
+
+        <p>
+            OpenWebTTS takes this technology a step further by providing a completely open-source, privacy-respecting
+            solution that runs entirely on your local machine. Unlike cloud-based services that track your reading
+            habits and upload your documents, OpenWebTTS ensures your data never leaves your computer.
+        </p>
+
+        <h2>Key Features to Test</h2>
+
+        <div class="highlight-box">
+            <strong>Testing Instructions:</strong> Click the OpenWebTTS extension icon in your browser toolbar,
+            then click "Read Page" to have this entire page read aloud with real-time highlighting.
+        </div>
+
+        <h3>1. Paragraph Reading</h3>
+        
+        <p>
+            The extension should seamlessly read through paragraphs like this one, highlighting each sentence as it
+            reads. Notice how the highlighting follows along with the spoken words, making it easy to track where
+            you are in the text.
+        </p>
+
+        <h3>2. List Reading</h3>
+
+        <p>Here are some benefits of using OpenWebTTS:</p>
+
+        <ul>
+            <li>Completely free and open source with no hidden costs or subscriptions</li>
+            <li>Privacy-first design that keeps all your data local and secure</li>
+            <li>Multiple voice engine options including Piper, Kokoro, and Coqui</li>
+            <li>Customizable reading speed from half-speed to double-speed</li>
+            <li>Word-by-word highlighting with multiple color themes to choose from</li>
+            <li>Works offline without requiring an internet connection</li>
+        </ul>
+
+        <h3>3. Ordered Lists</h3>
+
+        <p>Follow these steps to get the best experience:</p>
+
+        <ol>
+            <li>Ensure your OpenWebTTS backend is running on localhost:5000</li>
+            <li>Install the browser extension following the installation guide</li>
+            <li>Open the extension popup and verify the connection status shows green</li>
+            <li>Navigate to any webpage with text content you want to read</li>
+            <li>Click the "Read Page" button or select specific text for targeted reading</li>
+            <li>Adjust settings like speed and highlighting colors to your preference</li>
+        </ol>
+
+        <h2>Advanced Features</h2>
+
+        <blockquote>
+            "The power of open source lies in its accessibility and transparency. OpenWebTTS embodies these principles
+            by providing enterprise-grade text-to-speech capabilities to everyone, completely free."
+        </blockquote>
+
+        <div class="test-section">
+            <h3>Selection Reading Test</h3>
+            <p>
+                Try selecting just this paragraph with your mouse, then click "Read Selection" in the extension popup.
+                The extension should read only the selected text, ignoring everything else on the page. This is perfect
+                for reading specific sections without having to listen to the entire document.
+            </p>
+        </div>
+
+        <h2>Technical Details</h2>
+
+        <p>
+            The OpenWebTTS extension uses several advanced techniques to provide the best reading experience. The content
+            script intelligently extracts readable text from web pages, filtering out navigation menus, advertisements,
+            and other non-essential content. It focuses on main paragraphs, headings, lists, and blockquotes.
+        </p>
+
+        <p>
+            For highlighting, the extension implements a two-tier system. First, it highlights the entire sentence being
+            read with a subtle background color at 25% opacity. Then, as the audio progresses, it highlights individual
+            words with a more prominent 65% opacity. This creates a smooth, easy-to-follow reading experience.
+        </p>
+
+        <h3>Performance Optimization</h3>
+
+        <p>
+            Behind the scenes, the extension caches audio files to avoid regenerating the same content multiple times.
+            It uses efficient DOM manipulation techniques to minimize impact on page performance. The highlighting system
+            is powered by CSS classes that are applied and removed dynamically as words are spoken.
+        </p>
+
+        <h2>Accessibility Considerations</h2>
+
+        <p>
+            Text-to-speech technology serves many important purposes beyond convenience. For individuals with dyslexia,
+            visual impairments, or other reading difficulties, TTS can be a transformative tool. It can help with
+            comprehension, reduce eye strain, and make consuming written content more enjoyable.
+        </p>
+
+        <p>
+            The visual highlighting feature adds an extra layer of accessibility by helping users track along with
+            the audio. This multi-sensory approach (hearing + seeing) can improve comprehension and retention,
+            especially for complex or technical content.
+        </p>
+
+        <h2>Supported Voice Engines</h2>
+
+        <p>
+            OpenWebTTS supports multiple TTS engines, each with its own strengths:
+        </p>
+
+        <ul>
+            <li><strong>Piper:</strong> A fast, high-quality neural TTS engine that works completely offline</li>
+            <li><strong>Kokoro:</strong> An alternative engine with excellent voice quality and emotional expression</li>
+            <li><strong>Coqui:</strong> Perfect for voice cloning, allowing you to create custom voices</li>
+            <li><strong>OpenAI:</strong> Cloud-based option for users who prefer cutting-edge AI voices</li>
+        </ul>
+
+        <h2>Customization Options</h2>
+
+        <p>
+            The extension provides extensive customization to suit your preferences. You can adjust the reading speed
+            anywhere from 0.5x (slow and deliberate) to 2.0x (quick skim reading). The chunk size determines how much
+            text is processed at once, with smaller chunks providing more frequent pauses.
+        </p>
+
+        <p>
+            Highlight colors can be changed to match your preference or mood. Choose from yellow (classic), green
+            (easy on the eyes), blue (calm and focused), pink (vibrant), or orange (energetic). The auto-scroll feature
+            keeps the currently reading section centered on your screen automatically.
+        </p>
+
+        <h2>Privacy and Security</h2>
+
+        <p>
+            One of the key advantages of OpenWebTTS over commercial alternatives is its commitment to privacy. All
+            processing happens locally on your machine. The text you read never gets uploaded to external servers
+            (unless you specifically choose to use cloud-based voices like OpenAI).
+        </p>
+
+        <p>
+            Your reading history, preferences, and document content remain completely private. There's no tracking,
+            no analytics, and no data collection. You have full control over your information at all times.
+        </p>
+
+        <h2>Conclusion</h2>
+
+        <p>
+            The OpenWebTTS browser extension brings powerful text-to-speech capabilities to your everyday web browsing.
+            Whether you're reading articles, documentation, research papers, or just catching up on news, the extension
+            makes it all more accessible and convenient.
+        </p>
+
+        <p>
+            Best of all, it's completely free, open source, and respects your privacy. Give it a try on this page
+            or any other website, and experience a new way of consuming written content. Happy reading (or listening)!
+        </p>
+
+        <div class="highlight-box">
+            <strong>Ready to test?</strong> Click the extension icon now and select "Read Page" to hear this entire
+            document read aloud with synchronized highlighting. Or select any paragraph above and use "Read Selection"
+            to test targeted reading!
+        </div>
+
+        <hr style="margin: 40px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+        <p style="text-align: center; color: #666; font-size: 14px;">
+            OpenWebTTS Browser Extension Test Page • Version 1.0 • Open Source • Privacy-First
+        </p>
+    </div>
+</body>
+</html>

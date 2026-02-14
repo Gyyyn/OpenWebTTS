@@ -26,6 +26,33 @@ Features marked with an `*` are *paid* on other platforms!
 
 See `BUILD.md` for detailed instructions. If you know what you're doing: clone the repo, install Python dependencies with a venv and build with `npm`.
 
+## Browser Extension 🔊
+
+OpenWebTTS now includes browser extensions for **Chrome** and **Firefox** that let you read any webpage aloud with word-by-word highlighting!
+
+### Features:
+- 📖 Read entire webpages or just selected text
+- 🎯 Real-time word-by-word highlighting as text is spoken
+- 🎨 Customizable highlight colors (yellow, green, blue, pink, orange)
+- ⚡ Adjustable reading speed (0.5x to 2.0x)
+- 🔄 Auto-scroll to keep reading position visible
+- 🎭 Support for all OpenWebTTS voice engines
+
+### Quick Install:
+
+1. **Start the backend:**
+   ```bash
+   python app.py
+   ```
+
+2. **Load extension:**
+   - **Chrome:** Navigate to `chrome://extensions/`, enable Developer mode, click "Load unpacked", select `browser-extension/` folder
+   - **Firefox:** Navigate to `about:debugging#/runtime/this-firefox`, click "Load Temporary Add-on", select `browser-extension/manifest_firefox.json`
+
+3. **Start reading:** Click the extension icon, navigate to any webpage, and click "📖 Read Page"!
+
+See [browser-extension/README.md](browser-extension/README.md) for complete installation guide and features.
+
 ## Using TTS models
 
 ### Piper

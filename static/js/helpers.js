@@ -51,11 +51,18 @@ export const handlePrefs = (data, defaultValue = null) => {
 };
 
 /**
- * Save the current local books object to localStorage.
+ * Save local books to localStorage, excluding pdfData to avoid size limits.
  * @param {object} appState The main app state object.
  */
 export function saveLocalBooks(appState) {
-    localStorage.setItem('books', JSON.stringify(appState.variables.localBooks));
+    // Clone the books object and remove pdfData (ArrayBuffer) before saving
+    const booksToSave = {};
+    for (const [bookId, book] of Object.entries(appState.variables.localBooks)) {
+        booksToSave[bookId] = { ...book };
+        // Remove pdfData as it can't be serialized and is too large for localStorage
+        delete booksToSave[bookId].pdfData;
+    }
+    localStorage.setItem('books', JSON.stringify(booksToSave));
 }
 
 /**
@@ -70,6 +77,9 @@ export function splitTextIntoChunks(text, chunkSize) {
     let prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
     const parsedChunkSize = parseInt(prefs.chunkSize);
     chunkSize = (!isNaN(parsedChunkSize) && parsedChunkSize > 0) ? parsedChunkSize : 200;
+    
+    // Check if semantic processing is enabled
+    const useSemanticSplitting = prefs.useSemanticSplitting !== false; // Default true
 
     const chunks = [];
     let currentIndex = 0;
@@ -80,13 +90,18 @@ export function splitTextIntoChunks(text, chunkSize) {
         
         // If we're not at the end of text, look for a good break point
         if (chunkEnd < text.length) {
-            // Look for word boundaries (space, punctuation followed by space)
-            let wordBoundary = text.lastIndexOf(' ', chunkEnd);
+            // Look for sentence boundaries (. ! ? followed by space)
             let sentenceBoundary = Math.max(
                 text.lastIndexOf('. ', chunkEnd),
                 text.lastIndexOf('! ', chunkEnd),
-                text.lastIndexOf('? ', chunkEnd)
+                text.lastIndexOf('? ', chunkEnd),
+                text.lastIndexOf('." ', chunkEnd),  // Handle quotes after periods
+                text.lastIndexOf('. "', chunkEnd),  // Space before quote
+                text.lastIndexOf('.\\" ', chunkEnd)  // Escaped quotes
             );
+            
+            // Word boundary as fallback
+            let wordBoundary = text.lastIndexOf(' ', chunkEnd);
             
             // Look for HTML/XML tag boundaries
             let tagBoundary = -1;
@@ -134,6 +149,53 @@ export function splitTextIntoChunks(text, chunkSize) {
     }
     
     return chunks;
+}
+
+/**
+ * Async version of splitTextIntoChunks that uses semantic sentence splitting via API.
+ * Falls back to local rule-based splitting if API fails.
+ * @param {string} text - Text to split into chunks
+ * @param {number} chunkSize - Maximum size of each chunk
+ * @returns {Promise<Array>} Array of text chunks
+ */
+export async function splitTextIntoChunksAsync(text, chunkSize) {
+    let prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
+    const parsedChunkSize = parseInt(prefs.chunkSize);
+    chunkSize = (!isNaN(parsedChunkSize) && parsedChunkSize > 0) ? parsedChunkSize : 200;
+    
+    const useSemanticSplitting = prefs.useSemanticSplitting !== false;
+    
+    // If semantic splitting disabled or text is short, use local splitting
+    if (!useSemanticSplitting || text.length < 200) {
+        return splitTextIntoChunks(text, chunkSize);
+    }
+    
+    try {
+        const response = await fetch('/api/process_text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: text,
+                chunk_size: chunkSize,
+                use_llm: true
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.status === 'success' && data.chunks && data.chunks.length > 0) {
+                console.log(`✅ Semantic splitting: ${data.chunk_count} chunks`);
+                return data.chunks;
+            }
+        }
+        
+        console.log('⚠️ API semantic splitting failed, using local fallback');
+    } catch (error) {
+        console.log('⚠️ Semantic splitting error:', error.message);
+    }
+    
+    // Fallback to local splitting
+    return splitTextIntoChunks(text, chunkSize);
 }
 
 /**

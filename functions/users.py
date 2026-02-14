@@ -43,7 +43,7 @@ class UserManager:
             "books": {},
             "podcasts": {}
         }
-        with open(user_file, 'w') as f:
+        with open(user_file, 'w', encoding='utf-8') as f:
             json.dump(user_data, f, indent=4)
         return True, "User created successfully."
 
@@ -52,7 +52,7 @@ class UserManager:
         if not os.path.exists(user_file):
             return False, "Invalid username or password."
 
-        with open(user_file, 'r') as f:
+        with open(user_file, 'r', encoding='utf-8') as f:
             user_data = json.load(f)
 
         if checkpw(password.encode('utf-8'), user_data['password'].encode('utf-8')):
@@ -63,7 +63,7 @@ class UserManager:
     def get_user_data(self, username):
         user_file = self._get_user_file_path(username)
         if os.path.exists(user_file):
-            with open(user_file, 'r') as f:
+            with open(user_file, 'r', encoding='utf-8') as f:
                 user_data = json.load(f)
             
             # Migration: Convert books from list to dict if necessary.
@@ -78,7 +78,7 @@ class UserManager:
 
     def save_user_data(self, username, data):
         user_file = self._get_user_file_path(username)
-        with open(user_file, 'w') as f:
+        with open(user_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4)
 
     def add_book(self, username, book_data):
@@ -160,3 +160,63 @@ class UserManager:
             self.save_user_data(username, user_data)
             return True
         return False
+
+    # -------------------------
+    # Highlights/Notes Methods
+    # -------------------------
+    def get_highlights(self, username, book_id):
+        """Get all highlights for a specific book"""
+        user_data = self.get_user_data(username)
+        if user_data:
+            highlights = user_data.get('highlights', {}).get(book_id, [])
+            return highlights
+        return []
+
+    def add_highlight(self, username, book_id, highlight_data):
+        """Add a highlight to a book"""
+        user_data = self.get_user_data(username)
+        if user_data:
+            highlight_id = str(uuid.uuid4())
+            highlight_data['id'] = highlight_id
+            
+            # Ensure highlights structure exists
+            if 'highlights' not in user_data:
+                user_data['highlights'] = {}
+            if book_id not in user_data['highlights']:
+                user_data['highlights'][book_id] = []
+            
+            user_data['highlights'][book_id].append(highlight_data)
+            self.save_user_data(username, user_data)
+            return True, highlight_id
+        return False, None
+
+    def update_highlight(self, username, book_id, highlight_id, new_data):
+        """Update a highlight (e.g., add/edit note, change color)"""
+        user_data = self.get_user_data(username)
+        if user_data:
+            highlights = user_data.get('highlights', {}).get(book_id, [])
+            for i, h in enumerate(highlights):
+                if h.get('id') == highlight_id:
+                    user_data['highlights'][book_id][i].update(new_data)
+                    self.save_user_data(username, user_data)
+                    return True
+        return False
+
+    def delete_highlight(self, username, book_id, highlight_id):
+        """Delete a highlight"""
+        user_data = self.get_user_data(username)
+        if user_data:
+            highlights = user_data.get('highlights', {}).get(book_id, [])
+            for i, h in enumerate(highlights):
+                if h.get('id') == highlight_id:
+                    user_data['highlights'][book_id].pop(i)
+                    self.save_user_data(username, user_data)
+                    return True
+        return False
+
+    def get_all_highlights(self, username):
+        """Get all highlights for all books (for export/overview)"""
+        user_data = self.get_user_data(username)
+        if user_data:
+            return user_data.get('highlights', {})
+        return {}

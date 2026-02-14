@@ -1,9 +1,10 @@
 import os
+import base64
 import hashlib
 import shutil
 import tempfile
 from io import BytesIO
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import ebooklib
 import fitz
 import docx
@@ -12,10 +13,27 @@ import whisper
 import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
+
+# Configure tesseract path for Windows
+import platform
+if platform.system() == 'Windows':
+    # Try common Tesseract installation paths
+    possible_paths = [
+        r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+        r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+    ]
+    for path in possible_paths:
+        if os.path.exists(path):
+            pytesseract.pytesseract.tesseract_cmd = path
+            print(f"✅ Tesseract configured at: {path}")
+            break
+    else:
+        print("⚠️ Tesseract not found in standard paths. OCR may fail.")
+
 from bs4 import BeautifulSoup
 from ebooklib import epub
 from fastapi import (APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile)
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from pydantic import BaseModel, Field
 from langdetect import detect
 
@@ -25,6 +43,7 @@ from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, 
 # Import other function modules
 from functions.users import UserManager
 from functions.webpage import extract_readable_content
+from functions.text_processor import process_text_for_tts, split_into_sentences_semantic
 
 # Lazy imports for TTS engines - these will be imported only when needed
 def lazy_import_piper():
@@ -293,8 +312,355 @@ async def read_root(request: Request):
 async def read_config(request: Request):
     return templates.TemplateResponse("config.html", {"request": request})
 
+@router.get("/favicon.ico")
+async def favicon():
+    return FileResponse("static/favicon.png", media_type="image/png")
+
 # -----------------------
 # ---  API Endpoints  ---
+# -----------------------
+
+@router.get("/api/health")
+async def health_check():
+    """Health check endpoint for browser extension and monitoring."""
+    return JSONResponse(content={
+        "status": "healthy",
+        "service": "OpenWebTTS",
+        "version": "1.0.0"
+    })
+
+class GenerateSpeechRequest(BaseModel):
+    text: str = Field(..., description="Text to convert to speech")
+    voice: Optional[str] = Field("piper", description="TTS engine/voice to use")
+    speed: Optional[float] = Field(1.0, description="Playback speed multiplier")
+    chunkSize: Optional[int] = Field(50, description="Words per chunk for splitting")
+
+class WordTiming(BaseModel):
+    word: str
+    startTime: float
+    endTime: float
+    index: int
+
+class ChunkTiming(BaseModel):
+    text: str
+    startTime: float
+    endTime: float
+    startOffset: int
+    endOffset: int
+    words: List[WordTiming]
+
+class SpeechTimingResponse(BaseModel):
+    audioUrl: str
+    duration: float
+    chunks: List[ChunkTiming]
+    originalText: str
+    normalizedText: str
+
+def calculate_word_timings(text: str, duration: float, chunk_size: int = 50) -> List[ChunkTiming]:
+    """
+    Calculate precise timing for words and chunks based on text and audio duration.
+    Uses character-based distribution for more accurate timing.
+    """
+    import re
+    
+    # Normalize text: remove extra whitespace, normalize punctuation
+    normalized_text = ' '.join(text.split())
+    normalized_text = re.sub(r'\s+([.,!?;:])', r'\1', normalized_text)
+    
+    # Split into words while preserving positions
+    words_with_pos = []
+    for match in re.finditer(r'\S+', normalized_text):
+        words_with_pos.append({
+            'word': match.group(),
+            'start': match.start(),
+            'end': match.end()
+        })
+    
+    if not words_with_pos:
+        return []
+    
+    total_chars = len(normalized_text)
+    chunks = []
+    
+    # Split words into chunks
+    for chunk_idx in range(0, len(words_with_pos), chunk_size):
+        chunk_words = words_with_pos[chunk_idx:chunk_idx + chunk_size]
+        
+        # Calculate chunk boundaries
+        chunk_start_offset = chunk_words[0]['start']
+        chunk_end_offset = chunk_words[-1]['end']
+        chunk_text = normalized_text[chunk_start_offset:chunk_end_offset]
+        
+        # Calculate chunk timing based on character position
+        chunk_start_time = (chunk_start_offset / total_chars) * duration
+        chunk_end_time = (chunk_end_offset / total_chars) * duration
+        
+        # Calculate word timings within chunk
+        word_timings = []
+        for word_idx, word_data in enumerate(chunk_words):
+            word_start_time = (word_data['start'] / total_chars) * duration
+            word_end_time = (word_data['end'] / total_chars) * duration
+            
+            word_timings.append(WordTiming(
+                word=word_data['word'],
+                startTime=round(word_start_time, 3),
+                endTime=round(word_end_time, 3),
+                index=word_idx
+            ))
+        
+        chunks.append(ChunkTiming(
+            text=chunk_text,
+            startTime=round(chunk_start_time, 3),
+            endTime=round(chunk_end_time, 3),
+            startOffset=chunk_start_offset,
+            endOffset=chunk_end_offset,
+            words=word_timings
+        ))
+    
+    return chunks
+
+@router.post("/api/generate_speech")
+async def generate_speech(request: GenerateSpeechRequest):
+    """
+    Generate speech audio from text for browser extension.
+    Returns audio file directly as response.
+    """
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
+    
+    # Create hash for caching
+    hash_input = f"{request.text}-{request.voice}-{request.speed}"
+    unique_hash = hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
+    output_filename = f"{unique_hash}.wav"
+    output_path = os.path.join(AUDIO_CACHE_DIR, output_filename)
+    
+    # Check if audio already exists in cache
+    if not os.path.exists(output_path):
+        # Generate audio based on engine/voice
+        try:
+            engine = request.voice.lower()
+            
+            if engine == "piper":
+                piper_process_audio = lazy_import_piper()
+                # Piper requires: model_path, lang, text, output
+                model_path = os.path.join(PIPER_DIR, "en_US-lessac-high.onnx")
+                piper_process_audio(model_path, "en_US", request.text, output_path)
+            elif engine == "kokoro":
+                kokoro_process_audio = lazy_import_kokoro()
+                # Kokoro requires: voice, lang, text, output
+                # Default to American English Liam voice
+                kokoro_process_audio(voice="am_liam", lang="a", text=request.text, output=output_path)
+            elif engine == "coqui":
+                coqui_process_audio, _ = lazy_import_coqui()
+                # Coqui requires: voice_path, lang, text, output
+                # Use default voice sample if available
+                voice_path = os.path.join(COQUI_DIR, "default.wav")
+                if not os.path.exists(voice_path):
+                    raise HTTPException(status_code=400, detail="Coqui requires a voice sample. Please upload one first.")
+                coqui_process_audio(voice_path, "en", request.text, output_path)
+            elif engine == "openai":
+                # For OpenAI, we'd need API key - use default for now
+                raise HTTPException(status_code=400, detail="OpenAI TTS requires API key configuration")
+            else:
+                # Default to Piper
+                piper_process_audio = lazy_import_piper()
+                model_path = os.path.join(PIPER_DIR, "en_US-lessac-high.onnx")
+                piper_process_audio(model_path, "en_US", request.text, output_path)
+                
+        except Exception as e:
+            print(f"❌ Error generating speech: {e}")
+            raise HTTPException(status_code=500, detail=f"Speech generation failed: {str(e)}")
+    
+    # Return audio file
+    if not os.path.exists(output_path):
+        raise HTTPException(status_code=500, detail="Audio generation failed")
+    
+    # For backward compatibility, return file directly
+    return FileResponse(
+        output_path,
+        media_type="audio/wav",
+        headers={
+            "Content-Disposition": f"attachment; filename={output_filename}",
+            "Cache-Control": "public, max-age=31536000",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Private-Network": "true"
+        }
+    )
+
+@router.post("/api/generate_speech_with_timing")
+async def generate_speech_with_timing(request: GenerateSpeechRequest):
+    """
+    Generate speech audio with precise timing information for synchronized highlighting.
+    Generates separate audio for each chunk with timing data.
+    Detects and marks skip regions (like citation markers) for non-highlighting.
+    """
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
+    
+    import re
+    
+    # Normalize text
+    normalized_text = ' '.join(request.text.split())
+    normalized_text = re.sub(r'\s+([.,!?;:])', r'\1', normalized_text)
+    
+    # Pattern to detect skip regions: citation markers like [1], [2][3], etc.
+    skip_pattern = re.compile(r'\[\d+\](?:\[\d+\])*')
+    
+    # Split into chunks based on chunk size
+    words = normalized_text.split()
+    chunk_size = request.chunkSize or 50
+    
+    chunks_data = []
+    current_pos = 0
+    
+    for chunk_idx in range(0, len(words), chunk_size):
+        chunk_words = words[chunk_idx:chunk_idx + chunk_size]
+        chunk_text = ' '.join(chunk_words)
+        
+        # Calculate character offsets
+        start_offset = normalized_text.find(chunk_text, current_pos)
+        end_offset = start_offset + len(chunk_text)
+        current_pos = end_offset
+        
+        # Create hash for this chunk
+        hash_input = f"{chunk_text}-{request.voice}-{request.speed}"
+        unique_hash = hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
+        output_filename = f"{unique_hash}.wav"
+        output_path = os.path.join(AUDIO_CACHE_DIR, output_filename)
+        
+        # Generate audio if not cached (includes citation markers for TTS)
+        if not os.path.exists(output_path):
+            try:
+                engine = request.voice.lower()
+                
+                if engine == "piper":
+                    piper_process_audio = lazy_import_piper()
+                    model_path = os.path.join(PIPER_DIR, "en_US-lessac-high.onnx")
+                    piper_process_audio(model_path, "en_US", chunk_text, output_path)
+                elif engine == "kokoro":
+                    kokoro_process_audio = lazy_import_kokoro()
+                    kokoro_process_audio(voice="am_liam", lang="a", text=chunk_text, output=output_path)
+                elif engine == "coqui":
+                    coqui_process_audio, _ = lazy_import_coqui()
+                    voice_path = os.path.join(COQUI_DIR, "default.wav")
+                    if not os.path.exists(voice_path):
+                        raise HTTPException(status_code=400, detail="Coqui requires a voice sample.")
+                    coqui_process_audio(voice_path, "en", chunk_text, output_path)
+                else:
+                    # Default to Piper
+                    piper_process_audio = lazy_import_piper()
+                    model_path = os.path.join(PIPER_DIR, "en_US-lessac-high.onnx")
+                    piper_process_audio(model_path, "en_US", chunk_text, output_path)
+                    
+            except Exception as e:
+                print(f"❌ Error generating speech for chunk {chunk_idx}: {e}")
+                raise HTTPException(status_code=500, detail=f"Speech generation failed: {str(e)}")
+        
+        if not os.path.exists(output_path):
+            raise HTTPException(status_code=500, detail=f"Audio generation failed for chunk {chunk_idx}")
+        
+        # Get audio duration for this chunk
+        import wave
+        try:
+            with wave.open(output_path, 'rb') as wav_file:
+                frames = wav_file.getnframes()
+                rate = wav_file.getframerate()
+                duration = frames / float(rate)
+        except Exception as e:
+            print(f"⚠️ Could not read audio duration: {e}")
+            duration = len(chunk_words) * 0.5  # Fallback
+        
+        # Calculate word timings for this chunk with skip detection
+        word_timings = []
+        chunk_char_count = len(chunk_text)
+        
+        for word_idx, word in enumerate(chunk_words):
+            # Find word position in chunk text
+            word_search_start = sum(len(chunk_words[i]) + 1 for i in range(word_idx))
+            word_start_pos = chunk_text.find(word, word_search_start)
+            if word_start_pos == -1:
+                word_start_pos = word_search_start
+            word_end_pos = word_start_pos + len(word)
+            
+            # Calculate timing based on character position
+            word_start_time = (word_start_pos / chunk_char_count) * duration if chunk_char_count > 0 else 0
+            word_end_time = (word_end_pos / chunk_char_count) * duration if chunk_char_count > 0 else duration
+            
+            # Check if this word matches skip pattern (citation marker)
+            is_skip = bool(skip_pattern.fullmatch(word))
+            
+            word_timings.append({
+                'word': word,
+                'startTime': round(word_start_time, 3),
+                'endTime': round(word_end_time, 3),
+                'index': word_idx,
+                'skip': is_skip  # Mark citation markers to skip highlighting
+            })
+        
+        # Create chunk timing data
+        chunks_data.append({
+            'audioUrl': f"/audio_cache/{output_filename}",
+            'duration': round(duration, 3),
+            'text': chunk_text,
+            'startTime': 0,  # Each chunk's audio starts at 0
+            'endTime': round(duration, 3),
+            'startOffset': start_offset,
+            'endOffset': end_offset,
+            'words': word_timings
+        })
+    
+    # Return timing data
+    return JSONResponse(
+        content={
+            'chunks': chunks_data,
+            'originalText': request.text,
+            'normalizedText': normalized_text
+        },
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Private-Network": "true"
+        }
+    )
+
+@router.options("/api/generate_speech")
+async def generate_speech_options(request: Request):
+    """Handle CORS preflight request for browser extension."""
+    # Check if Private Network Access is requested
+    access_pna = request.headers.get("Access-Control-Request-Private-Network") == "true"
+    
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "3600"
+    }
+    
+    # Add Private Network Access header if requested
+    if access_pna:
+        headers["Access-Control-Allow-Private-Network"] = "true"
+    
+    return JSONResponse(content={}, headers=headers)
+
+@router.options("/api/generate_speech_with_timing")
+async def generate_speech_with_timing_options(request: Request):
+    """Handle CORS preflight request for timing-based endpoint."""
+    access_pna = request.headers.get("Access-Control-Request-Private-Network") == "true"
+    
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "3600"
+    }
+    
+    if access_pna:
+        headers["Access-Control-Allow-Private-Network"] = "true"
+    
+    return JSONResponse(content={}, headers=headers)
 # -----------------------
 
 @router.get("/api/piper_voices")
@@ -322,7 +688,7 @@ async def download_piper_voice(voice: PiperVoice):
         config_response = requests.get(config_url)
         config_response.raise_for_status()
         config_path = os.path.join(PIPER_DIR, f"{voice.key}.onnx.json")
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             f.write(config_response.text)
         return JSONResponse(content={"message": f"Successfully downloaded {voice.key}"})
     except requests.exceptions.RequestException as e:
@@ -405,20 +771,91 @@ os.makedirs(OCR_CACHE_DIR, exist_ok=True)
 def _perform_ocr(pdf_bytes: bytes, task_id: str):
     """Background task to perform OCR and save the result."""
     try:
-        images = convert_from_bytes(pdf_bytes)
+        # Convert PDF to images - requires Poppler
+        # On Windows, specify poppler path if installed via conda/scoop/manual
+        poppler_path = None
+        if platform.system() == 'Windows':
+            # Try common Poppler installation locations
+            possible_poppler = [
+                r'C:\Program Files\poppler\Library\bin',
+                r'C:\poppler\Library\bin',
+                os.path.expanduser('~\\scoop\\apps\\poppler\\current\\Library\\bin'),
+            ]
+            for path in possible_poppler:
+                if os.path.exists(path):
+                    poppler_path = path
+                    break
+        
+        images = convert_from_bytes(pdf_bytes, poppler_path=poppler_path)
         ocr_text = ""
-        for image in images:
-            ocr_text += pytesseract.image_to_string(image)
+        
+        # Process images in batches to avoid memory issues
+        for i, image in enumerate(images):
+            try:
+                page_text = pytesseract.image_to_string(image, timeout=30)
+                ocr_text += f"\n--- Page {i+1} ---\n{page_text}"
+            except Exception as page_error:
+                print(f"Warning: Failed to OCR page {i+1}: {page_error}")
+                ocr_text += f"\n--- Page {i+1} ---\n[OCR failed for this page]\n"
         
         result_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.txt")
         with open(result_path, "w", encoding="utf-8") as f:
             f.write(ocr_text)
-        print(f"OCR for task {task_id} completed. Result saved to {result_path}")
-    except Exception as e:
-        print(f"Error during OCR for task {task_id}: {e}")
+        print(f"✅ OCR for task {task_id} completed. Result saved to {result_path}")
+        
+    except ImportError as e:
+        error_msg = f"Missing dependency: {e}. Install with: pip install pdf2image pytesseract"
+        print(f"❌ {error_msg}")
         result_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.error")
         with open(result_path, "w", encoding="utf-8") as f:
-            f.write(str(e))
+            f.write(error_msg)
+            
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e)
+        
+        # Provide specific error messages based on the exception
+        if 'poppler' in error_msg.lower() or 'Unable to get page count' in error_msg:
+            error_msg = (
+                "Poppler not found. OCR requires Poppler to convert PDF pages to images. "
+                "Install with: 'choco install poppler' or download from https://github.com/oschwartz10612/poppler-windows/releases/"
+            )
+        elif 'tesseract' in error_msg.lower():
+            error_msg = (
+                "Tesseract error. Ensure Tesseract is properly installed. "
+                "Download from: https://github.com/UB-Mannheim/tesseract/wiki"
+            )
+        else:
+            error_msg = f"{error_type}: {error_msg}"
+        
+        print(f"❌ Error during OCR for task {task_id}: {error_msg}")
+        result_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.error")
+        with open(result_path, "w", encoding="utf-8") as f:
+            f.write(error_msg)
+
+def _merge_extracted_and_ocr_text(extracted_text: str, ocr_text: str) -> str:
+    """
+    Intelligently merge direct text extraction with OCR results.
+    Prioritizes direct extraction but adds OCR content for pages with little/no text.
+    """
+    if not ocr_text or not ocr_text.strip():
+        return extracted_text
+    
+    if not extracted_text or not extracted_text.strip():
+        return ocr_text
+    
+    # Split by pages if OCR has page markers
+    ocr_pages = ocr_text.split("--- Page ")
+    extracted_lines = extracted_text.split('\n')
+    
+    # If OCR found significantly more content, prefer OCR
+    if len(ocr_text.strip()) > len(extracted_text.strip()) * 1.5:
+        print(f"OCR found more content ({len(ocr_text)} vs {len(extracted_text)} chars), using OCR")
+        return ocr_text
+    
+    # Otherwise, combine: use extracted text + OCR for pages with minimal extracted text
+    print(f"Combining extracted text ({len(extracted_text)} chars) with OCR ({len(ocr_text)} chars)")
+    return extracted_text + "\n\n--- Additional OCR Content ---\n" + ocr_text
 
 @router.post("/api/read_pdf")
 async def read_pdf(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
@@ -427,32 +864,44 @@ async def read_pdf(file: UploadFile = File(...), background_tasks: BackgroundTas
     try:
         pdf_bytes = await file.read()
         pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
-        text = ""
+        
+        # Always extract direct text first
+        extracted_text = ""
         for page_num in range(len(pdf_document)):
             page = pdf_document.load_page(page_num)
-            text += page.get_text()
-
-        if text.strip():
-            print("Extracted text directly from PDF.")
-            return JSONResponse(content={"status": "completed", "text": text})
-
-        # If text is empty, perform OCR in the background
-        print("No text in PDF, starting OCR in background.")
+            extracted_text += page.get_text()
         
-        # Generate a unique ID for this task
+        # Generate a unique ID for caching
         task_id = hashlib.sha256(pdf_bytes).hexdigest()
-        
-        # Check if result already exists (e.g. from a previous run)
         result_path = os.path.join(OCR_CACHE_DIR, f"{task_id}.txt")
+        
+        # Check if OCR already completed from previous run
         if os.path.exists(result_path):
             with open(result_path, "r", encoding="utf-8") as f:
                 ocr_text = f.read()
-            return JSONResponse(content={"status": "completed", "text": ocr_text})
-
+            merged_text = _merge_extracted_and_ocr_text(extracted_text, ocr_text)
+            print(f"Using cached OCR + extracted text ({len(merged_text)} chars total)")
+            return JSONResponse(content={"status": "completed", "text": merged_text})
+        
+        # Start OCR in background regardless of extracted text
+        print(f"Starting OCR in background (extracted {len(extracted_text)} chars directly)")
         if background_tasks:
             background_tasks.add_task(_perform_ocr, pdf_bytes, task_id)
         
-        return JSONResponse(content={"status": "ocr_started", "task_id": task_id})
+        # Return extracted text immediately, OCR will enhance it later
+        if extracted_text.strip():
+            return JSONResponse(content={
+                "status": "ocr_started",
+                "task_id": task_id,
+                "text": extracted_text,
+                "partial": True
+            })
+        else:
+            # No extracted text, wait for OCR
+            return JSONResponse(content={
+                "status": "ocr_started", 
+                "task_id": task_id
+            })
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read PDF. Reason: {str(e)}")
@@ -472,6 +921,146 @@ async def get_ocr_result(task_id: str):
         return JSONResponse(content={"status": "failed", "detail": error_message})
     else:
         return JSONResponse(content={"status": "processing"})
+
+@router.post("/api/read_pdf_with_chunks")
+async def read_pdf_with_chunks(file: UploadFile = File(...)):
+    """
+    Extract PDF content with positional information for each text element.
+    Returns both raw text and structured data for rendering interactive text layer.
+    """
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a PDF.")
+    try:
+        pdf_bytes = await file.read()
+        pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
+        
+        pages_data = []
+        full_text = ""
+        
+        for page_num in range(len(pdf_document)):
+            page = pdf_document.load_page(page_num)
+            text = page.get_text()
+            full_text += text + "\n"
+            
+            # Get text with position information
+            blocks = page.get_text("dict")["blocks"]
+            text_elements = []
+            
+            for block in blocks:
+                if block.get("type") == 0:  # Text block
+                    for line in block.get("lines", []):
+                        for span in line.get("spans", []):
+                            text_elements.append({
+                                "text": span.get("text", ""),
+                                "bbox": span.get("bbox", [0, 0, 0, 0]),  # [x0, y0, x1, y1]
+                                "font": span.get("font", ""),
+                                "size": span.get("size", 12)
+                            })
+            
+            pages_data.append({
+                "page_num": page_num + 1,
+                "width": page.rect.width,
+                "height": page.rect.height,
+                "text_elements": text_elements
+            })
+        
+        return JSONResponse(content={
+            "status": "success",
+            "full_text": full_text,
+            "pages": pages_data,
+            "num_pages": len(pdf_document)
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read PDF with chunks. Reason: {str(e)}")
+
+@router.post("/api/process_pdf_interactive")
+async def process_pdf_interactive(file: UploadFile = File(...), chunk_size: int = 50):
+    """
+    Comprehensive PDF processing endpoint that returns complete structured data
+    for client-side rendering, clicking, and word-level highlighting.
+    
+    This endpoint:
+    - Extracts text with precise positioning for every text element
+    - Creates word-level mappings for highlighting during reading
+    - Returns optimized data structure ready for client interaction
+    - Enables clickable text overlay and real-time word highlighting
+    
+    Args:
+        file: PDF file upload
+        chunk_size: Number of words per reading chunk (default: 50)
+    
+    Returns:
+        Complete structured PDF data with pages, elements, and chunks
+    """
+    from functions.pdf_processor import process_pdf_for_interactive_reading
+    
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a PDF.")
+    
+    try:
+        pdf_bytes = await file.read()
+        
+        # Process PDF with comprehensive data extraction
+        result = process_pdf_for_interactive_reading(
+            pdf_bytes=pdf_bytes,
+            options={"chunk_size": chunk_size}
+        )
+        
+        return JSONResponse(content=result)
+        
+    except Exception as e:
+        import traceback
+        error_detail = f"Failed to process PDF: {str(e)}\n{traceback.format_exc()}"
+        print(f"❌ PDF Processing Error: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
+
+
+@router.post("/api/get_chunk_highlight")
+async def get_chunk_highlight(chunk_id: int, pdf_data: Dict[str, Any]):
+    """
+    Get highlighting data for a specific chunk during playback.
+    This is called by the client during audio playback to highlight words.
+    
+    Args:
+        chunk_id: ID of the chunk being played
+        pdf_data: The processed PDF data structure
+    
+    Returns:
+        Highlighting information for the requested chunk
+    """
+    from functions.pdf_processor import get_highlight_data_for_chunk
+    
+    try:
+        highlight_data = get_highlight_data_for_chunk(pdf_data, chunk_id)
+        return JSONResponse(content=highlight_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get highlight data: {str(e)}")
+
+
+class TextProcessRequest(BaseModel):
+    text: str
+    chunk_size: int = Field(default=200, ge=50, le=1000)
+    use_llm: bool = True
+
+@router.post("/api/process_text")
+async def process_text(request: TextProcessRequest):
+    """
+    Process text with semantic sentence splitting using Qwen2.5 LLM.
+    Falls back to rule-based splitting if LLM unavailable.
+    """
+    try:
+        chunks = process_text_for_tts(
+            text=request.text,
+            chunk_size=request.chunk_size,
+            use_llm=request.use_llm
+        )
+        return JSONResponse(content={
+            "status": "success",
+            "chunks": chunks,
+            "chunk_count": len(chunks)
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process text: {str(e)}")
 
 @router.post("/api/read_epub", response_model=PdfText)
 async def read_epub(file: UploadFile = File(...)):
@@ -693,7 +1282,115 @@ async def get_user_pdf(username: str, filename: str):
     if not os.path.exists(user_pdf_path):
         raise HTTPException(status_code=404, detail="PDF not found.")
 
-    return FileResponse(user_pdf_path, media_type="application/pdf")
+    # Read the PDF file content and return it directly with proper headers
+    with open(user_pdf_path, 'rb') as f:
+        pdf_content = f.read()
+    
+    return Response(
+        content=pdf_content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename={sanitized_filename}",
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600"
+        }
+    )
+
+def extract_pdf_text_positions(pdf_path: str):
+    """Extract text with positions from PDF using PyMuPDF - comprehensive extraction"""
+    try:
+        doc = fitz.open(pdf_path)
+        pages_data = []
+        
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            page_dict = {
+                "page_number": page_num + 1,  # 1-based page numbering
+                "width": page.rect.width,
+                "height": page.rect.height,
+                "text_items": []
+            }
+            
+            # Extract text with detailed position information using "dict" method
+            # This provides the most complete text extraction
+            try:
+                blocks = page.get_text("dict")["blocks"]
+                
+                for block in blocks:
+                    if block.get("type") == 0:  # Text block
+                        for line in block.get("lines", []):
+                            for span in line.get("spans", []):
+                                # Only add non-empty text
+                                if span["text"].strip():
+                                    text_item = {
+                                        "text": span["text"],
+                                        "x": span["bbox"][0],  # left
+                                        "y": span["bbox"][1],  # top
+                                        "width": span["bbox"][2] - span["bbox"][0],
+                                        "height": span["bbox"][3] - span["bbox"][1],
+                                        "font": span.get("font", "sans-serif"),
+                                        "size": span.get("size", 12),
+                                        "color": span.get("color", 0)
+                                    }
+                                    page_dict["text_items"].append(text_item)
+            except Exception as e:
+                print(f"Error extracting text from page {page_num + 1}: {e}")
+                # Fallback to simpler text extraction
+                try:
+                    text_content = page.get_text("text")
+                    if text_content.strip():
+                        # Create a single text item for the whole page as fallback
+                        rect = page.rect
+                        page_dict["text_items"].append({
+                            "text": text_content,
+                            "x": rect.x0,
+                            "y": rect.y0,
+                            "width": rect.width,
+                            "height": rect.height,
+                            "font": "sans-serif",
+                            "size": 12,
+                            "color": 0
+                        })
+                except Exception as fallback_error:
+                    print(f"Fallback text extraction also failed for page {page_num + 1}: {fallback_error}")
+            
+            pages_data.append(page_dict)
+            print(f"✅ Page {page_num + 1}: Extracted {len(page_dict['text_items'])} text items")
+        
+        doc.close()
+        print(f"📄 Total pages processed: {len(pages_data)}")
+        return pages_data
+    except Exception as e:
+        print(f"❌ Error extracting PDF text positions: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+@router.post("/api/users/{username}/pdfs/{filename}/data")
+async def get_user_pdf_data(username: str, filename: str):
+    """Return PDF as base64 JSON data with text positions extracted by PyMuPDF"""
+    # Sanitize filename to prevent path traversal issues
+    sanitized_filename = os.path.basename(filename)
+    user_pdf_path = os.path.join(user_manager._get_user_folder(username), sanitized_filename)
+
+    if not os.path.exists(user_pdf_path):
+        raise HTTPException(status_code=404, detail="PDF not found.")
+
+    # Read the PDF file content and encode as base64
+    with open(user_pdf_path, 'rb') as f:
+        pdf_content = f.read()
+    
+    pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+    
+    # Extract text positions using PyMuPDF
+    text_positions = extract_pdf_text_positions(user_pdf_path)
+    
+    return JSONResponse(content={
+        "filename": sanitized_filename,
+        "data": pdf_base64,
+        "size": len(pdf_content),
+        "text_positions": text_positions
+    })
 
 # --------------------------------
 # --- Users Podcast Management ---

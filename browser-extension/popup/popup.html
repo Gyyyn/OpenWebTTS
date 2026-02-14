@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenWebTTS</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔊 OpenWebTTS</h1>
+            <p class="subtitle">Text-to-Speech Reader</p>
+        </div>
+
+        <div class="status-section">
+            <div id="status" class="status connecting">
+                <span class="status-dot"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="setting-group">
+                <label for="backend-url">Backend URL:</label>
+                <input type="text" id="backend-url" placeholder="http://localhost:5000" value="http://localhost:5000">
+            </div>
+
+            <div class="setting-group">
+                <label for="voice-select">Voice:</label>
+                <select id="voice-select">
+                    <option value="piper">Piper (Default)</option>
+                    <option value="kokoro">Kokoro</option>
+                    <option value="coqui">Coqui TTS</option>
+                    <option value="openai">OpenAI TTS</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="speed-slider">Speed: <span id="speed-value">1.0x</span></label>
+                <input type="range" id="speed-slider" min="0.5" max="2.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="setting-group">
+                <label for="chunk-size">Chunk Size:</label>
+                <input type="number" id="chunk-size" min="50" max="500" step="50" value="200">
+            </div>
+
+            <div class="setting-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="auto-scroll" checked>
+                    <span>Auto-scroll while reading</span>
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="word-highlight" checked>
+                    <span>Word-by-word highlighting</span>
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label for="highlight-color">Highlight Color:</label>
+                <select id="highlight-color">
+                    <option value="yellow">Yellow</option>
+                    <option value="green">Green</option>
+                    <option value="blue">Blue</option>
+                    <option value="pink">Pink</option>
+                    <option value="orange">Orange</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="word-highlight-color">Word Highlight Color:</label>
+                <select id="word-highlight-color">
+                    <option value="yellow">Yellow</option>
+                    <option value="green">Green</option>
+                    <option value="blue">Blue</option>
+                    <option value="pink">Pink</option>
+                    <option value="orange">Orange</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <button id="read-page" class="btn btn-primary" title="Read entire page">
+                <span>📖 Read Page</span>
+            </button>
+            <button id="read-selection" class="btn btn-secondary" title="Read selected text">
+                <span>📝 Read Selection</span>
+            </button>
+            <button id="stop-reading" class="btn btn-danger" disabled title="Stop reading">
+                <span>⏹️ Stop</span>
+            </button>
+        </div>
+
+        <div class="playback-info" id="playback-info" style="display: none;">
+            <div class="playback-progress">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <div class="playback-stats">
+                    <span id="current-chunk">Chunk 0/0</span>
+                    <span id="time-remaining">--:--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <button id="test-connection" class="btn-link">Test Connection</button>
+            <span class="separator">•</span>
+            <button id="save-settings" class="btn-link">Save Settings</button>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

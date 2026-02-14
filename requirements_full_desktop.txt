@@ -1,0 +1,107 @@
+# Voice AI Reader - 2026 Local TTS Application
+# Complete requirements for production deployment
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CORE DEPENDENCIES (Required)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# GUI Framework
+PyQt6>=6.6.0
+PyQt6-WebEngine>=6.6.0
+
+# Audio Processing & Playback
+pygame>=2.5.0
+numpy>=1.24.0
+soundfile>=0.12.0
+pydub>=0.25.0
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DOCUMENT READERS (All formats)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# PDF Support
+PyMuPDF>=1.23.0
+
+# Word Documents
+python-docx>=1.1.0
+
+# EPUB Books
+ebooklib>=0.18
+
+# Web Articles & HTML
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+requests>=2.31.0
+trafilatura>=1.6.0
+readability-lxml>=0.8.1
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TTS ENGINES (Choose at least one)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Option 1: Piper TTS (RECOMMENDED - Fast, Natural, CPU-Friendly)
+# Download separately from: https://github.com/rhasspy/piper/releases
+# Place piper executable in same directory as script
+# Download voice models from: https://huggingface.co/rhasspy/piper-voices
+# Place .onnx and .onnx.json files in models/piper/
+
+# Option 2: MeloTTS (Multilingual, High Quality)
+# melotts>=0.1.0
+# Note: Auto-downloads models on first use
+
+# Option 3: Coqui TTS XTTS (Best Quality, GPU Recommended)
+# TTS>=0.22.0
+# Note: ~2GB models auto-download on first use
+
+# ═══════════════════════════════════════════════════════════════════════════
+# OPTIONAL AI FEATURES
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Voice Transcription (Dictation Mode)
+# faster-whisper>=0.10.0
+# or: openai-whisper>=20231117
+
+# Local LLM for Summarization & Q&A
+# Install Ollama separately: https://ollama.com/download
+# Then run: ollama pull phi3:mini
+# Python client:
+# ollama>=0.1.0
+
+# OCR for Scanned Documents
+# easyocr>=1.7.0
+# or: pytesseract>=0.3.10
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PACKAGING (For creating standalone executables)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# PyInstaller for .exe/.app creation
+pyinstaller>=6.0.0
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INSTALLATION COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Minimal install (core features only):
+# pip install PyQt6 pygame numpy soundfile PyMuPDF python-docx ebooklib beautifulsoup4 lxml requests
+
+# Full install (all features):
+# pip install -r requirements_full_desktop.txt
+
+# With AI features:
+# pip install -r requirements_full_desktop.txt faster-whisper ollama easyocr
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SYSTEM DEPENDENCIES
+# ═══════════════════════════════════════════════════════════════════════════
+
+# MP3 Export (Optional):
+# Windows: choco install ffmpeg
+# macOS: brew install ffmpeg  
+# Linux: apt install ffmpeg
+
+# OCR Support (Optional):
+# Tesseract OCR if using pytesseract
+# Windows: choco install tesseract
+# macOS: brew install tesseract
+# Linux: apt install tesseract-ocr

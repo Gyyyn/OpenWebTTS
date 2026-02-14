@@ -9,9 +9,9 @@
     },
     "scripts": {
         "build-css": "npx @tailwindcss/cli -i ./static/css/pre.css -o ./static/css/style.css",
-        "build-pdf-js": "cp node_modules/pdfjs-dist/build/pdf.min.mjs static/js/; cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs static/js/",
-        "build-marked": "cp node_modules/marked/lib/marked.umd.js static/js/",
-        "build-icons": "rm -rf static/icons; cp -r node_modules/@fortawesome/fontawesome-free static/icons/",
+        "build-pdf-js": "node -e \"require('fs').copyFileSync('node_modules/pdfjs-dist/build/pdf.min.mjs', 'static/js/pdf.min.mjs'); require('fs').copyFileSync('node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'static/js/pdf.worker.min.mjs');\"",
+        "build-marked": "node -e \"require('fs').copyFileSync('node_modules/marked/lib/marked.umd.js', 'static/js/marked.umd.js');\"",
+        "build-icons": "node -e \"const fs=require('fs');const path=require('path');if(fs.existsSync('static/icons'))fs.rmSync('static/icons',{recursive:true});fs.cpSync('node_modules/@fortawesome/fontawesome-free','static/icons',{recursive:true});\"",
         "build": "concurrently \"npm run build-pdf-js\" \"npm run build-marked\" \"npm run build-icons\" \"npm run build-css\""
     }
 }

@@ -67,3 +67,53 @@ export async function generateSpeech(textChunk, lang='en', engine, voice) {
         return false;
     }
 }
+
+/**
+ * Generate speech with word-level timing information for precise highlighting.
+ * This is used for PDF backend rendering where we need to highlight specific text elements.
+ * @param {string} textChunk Text to generate.
+ * @param {string} [lang] ISO language code.
+ * @param {string} engine Available engines: piper, kokoro, coqui.
+ * @param {string} voice Voice to use.
+ * @param {number} [chunkSize] Number of words per chunk.
+ * @param {number} [speed] Playback speed multiplier.
+ * @returns {Promise<Object>} Audio URL and timing data
+ */
+export async function generateSpeechWithTiming(textChunk, lang='en', engine, voice, chunkSize=50, speed=1.0) {
+    if (!textChunk) return null;
+    if (!voice) return null;
+
+    try {
+        const requestBody = {
+            text: textChunk,
+            voice: engine || 'piper',
+            speed: speed,
+            chunkSize: chunkSize
+        };
+
+        console.debug('🎵 Generating speech with timing:', requestBody);
+
+        const response = await fetch('/api/generate_speech_with_timing', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('❌ Failed to generate speech with timing:', errorData);
+            return null;
+        }
+
+        const data = await response.json();
+        console.debug('✅ Received timing data:', data);
+        
+        return data; // Returns { chunks: [...], originalText, normalizedText }
+
+    } catch (error) {
+        console.error('❌ Error generating speech with timing:', error);
+        return null;
+    }
+}

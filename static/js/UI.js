@@ -52,7 +52,10 @@ export function handleSidebarCollapse(appState) {
  * @param {object} appState The main appState object.
  */
 export function renderNotifications(appState) {
-    const notifications = JSON.parse(localStorage.getItem('notifications')).reverse();
+    const notificationsData = localStorage.getItem('notifications');
+    if (!notificationsData) return;
+    
+    const notifications = JSON.parse(notificationsData).reverse();
     if (notifications?.length < 0) return;
 
     // Stop here, since default is already a no notification message.
@@ -294,7 +297,11 @@ export function resetPdfView(appState) {
     appState.elements.pdfViewerWrapper.classList.add('hidden');
     appState.elements.textboxViewerWrapper.classList.remove('hidden');
     appState.elements.pdfViewer.innerHTML = '';
+    if (appState.elements.pdfTextLayer) {
+        appState.elements.pdfTextLayer.innerHTML = '';
+    }
     appState.variables.pdfDoc = null;
+    appState.variables.pdfTextPositions = []; // Clear backend text positions
 
     // When resetting PDF view, ensure PDF-specific controls are disabled
     appState.elements.zoomInBtn.disabled = true;

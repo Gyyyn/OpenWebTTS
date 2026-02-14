@@ -2,9 +2,10 @@
 /**
  * Generates an HTML grid display for a list of files.
  * @param {Array<Object>} files An array of file objects, each with at least 'name' and 'type'.
+ * @param {Function} [onFileClick] Optional callback function when a file is clicked. Receives the file object.
  * @returns {HTMLElement} The container div element with the file grid.
  */
-export function createFilesGrid(files) {
+export function createFilesGrid(files, onFileClick = null) {
     const container = document.createElement('div');
     container.id = 'library-file-grid';
     container.className = 'm-5 file-grid-container grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 p-5 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-900 dark:border-gray-700 shadow-md relative transition-opacity duration-300 ease-in-out';
@@ -49,8 +50,17 @@ export function createFilesGrid(files) {
         if (file.uploadDate) detailsText += (detailsText ? ' | ' : '') + `Uploaded: ${file.uploadDate}`;
         detailsElement.textContent = detailsText;
 
-        fileItem.addEventListener('click', () => {
-            window.open(file.url, '_blank');
+        fileItem.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (onFileClick) {
+                // Use the callback if provided
+                onFileClick(file);
+            } else {
+                // Fallback to opening in new tab
+                window.open(file.url, '_blank');
+            }
         });
 
         fileItem.appendChild(iconElement);
@@ -66,9 +76,10 @@ export function createFilesGrid(files) {
 /**
  * Fetches and renders a grid display of PDFs for the current user.
  * @param {string} currentUser The username of the currently logged-in user.
+ * @param {Function} [onPdfClick] Optional callback function when a PDF is clicked. Receives the PDF object.
  * @returns {Promise<HTMLElement>} A promise that resolves to the container div element with the PDF grid.
  */
-export async function renderUserPdfs(currentUser) {
+export async function renderUserPdfs(currentUser, onPdfClick = null) {
     try {
         const response = await fetch(`/api/users/${currentUser}/pdfs`);
         if (!response.ok) {
@@ -80,10 +91,11 @@ export async function renderUserPdfs(currentUser) {
             name: pdf.title,
             type: 'application/pdf',
             id: pdf.id, // Keep the ID for potential future interactions
+            bookId: pdf.book_id, // Book ID for loading
             url: pdf.content // The URL to fetch the PDF content
         }));
 
-        return createFilesGrid(pdfsForGrid);
+        return createFilesGrid(pdfsForGrid, onPdfClick);
     } catch (error) {
         console.error('Error rendering user PDFs:', error);
         const errorContainer = document.createElement('div');
