@@ -488,6 +488,7 @@ export function getCurrentMainVisiblePage(container) {
  * @returns {string} The parsed page text.
  */
 export function mapTextContent(textObject) {
+    if (!textObject) return "";
     return textObject.items.map(item => item.str).join(' ');
 }
 

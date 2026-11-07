@@ -38,6 +38,7 @@ import {
     updateCurrentUserUI,
     updatePlayerUI,
     updateCurrentPage,
+    goToPage,
     showNotification,
     showLoginModal,
     showBookModal,
@@ -52,6 +53,16 @@ import {
     renderNotifications,
     updateVoices
 } from "./UI.js";
+
+import {
+    fetchOnlineUserdata,
+    renderLocalBooks,
+    renderOnlineBooks,
+    renderOnlinePodcasts,
+    renderPage,
+    renderTextPage,
+    clearHighlights
+} from "./books.js"
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -179,9 +190,20 @@ document.addEventListener('DOMContentLoaded', () => {
             playerSleepTimer: null,
         },
         functions: {
+            fetchOnlineUserdata: fetchOnlineUserdata,
+            renderLocalBooks: renderLocalBooks,
+            renderOnlineBooks: renderOnlineBooks,
+            renderOnlinePodcasts: renderOnlinePodcasts,
+            getPodcasts: getPodcasts,
+            renderPage: renderPage,
+            renderTextPage, renderTextPage,
+            parseTextContent: parseTextContent,
+            mapTextContent: mapTextContent,
+            detectHeadersAndFooters: detectHeadersAndFooters,
             showNotification: showNotification,
             getCurrentMainVisiblePage: getCurrentMainVisiblePage,
-            readableUnixTime: readableUnixTime
+            readableUnixTime: readableUnixTime,
+            updatePlayerUI: updatePlayerUI
         },
     };
     // Set workerSrc for PDF.js
@@ -204,17 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.elements.pageNumInput.select();
     });
 
-    const goToPage = () => {
-        const page = parseInt(appState.elements.pageNumInput.value);
-        if (!isNaN(page)) {
-            appState.elements.currentPageContainer.innerHTML = ''; // Clear current view.
-            if (pdfDoc) renderPage(page);
-            else renderTextPage(page);
-        }
-        appState.elements.pageNumInput.style.display = 'none';
-        appState.elements.pageNumSpan.style.display = 'inline-block';
-    };
-
     document.addEventListener('click', (e) => {
         if (e.target !== appState.elements.pageNumInput && e.target !== appState.elements.pageNumSpan) {
             appState.elements.pageNumInput.style.display = 'none';
@@ -225,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     appState.elements.pageNumInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.stopPropagation();
-            goToPage();
+            goToPage(appState);
         } else if (e.key === 'Escape') {
             appState.elements.pageNumInput.style.display = 'none';
             appState.elements.pageNumSpan.style.display = 'inline-block';
@@ -255,9 +266,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset everything and stop playback.
         appState.variables.activeBook = book;
         resetBookView(appState);
+        updateCurrentUserUI(appState);
         stopAudioQueue()
-        renderLocalBooks();
-        renderOnlineBooks();
         appState.elements.recordBtn.classList.remove('hidden');
         appState.elements.transcribeFileBtn.classList.remove('hidden');
 
@@ -278,294 +288,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (book?.source === 'local') appState.elements.openFilePickerBtn.classList.remove('hidden')
     }
 
-    function renderOnlineBooks() {
-        if (appState.variables.onlineBooks.length < 1) return;
-        appState.elements.onlineBookList.innerHTML = '';
-        appState.variables.onlineBooks.forEach(book => {
-            const li = createBookListItem(book, 'online');
-            appState.elements.onlineBookList.appendChild(li);
-        });
-    }
-
-    function renderOnlinePodcasts() {
-        if (appState.variables.onlinePodcasts.length < 1) return; // Quit if we have an empty list.
-        appState.elements.podcastList.innerHTML = '';
-        appState.variables.onlinePodcasts.forEach(podcast => {
-            const li = document.createElement('li');
-            li.className = 'relative p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200 '; // Added relative for absolute positioning of player
-            li.title = `${podcast.title}`;
-            li.ariaLabel = `Podcast item ${podcast.title}`;
-
-            const mainContentDiv = document.createElement('div');
-            mainContentDiv.className = 'flex justify-between items-center whitespace-nowrap overflow-hidden text-ellipsis';
-            mainContentDiv.addEventListener('click', () => {
-
-                const playerDiv = li.querySelector(`#podcast-audio-player-${podcast.id}`);
-
-                if (sidebar.classList.contains('collapsed')) {
-                    handleSidebarCollapse();
-                    playerDiv.classList.add('hidden');
-                }
-
-                if (playerDiv)
-                playerDiv.classList.toggle('hidden');
-            });
-
-            const titleSpan = document.createElement('span');
-            titleSpan.className = 'ms-2 text-xs hide-on-collapse';
-            titleSpan.textContent = `${podcast.title} (${podcast.status})`;
-
-            const containerSpan = document.createElement('span');
-            containerSpan.classList = 'overflow-hidden cursor-pointer';
-
-            const titleIcon = document.createElement('span');
-            titleIcon.innerHTML = '<i class="fas fa-microphone"></i>';
-
-            containerSpan.prepend(titleIcon);
-            containerSpan.append(titleSpan);
-
-            mainContentDiv.appendChild(containerSpan);
-
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'ps-2 hide-on-collapse flex items-center space-x-2';
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-            deleteBtn.className = 'hover:text-gray-500';
-            deleteBtn.title = 'Delete Podcast';
-            deleteBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-
-                showBookModal(
-                    `Delete Podcast: ${podcast.title}?`,
-                    'Delete',
-                    async () => {
-        
-                        const result = await deletePodcast(currentUser, podcast.id);
-                        if (result.success) {
-                            showNotification(`Podcast '${podcast.title}' deleted.`, 'success');
-                            fetchAndRenderPodcasts(); // Re-render the list
-                        } else {
-                            showNotification(`Failed to delete podcast: ${result.error}`, 'error');
-                        }
-
-                        hideBookModal(appState);
-
-                    },
-                    { showInput: false },
-                    appState
-                );
-            });
-            actionsDiv.appendChild(deleteBtn);
-            mainContentDiv.appendChild(actionsDiv);
-            li.appendChild(mainContentDiv);
-
-            // Collapsible Audio Player
-            const audioPlayerContainer = document.createElement('div');
-            audioPlayerContainer.id = `podcast-audio-player-${podcast.id}`;
-            audioPlayerContainer.className = 'mini-audio-player hidden mt-2 p-2 bg-gray-100 rounded-lg'; // Initially hidden
-
-            if (podcast.status === 'ready' && podcast.audio_url) {
-                const audioElem = document.createElement('audio');
-                audioElem.src = podcast.audio_url;
-                audioElem.preload = 'none'; // Only load metadata or nothing
-
-                const controlsDiv = document.createElement('div');
-                controlsDiv.className = 'flex items-center space-x-2';
-
-                const playPauseBtn = document.createElement('button');
-                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                playPauseBtn.className = 'text-lg hover:text-gray-700';
-                
-                const progressSlider = document.createElement('input');
-                progressSlider.type = 'range';
-                progressSlider.min = '0';
-                progressSlider.max = '100';
-                progressSlider.value = '0';
-                progressSlider.className = 'max-w-[50%] flex-grow h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-indigo-600';
-
-                const timeDisplay = document.createElement('span');
-                timeDisplay.className = 'text-xs text-gray-600 w-20 text-right';
-                timeDisplay.textContent = '0:00 / 0:00';
-
-                playPauseBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent li click from being triggered
-                    stopAudioQueue();
-
-                    // Ensure other players are paused
-                    document.querySelectorAll('audio').forEach(otherAudio => {
-                        if (otherAudio !== audioElem && !otherAudio.paused) {
-                            otherAudio.pause();
-                            const otherPlayerContainer = otherAudio.closest('[id^="podcast-audio-player-"]');
-                            if (otherPlayerContainer) {
-                                const otherPlayBtn = otherPlayerContainer.querySelector('button');
-                                if (otherPlayBtn) {
-                                    otherPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
-                                }
-                            }
-                        }
-                    });
-
-                    if (audioElem.paused) {
-                        audioElem.play();
-                        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                        // Also ensure the player is visible if play is clicked
-                        audioPlayerContainer.classList.remove('hidden');
-                    } else {
-                        audioElem.pause();
-                        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                    }
-                });
-
-                audioElem.addEventListener('timeupdate', () => {
-                    const progress = (audioElem.currentTime / audioElem.duration) * 100;
-                    progressSlider.value = isNaN(progress) ? 0 : progress;
-                    
-                    const formatTime = (seconds) => {
-                        const minutes = Math.floor(seconds / 60);
-                        const secs = Math.floor(seconds % 60);
-                        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-                    };
-                    timeDisplay.textContent = `${formatTime(audioElem.currentTime)} / ${formatTime(audioElem.duration)}`;
-                });
-
-                audioElem.addEventListener('ended', () => {
-                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                    progressSlider.value = 0;
-                    timeDisplay.textContent = '0:00 / 0:00';
-                });
-
-                audioElem.addEventListener('loadedmetadata', () => {
-                    const formatTime = (seconds) => {
-                        const minutes = Math.floor(seconds / 60);
-                        const secs = Math.floor(seconds % 60);
-                        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-                    };
-                    timeDisplay.textContent = `0:00 / ${formatTime(audioElem.duration)}`;
-                });
-
-                progressSlider.addEventListener('input', () => {
-                    const seekTime = (progressSlider.value / 100) * audioElem.duration;
-                    audioElem.currentTime = seekTime;
-                });
-
-                controlsDiv.appendChild(playPauseBtn);
-                controlsDiv.appendChild(progressSlider);
-                controlsDiv.appendChild(timeDisplay);
-                audioPlayerContainer.appendChild(controlsDiv);
-
-                // Compress Button (TODO)
-                const compressBtn = document.createElement('button');
-                compressBtn.innerHTML = '<i class="fas fa-compress"></i>';
-                compressBtn.className = 'hover:text-gray-500';
-                compressBtn.title = 'Compress Podcast';
-
-                actionsDiv.prepend(compressBtn);
-
-            } else if (podcast.status === 'failed') {
-
-                // Retry Button (TODO)
-                const retryBtn = document.createElement('button');
-                retryBtn.innerHTML = '<i class="fas fa-repeat"></i>';
-                retryBtn.className = 'hover:text-gray-500';
-                retryBtn.title = 'Retry Podcast';
-
-                actionsDiv.prepend(retryBtn);
-                
-            } else {
-                audioPlayerContainer.innerHTML = '<span class="text-gray-500">Podcast audio not ready.</span>';
-            }
-            
-            li.appendChild(audioPlayerContainer);
-            appState.elements.podcastList.appendChild(li);
-        });
-    }
-
-    function renderLocalBooks() {
-        if (appState.variables.localBooks.length < 1) return; // No need to render an empty list.
-        appState.elements.localBookList.innerHTML = '';
-        for (const bookId in appState.variables.localBooks) {
-            const book = { ...appState.variables.localBooks[bookId], id: bookId };
-            const li = createBookListItem(book, 'local');
-            appState.elements.localBookList.appendChild(li);
-        }
-    }
-
-    function createBookListItem(book, source) {
-        const li = document.createElement('li');
-        const isActive = appState.variables.activeBook?.id === book.id;
-        li.className = `flex justify-between items-center cursor-pointer p-1 rounded-lg whitespace-nowrap overflow-hidden text-ellipsis dark:hover:bg-gray-700 dark:text-gray-200  ${isActive ? 'bg-indigo-100 dark:bg-indigo-900 dark:bg-opacity-30' : 'hover:bg-gray-200'}`;
-        li.title = `${book.title}`;
-        li.ariaLabel = `Book item ${book.title}`;
-
-        const titleSpan = document.createElement('span');
-        titleSpan.className = `ms-2 text-xs hide-on-collapse`;
-        titleSpan.textContent = book.title;
-        li.addEventListener('click', () => {
-            setActiveBook({ ...book, source });
-        });
-
-        const containerSpan = document.createElement('span');
-        containerSpan.classList = 'overflow-hidden';
-
-        const titleIcon = document.createElement('span');
-        titleIcon.innerHTML = '<i class="fas fa-book"></i>';
-
-        if (book.is_pdf) titleIcon.innerHTML = '<i class="fas fa-file-pdf"></i>';
-
-        containerSpan.prepend(titleIcon);
-        containerSpan.append(titleSpan);
-
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'ps-2 flex items-center space-x-2 hide-on-collapse';
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-        deleteBtn.className = 'hover:text-gray-500';
-        deleteBtn.ariaLabel = `Delete item ${book.title}`;
-
-        const renameBtn = document.createElement('button');
-        renameBtn.innerHTML = '<i class="fas fa-i-cursor"></i>';
-        renameBtn.className = 'hover:text-gray-500';
-        renameBtn.ariaLabel = `Rename item ${book.title}`;
-
-        if (source === 'local') {
-            renameBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                renameBook(book.id);
-            });
-
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteBook(book.id);
-            });
-        } else { // Online book
-            renameBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                renameOnlineBook(book);
-            });
-
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteOnlineBook(book.id);
-            });
-        }
-
-        actionsDiv.appendChild(renameBtn);
-        actionsDiv.appendChild(deleteBtn);
-        li.appendChild(containerSpan);
-        li.appendChild(actionsDiv);
-        return li;
-    }
-
     // Add event listener for keydown events on the document
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             if (!appState.elements.bookModal.classList.contains('hidden'))
-                appState.elements.modalActionBtn.click();
-        } else if (event.key === 'Escape') {
+            appState.elements.modalActionBtn.click();
+
+            if (!appState.elements.loginModal.classList.contains('hidden'))
+            appState.elements.loginActionBtn.click();
+
+            return;
+        }
+
+        if (event.key === 'Escape') {
             if (!appState.elements.bookModal.classList.contains('hidden'))
-                appState.elements.modalCancelBtn.click();
+            appState.elements.modalCancelBtn.click();
+
+            if (!appState.elements.loginModal.classList.contains('hidden'))
+            appState.elements.loginModalCancelBtn.click();
+
+            return;
         }
     });
 
@@ -586,8 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     resetPdfView(appState);
                 }
 
+                updateCurrentUserUI(appState);
                 hideBookModal(appState);
-                renderLocalBooks();
                 resetBookView(appState);
             },
             { showInput: false },
@@ -607,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (newTitle?.trim() !== book.title) {
                     book.title = newTitle.trim();
                     saveLocalBooks(appState);
-                    renderLocalBooks();
+                    updateCurrentUserUI(appState);
                     if (appState.variables.activeBook?.id === bookId)
                     appState.elements.bookPageTitle.innerHTML = book.title;
                 }
@@ -633,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let highlightClass = "highlight";
 
         if (appState.variables.localPrefs.highlightColor)
-        highlightClass += ` ${localPrefs.highlightColor}`;
+        highlightClass += ` ${appState.variables.localPrefs.highlightColor}`;
 
         // Create the HTML for the highlighted chunk (with spans for each word)
         const words = chunkText.split(/(\s+)/); // Keep spaces
@@ -700,25 +442,27 @@ document.addEventListener('DOMContentLoaded', () => {
             let pdfData;
             // Fetch PDF from server
             const response = await fetch(book.content); // book.content is the URL to the PDF
-            if (!response.ok) {
-                throw new Error(`Failed to fetch PDF from ${book.content}`);
-            }
+            if (!response.ok) throw new Error(`Failed to fetch PDF from ${book.content}`);
             
             pdfData = await response.arrayBuffer();
 
+            // Render two pages to kickstart infinite scroll.
             if (pdfData) {
                 appState.variables.pdfDoc = await pdfjsLib.getDocument({ data: pdfData, }).promise;
                 const lastPage = parseInt(localStorage.getItem(appState.variables.pdfDoc.fingerprints[0])) || 1;
-                renderPage(lastPage);
+                renderPage(appState, lastPage - 1);
+                renderPage(appState, lastPage);
             } else {
                 resetPdfView(appState);
                 const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;
-                renderTextPage(lastTextPage);
+                
+                renderTextPage(appState, lastTextPage - 1);
+                renderTextPage(appState, lastTextPage);
             }
         } else {
             resetPdfView(appState);
-            const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;
-            renderTextPage(lastTextPage);
+            const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;        
+            renderTextPage(appState, lastTextPage);
         }
 
         if (bookContent.length > 0) {
@@ -728,6 +472,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: bookContent })
                 });
+
+                // Update the voices, regardless if the response errored or not.
+                updateVoices(appState);
     
                 if (!response.ok) throw new Error('Failed to detect language.');
     
@@ -813,38 +560,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setActiveBook({ ...appState.variables.localBooks[bookId], id: bookId, source: 'local' });
     }
 
-    function handleTextBookUpdate() {
-
-        if (appState.variables.pdfDoc !== null)
-        return;
-
-        const newPageText = appState.elements.textDisplay.textContent;
-        const start = (appState.variables.textCurrentPage - 1) * appState.variables.charsPerPage;
-
-        // Reconstruct the full text by replacing the edited part
-        appState.variables.fullBookText = appState.variables.fullBookText.substring(0, start) +
-                        newPageText +
-                        appState.variables.fullBookText.substring(start + appState.variables.currentTextPageLength);
-        
-        // Update the stored length for subsequent edits on the same page
-        appState.variables.currentTextPageLength = newPageText.length;
-
-        if (appState.variables.activeBook.source === 'local') {
-            appState.variables.localBooks[appState.variables.activeBook.id].text = appState.variables.fullBookText;
-            saveLocalBooks(appState);
-        } else { // Online book
-            // For online books, just enable the save button to indicate changes
-            appState.elements.saveBookBtn.classList.remove('hidden');
-            appState.elements.saveBookBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
-        }
-        // Recalculate total pages and update display
-        appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
-        appState.elements.pageNumSpan.textContent = `Page ${appState.variables.textCurrentPage} of ${appState.variables.totalTextPages}`;
-
-        // Update chunks for speech generation from the edited page text
-        renderTextPage(appState.variables.textCurrentPage);
-    }
-
     /** -- Events -- */
     if (appState.variables.activeBook?.source === 'local' && appState.variables.localPrefs.skipHeaders)
         appState.elements.skipHeadersCheckbox.checked = appState.variables.localPrefs.skipHeaders;
@@ -894,13 +609,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // If we haven't found the page we need, maybe we need to load it.
         if (dir === 1 && finishedPageNum >= lastAvailablePage) {
             // Load next page
-            if (appState.variables.pdfDoc) await renderPage(lastAvailablePage + 1, true, true);
-            else renderTextPage(lastAvailablePage + 1, true);
+            if (appState.variables.pdfDoc) await renderPage(appState, lastAvailablePage + 1, true, true);
+            else renderTextPage(appState, lastAvailablePage + 1, true);
             lastAvailablePage = -1;
         } else if (dir === -1 && finishedPageNum <= 1) {
             // Load previous page
-            if (appState.variables.pdfDoc) await renderPage(lastAvailablePage - 1, true, false);
-            else renderTextPage(lastAvailablePage - 1, false);
+            if (appState.variables.pdfDoc) await renderPage(appState, lastAvailablePage - 1, true, false);
+            else renderTextPage(appState, lastAvailablePage - 1, false);
             lastAvailablePage = -1;
         }
 
@@ -977,20 +692,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 else {
                     // If there are no more chunks in the queue after skipping
                     updatePlayerUI('IDLE', appState);
-                    clearAllHighlights();
+                    clearHighlights(appState);
                 }
             }
         }
 
         appState.elements.audioPlayer.onended = async () => {
-            clearAllHighlights();
+            clearHighlights(appState);
             appState.elements.currentChunk.classList.add('hidden');
             appState.variables.currentChunkIndex++;
             processAndQueueChunk(appState.variables.currentChunkIndex + 1); // Pre-fetch next chunk
 
             if (appState.variables.audioQueue[appState.variables.currentChunkIndex]) playAudioQueue();
             else {
-                clearAllHighlights();
+                clearHighlights(appState);
                 // Next Page Logic
                 if ((appState.variables.currentChunkIndex >= appState.variables.allTextChunks.length)) await handlePageChange(1);
             }
@@ -1021,8 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Clear current highlights
-        if (appState.variables.pdfDoc) clearPdfHighlights();
-        else clearAllHighlights();
+        clearHighlights(appState);
 
         // Check if we're at the end of the current page
         if (appState.variables.currentChunkIndex >= appState.variables.allTextChunks.length - 1) {
@@ -1055,8 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Clear current highlights
-        if (appState.variables.pdfDoc) clearPdfHighlights();
-        else clearAllHighlights();
+        clearHighlights(appState);
 
         // Move to previous chunk
         appState.variables.currentChunkIndex--;
@@ -1127,108 +840,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 playAudioQueue();
             } else console.debug(`Failed to get audio for chunk index: ${chunkIndex}`);
         });
-    }
-
-    function clearAllHighlights() {
-        const allWordElements = appState.elements.textDisplay.querySelectorAll('span.highlight');
-        allWordElements.forEach(span => span.classList.remove('highlight'));
-        clearPdfHighlights();
-    }
-
-    function renderTextPage(num, append = true) {
-        appState.variables.textCurrentPage = num;
-        const start = (num - 1) * appState.variables.charsPerPage;
-        const end = start + appState.variables.charsPerPage;
-        const pageText = appState.variables.fullBookText.substring(start, end);
-
-        const injectHTML = document.createElement('div');
-        injectHTML.innerHTML = parseTextContent(pageText);
-        injectHTML.dataset.page = appState.variables.textCurrentPage;
-
-        appState.variables.currentTextPageLength = pageText.length; // Store for editing
-
-        if (append) { appState.elements.textDisplay.appendChild(injectHTML) }
-        else { appState.elements.textDisplay.prepend(injectHTML) }
-
-        // Ensure we are in text view mode
-        appState.elements.pdfViewerWrapper.classList.add('hidden');
-        appState.elements.textboxViewerWrapper.classList.remove('hidden');
-        appState.elements.zoomInBtn.disabled = true;
-        appState.elements.zoomOutBtn.disabled = true;
-    }
-
-    async function renderPage(num, skipTextExtraction = false, append = true) {
-        if (!appState.variables.pdfDoc) return;
-        appState.elements.pdfViewerWrapper.classList.remove('hidden');
-        appState.elements.textboxViewerWrapper.classList.add('hidden');
-        appState.elements.zoomInBtn.disabled = false;
-        appState.elements.zoomOutBtn.disabled = false;
-        appState.variables.currentPageNum = num;
-
-        const renderSinglePage = async (pageNumber, container) => {
-            const canvas = document.createElement('canvas');
-            const lastPage = appState.elements.pdfViewer.lastChild;
-            canvas.classList.add('dark:invert');
-            canvas.ariaLabel = 'PDF page';
-            canvas.dataset.page = pageNumber;
-
-            if (lastPage) {
-                // Populate with last pages info, while we await.
-                canvas.height = lastPage.offsetHeight;
-                canvas.width = lastPage.OffsetWidth;
-            }
-
-            // Immediately render the page, even while we wait for PDF.js
-            if (append) container.appendChild(canvas);
-            else container.prepend(canvas);
-
-            const page = await appState.variables.pdfDoc.getPage(pageNumber);
-            const viewport = page.getViewport({ scale: appState.variables.currentScale });
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-
-            const renderContext = {
-                canvasContext: context,
-                viewport: viewport,
-            };
-
-            await page.render(renderContext).promise;
-
-            if (skipTextExtraction) return '';
-
-            let textContent = await page.getTextContent();
-
-            if (appState.elements.skipHeadersCheckbox.checked) {
-                const parsedTextContent = detectHeadersAndFooters(textContent, canvas.height);
-                textContent = parsedTextContent.body;
-            }
-
-            appState.variables.pdfTextContent[pageNumber] = textContent;
-            return mapTextContent(textContent);
-        };
-
-        if (appState.variables.isTwoPageView) {
-            const page1Text = await renderSinglePage(num, appState.elements.pdfViewer, append);
-            let page2Text = '';
-
-            if (num + 1 <= pdfDoc.numPages)
-            page2Text = await renderSinglePage(num + 1, appState.elements.pdfViewer, append);
-
-            if (!skipTextExtraction) {
-                const combinedText = page1Text + ' ' + page2Text;
-                appState.elements.textDisplay.textContent = combinedText;
-            }
-        } else {
-            const pageText = await renderSinglePage(num, appState.elements.pdfViewer);
-            if (!skipTextExtraction)
-            appState.elements.textDisplay.textContent = pageText;
-        }
-
-        if (appState.variables.activeBook?.source === 'local' && !skipTextExtraction) {
-            appState.variables.localBooks[appState.variables.activeBook.id].text = appState.elements.textDisplay.textContent;
-            saveLocalBooks(appState);
-        }
     }
 
     async function highlightPdfChunk(chunkObject) {
@@ -1324,14 +935,6 @@ document.addEventListener('DOMContentLoaded', () => {
         highlight.style.height = `${item.height * appState.variables.currentScale}px`;
         
         highlightLayer.appendChild(highlight);
-    }
-    
-    /* Clears all highlights from the PDF overlay. */
-    function clearPdfHighlights() {
-        const highlightLayer = document.getElementById('highlight-layer');
-        if (highlightLayer) {
-            highlightLayer.innerHTML = '';
-        }
     }
 
     function highlightHTML(chunkObject) {
@@ -1459,7 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // Make sure the page is updated.
-            renderTextPage(1);
+            renderTextPage(appState, 1);
 
         } catch (error) {
             console.error('Error reading website:', error);
@@ -1481,9 +1084,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || 'Failed to save OCR text.');
             }
-            console.log('OCR text saved successfully for book:', bookId);
-            // Refresh the book list to get the new data with ocr_text
-            await fetchAndRenderOnlineBooks();
             // Return the newly fetched book
             return appState.variables.onlineBooks.find(b => b.id === bookId);
         } catch (error) {
@@ -1515,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Fallback if the book couldn't be found after saving
                             console.error("Could not find online book after saving OCR text. Falling back to text view.");
                             appState.variables.fullBookText = data.text;
-                            renderTextPage(1);
+                            renderTextPage(appState, 1);
                         }
                     } else {
                         // Anonymous user flow
@@ -1523,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             appState.variables.localBooks[appState.variables.activeBook.id].text = appState.variables.fullBookText;
                             saveLocalBooks(appState);
                         }
-                        renderTextPage(1);
+                        renderTextPage(appState, 1);
                     }
     
                 } else if (data.status === 'failed') {
@@ -1561,7 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveLocalBooks(appState);
                 }
                 appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
-                renderTextPage(1);
+                renderTextPage(appState, 1);
             } else if (data.status === 'ocr_started') {
                 showNotification('PDF contains no text. Starting background OCR...', 'info');
                 pollOcrResult(data.task_id, bookId);
@@ -1641,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveLocalBooks(appState);
                 }
                 appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
-                renderTextPage(1);
+                renderTextPage(appState, 1);
 
             } catch (error) {
                 console.error('Error reading EPUB:', error);
@@ -1670,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveLocalBooks(appState);
                 }
                 appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
-                renderTextPage(1);
+                renderTextPage(appState, 1);
 
             } catch (error) {
                 console.error('Error reading DOCX:', error);
@@ -1678,6 +1278,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 appState.elements.textDisplay.innerHTML = '';
             }
         } showNotification('Please select a valid PDF, EPUB, or DOCX file.', 'warn');
+
+        if (appState.variables.currentUser) appState.elements.saveBookBtn.classList.remove('hidden');
         
         hideFileModal(appState);
     });
@@ -1685,13 +1287,13 @@ document.addEventListener('DOMContentLoaded', () => {
     appState.elements.zoomInBtn.addEventListener('click', () => {
         if (!appState.variables.pdfDoc) return;
         appState.variables.currentScale += 0.25;
-        renderPage(appState.variables.currentPageNum);
+        renderPage(appState, appState.variables.currentPageNum);
     });
 
     appState.elements.zoomOutBtn.addEventListener('click', () => {
         if (!appState.variables.pdfDoc) return;
         appState.variables.currentScale = Math.max(0.25, appState.variables.currentScale - 0.25);
-        renderPage(appState.variables.currentPageNum);
+        renderPage(appState, appState.variables.currentPageNum);
     });
 
     appState.elements.engineSelect.addEventListener('change', (e) => { e.preventDefault(); updateVoices(appState) });
@@ -1840,7 +1442,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 audioFileInput.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
-        { name: 'Login/Create Account', icon: 'fa-user-plus', description: 'Login or create a new user account', action: () => { showLoginModal(appState); hideCommandPalette(); } },
         { name: 'Save Book', icon: 'fa-floppy-disk', description: 'Save the current book to your online account', action: () => {
             if (appState.variables.activeBook) {
                 handleSaveBook(); hideCommandPalette();
@@ -1857,6 +1458,16 @@ document.addEventListener('DOMContentLoaded', () => {
             } else showNotification('No book is currently active.');
         } },
     ];
+
+    if (appState.variables.currentUser) {
+        commands.push({ name: 'Logout', icon: 'fa-user-minus', description: 'Logout', action: () => {
+            handleLogout(); hideCommandPalette();
+        }});
+    } else {    
+        commands.push({ name: 'Login/Create Account', icon: 'fa-user-plus', description: 'Login or create a new user account', action: () => {
+            showLoginModal(appState); hideCommandPalette();
+        }})
+    }
 
     let filteredCommands = [];
     let selectedCommandIndex = -1;
@@ -1958,19 +1569,6 @@ document.addEventListener('DOMContentLoaded', () => {
         else hideCommandPalette();
     });
 
-    async function fetchAndRenderOnlineBooks() {
-        if (!appState.variables.currentUser) return;
-        try {
-            const response = await fetch(`/api/users/${appState.variables.currentUser}/books`);
-            if (!response.ok) throw new Error('Failed to fetch online books.');
-            const data = await response.json();
-            appState.variables.onlineBooks = data.books || [];
-            renderOnlineBooks();
-        } catch (error) {
-            showNotification(error.message, 'error');
-        }
-    }
-
     async function handleLogin() {
         const username = appState.elements.loginUsernameInput.value.trim();
         const password = appState.elements.loginPasswordInput.value.trim();
@@ -1985,18 +1583,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
             });
+
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || 'Login failed.');
             }
+
             const data = await response.json();
             appState.variables.currentUser = data.username;
             sessionStorage.setItem('currentUser', appState.variables.currentUser);
+            await fetchOnlineUserdata(appState);
             updateCurrentUserUI(appState);
-            hideLoginModal();
+
+            hideLoginModal(appState);
             showNotification('Login successful!', 'success');
-            fetchAndRenderOnlineBooks();
-            fetchAndRenderPodcasts();
+
         } catch (error) {
             showNotification(error.message, 'error');
         }
@@ -2007,8 +1608,8 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.removeItem('currentUser');
         appState.variables.onlineBooks = [];
         appState.variables.onlinePodcasts = [];
-        renderOnlineBooks();
-        renderOnlinePodcasts();
+        renderOnlineBooks(appState);
+        renderOnlinePodcasts(appState);
         updateCurrentUserUI(appState);
         showNotification('You have been logged out.', 'info');
     }
@@ -2088,15 +1689,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             showNotification(data.message, 'success');
             
-            saveBookBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
-            fetchAndRenderOnlineBooks();
+            appState.elements.saveBookBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
 
             if (!isUpdatingOnlineBook) {
                 // If a local book was saved online, remove it from local storage
                 if (appState.variables.localBooks[appState.variables.activeBook.id]) {
                     delete appState.variables.localBooks[appState.variables.activeBook.id];
                     saveLocalBooks(appState);
-                    renderLocalBooks();
+                    updateCurrentUserUI(appState);
                 }
                 appState.variables.activeBook = null;
             }
@@ -2125,7 +1725,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     showNotification(data.message, 'success');
 
                     appState.variables.onlineBooks = appState.variables.onlineBooks.filter(book => book.id !== bookId);
-                    renderOnlineBooks();
+                    renderOnlineBooks(appState);
 
                     if (appState.variables.activeBook && appState.variables.activeBook.id === bookId) {
                         appState.variables.activeBook = null;
@@ -2164,7 +1764,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const bookToUpdate = appState.variables.onlineBooks.find(b => b.id === book.id);
                         if (bookToUpdate) {
                             bookToUpdate.title = newTitle.trim();
-                            renderOnlineBooks();
+                            renderOnlineBooks(appState);
                             if (appState.variables.activeBook?.id === book.id) {
                                 appState.elements.bookPageTitle.innerHTML = newTitle.trim();
                             }
@@ -2215,8 +1815,8 @@ document.addEventListener('DOMContentLoaded', () => {
     appState.elements.accountSwitcherMenu.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             e.preventDefault();
-            accountSwitcherMenu.classList.add('hidden');
-            accountSwitcherBtn.focus();
+            appState.elements.accountSwitcherMenu.classList.add('hidden');
+            appState.elements.accountSwitcherBtn.focus();
         }
     });
     
@@ -2260,7 +1860,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (appState.variables.pdfDoc) {
                     const canvas = appState.variables.currentMostVisiblePage;
-                    podcastText = await getAllPdfText(pdfDoc, { 
+                    podcastText = await getAllPdfText(appState.variables.pdfDoc, { 
                         skipHeadersNFooters: appState.elements.skipHeadersCheckbox.value,
                         canvasHeight: canvas.height 
                     });
@@ -2276,37 +1876,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     apiKey
                 );
 
-                if (result.success) {
-                    showNotification(`Your podcast is generating and will be ready soon!`, 'success');
-                    fetchAndRenderPodcasts();
-                } else {
-                    showNotification(`Failed to start podcast generation: ${result.error}`, 'error');
-                }
+                if (result.success) showNotification(`Your podcast is generating and will be ready soon!`, 'success');
+                else showNotification(`Failed to start podcast generation: ${result.error}`, 'error');
+
                 appState.elements.generatePodcastBtn.disabled = false;
                 appState.elements.generatePodcastBtn.innerHTML = '<i class="fas fa-podcast"></i><span class="ms-2">New Podcast</span>';
             },
             { showInput: true, inputValue: appState.variables.activeBook ? appState.variables.activeBook.title : '' },
             appState
         );
-    });
-
-    async function fetchAndRenderPodcasts() {
-        if (!appState.variables.currentUser) return;
-        try {
-            const result = await getPodcasts(appState.variables.currentUser);
-            if (result.success) {
-                appState.variables.onlinePodcasts = result.podcasts || [];
-                renderOnlinePodcasts();
-            } else {
-                showNotification(`Failed to fetch podcasts: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            showNotification(error.message, 'error');
-        }
-    }
-
-    appState.elements.pdfFileInput.addEventListener('change', async (e) => {
-        if (appState.variables.currentUser) appState.elements.saveBookBtn.classList.remove('hidden');
     });
     
     appState.elements.themeToggle.addEventListener('change', () => {
@@ -2337,9 +1915,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (text.trim().length < 1)
             return;
 
-            appState.elements.textDisplay.textContent = text;
-            handleTextBookUpdate();
-            checkTextContent(appState);
+            // Get a quick new title.
+            const title = text.substring(0, 100).split('\n')[0]
+
+            appState.variables.activeBook.title = title;
+            appState.variables.activeBook.text = text;
+            appState.variables.localBooks[appState.variables.activeBook.id].text = text;
+            appState.variables.localBooks[appState.variables.activeBook.id].title = title;
+            saveLocalBooks(appState);
+            setActiveBook(appState.variables.activeBook);
         });
     });
 
@@ -2507,8 +2091,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const lastRenderedPage = container.element.children[container.element.children.length - 1];
 
         if (container.type == 'pdf')
-        renderPage(Number.parseInt(lastRenderedPage.dataset.page) + (appState.variables.isTwoPageView ? 2 : 1));
-        else renderTextPage(Number.parseInt(lastRenderedPage.dataset.page) + 1);
+        renderPage(appState, Number.parseInt(lastRenderedPage.dataset.page) + (appState.variables.isTwoPageView ? 2 : 1));
+        else renderTextPage(appState, Number.parseInt(lastRenderedPage.dataset.page) + 1);
 
         // Do a simple DOM cleanup. We lock this during generation to avoid unloading
         // a page being read.
@@ -2554,8 +2138,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const oldScrollHeight = container.element.scrollHeight;
         const firstRenderedPage = container.element.children[0];
 
-        if (container.type == 'pdf') renderPage(Number.parseInt(firstRenderedPage.dataset.page) - (appState.variables.isTwoPageView ? 2 : 1), false, false);
-        else renderTextPage(Number.parseInt(firstRenderedPage.dataset.page) - 1, false);
+        if (container.type == 'pdf') renderPage(appState, Number.parseInt(firstRenderedPage.dataset.page) - (appState.variables.isTwoPageView ? 2 : 1), false, false);
+        else renderTextPage(appState, Number.parseInt(firstRenderedPage.dataset.page) - 1, false);
 
         // Do a simple DOM cleanup. We lock this during generation to avoid unloading
         // a page being read.
@@ -2580,24 +2164,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newTopPage) upwardsScroll.observe(newTopPage);
         });
     });
+
+    appState.functions.setActiveBook = setActiveBook;
+    appState.functions.renameBook = renameBook;
+    appState.functions.renameOnlineBook = renameOnlineBook;
+    appState.functions.deleteBook = deleteBook;
+    appState.functions.deleteOnlineBook = deleteOnlineBook;
+    appState.functions.deletePodcast = deletePodcast;
+    appState.functions.handleSidebarCollapse = handleSidebarCollapse;
     
     // Smooth animations
     appState.elements.settingsDropupMenu.style.transition = 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out';
     appState.elements.settingsDropupMenu.style.opacity = '0';
     appState.elements.settingsDropupMenu.style.transform = 'translateY(-10px)';
-
-    // Initial load functions
-    const savedUser = sessionStorage.getItem('currentUser');
-
-    if (savedUser) {
-        appState.variables.currentUser = savedUser;
-        updateCurrentUserUI(appState);
-        fetchAndRenderOnlineBooks();
-        fetchAndRenderPodcasts();
-    }
     
     setBodyFont();
     renderNotifications(appState);
-    renderLocalBooks();
-    updateVoices(appState);
+    updateCurrentUserUI(appState);
 });

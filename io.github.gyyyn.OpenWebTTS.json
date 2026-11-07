@@ -1,0 +1,53 @@
+{
+    "app-id": "io.github.gyyyn.OpenWebTTS",
+    "runtime": "org.freedesktop.Sdk",
+    "runtime-version": "25.08",
+    "sdk": "org.freedesktop.Sdk",
+    "command": "python3",
+    "args": ["-u", "app.py", "--app"],
+    "finish-args": [
+        "--share=network",
+        "--socket=x11",
+        "--share=ipc",
+        "--device=dri"
+    ],
+    "modules": [
+        {
+            "name": "openwebtts-node",
+            "buildsystem": "simple",
+            "build-commands": [
+                "npm install",
+                "npm run build"
+            ],
+            "sources": [
+                {
+                    "type": "file",
+                    "path": "package.json"
+                }
+            ]
+        },
+        {
+            "name": "openwebtts-python",
+            "buildsystem": "pip",
+            "sources": [
+                {
+                    "type": "file",
+                    "path": "requirements.txt"
+                }
+            ]
+        },
+        {
+            "name": "openwebtts",
+            "buildsystem": "simple",
+            "build-commands": [
+                "cp -r . /app"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "."
+                }
+            ]
+        }
+    ]
+}

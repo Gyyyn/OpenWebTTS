@@ -749,6 +749,7 @@ async def _generate_and_update_podcast_audio(username: str, podcast_id: str, req
         print(f"Error generating podcast audio for {username}/{podcast_id}: {e}")
         user_manager.update_podcast(username, podcast_id, {"status": "failed", "error": str(e)})
 
+# TODO: Currently, this function freezes the app until the audio gen is done lol
 @router.post("/api/users/{username}/podcast")
 async def generate_podcast_route(username: str, podcast: PodcastGenerate, background_tasks: BackgroundTasks):
     if not podcast.text.strip():

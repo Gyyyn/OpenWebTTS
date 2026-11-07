@@ -75,6 +75,17 @@ export function renderNotifications(appState) {
  * @param {object} appState The main appState object.
  */
 export function updateCurrentUserUI(appState) {
+
+    const savedUser = sessionStorage.getItem('currentUser');
+    if (savedUser) appState.variables.currentUser = savedUser;
+
+    appState.functions.fetchOnlineUserdata(appState).then(() => {
+        appState.functions.renderOnlineBooks(appState);
+        appState.functions.renderOnlinePodcasts(appState);
+    });
+
+    appState.functions.renderLocalBooks(appState);
+
     const userDetails = document.querySelector('#current-user + div');
     
     if (!appState.variables.currentUser) {
@@ -172,12 +183,9 @@ export async function updateVoices(appState) {
                 const bName = b.name.toLowerCase();
                 const lang = appState.variables.bookDetectedLang.toLowerCase();
 
-                if (aName.includes(lang) && !bName.includes(lang)) {
-                    return -1;
-                }
-                if (!aName.includes(lang) && bName.includes(lang)) {
-                    return 1;
-                }
+                if (aName.includes(lang) && !bName.includes(lang)) return -1;
+                if (!aName.includes(lang) && bName.includes(lang)) return 1;
+                
                 return 0;
             });
         }
@@ -210,6 +218,26 @@ export function updateCurrentPage(appState) {
     appState.elements.pageNumSpan.textContent = `Page ${Number.parseInt(appState.variables.currentMostVisiblePage.dataset.page)} of ${Number.parseInt(maxPages)}`;
 }
 
+/**
+ * Re-renders the book from a specific page.
+ * @param {object} appState The main appState object.
+ */
+export function goToPage(appState) {
+    const page = parseInt(appState.elements.pageNumInput.value);
+    if (!isNaN(page)) {
+        appState.variables.currentPageContainer.innerHTML = ''; // Clear current view.
+        if (appState.variables.pdfDoc) appState.functions.renderPage(appState, page);
+        else appState.functions.renderTextPage(appState, page);
+    }
+    
+    appState.elements.pageNumInput.style.display = 'none';
+    appState.elements.pageNumSpan.style.display = 'inline-block';
+};
+
+/**
+ * Updates the "reader" at the bottom of the page.
+ * @param {object} appState The main appState object.
+ */
 export function updateTextChunkReader(appState) {
     if (!appState.elements.currentChunk) return;
 

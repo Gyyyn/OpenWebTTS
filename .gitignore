@@ -1,3 +1,6 @@
+# Ignore text-editor files
+.vscode
+
 # Ignore Python virtual environment
 /venv/
 
