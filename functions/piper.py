@@ -1,11 +1,12 @@
 import subprocess
+import sys
 from functions.audio import normalize_audio
 from config import DEVICE
 
 def piper_process_audio(voice, lang, text, output):
     
     command = [
-        "piper",
+        sys.executable, "-m", "piper",  # venv may not be on PATH
         "--model", voice,
         "--output_file", output
     ]
