@@ -322,8 +322,8 @@ async def download_piper_voice(voice: PiperVoice):
         config_response = requests.get(config_url)
         config_response.raise_for_status()
         config_path = os.path.join(PIPER_DIR, f"{voice.key}.onnx.json")
-        with open(config_path, "w") as f:
-            f.write(config_response.text)
+        with open(config_path, "wb") as f:
+            f.write(config_response.content)
         return JSONResponse(content={"message": f"Successfully downloaded {voice.key}"})
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Failed to download voice: {e}")
