@@ -287,11 +287,11 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
 async def read_root(request: Request):
     os.makedirs(AUDIO_DIR, exist_ok=True)
     os.makedirs(AUDIO_CACHE_DIR, exist_ok=True)
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
 
 @router.get("/config", response_class=HTMLResponse)
 async def read_config(request: Request):
-    return templates.TemplateResponse("config.html", {"request": request})
+    return templates.TemplateResponse(request, "config.html")
 
 # -----------------------
 # ---  API Endpoints  ---
