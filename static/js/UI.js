@@ -52,7 +52,7 @@ export function handleSidebarCollapse(appState) {
  * @param {object} appState The main appState object.
  */
 export function renderNotifications(appState) {
-    const notifications = JSON.parse(localStorage.getItem('notifications')).reverse();
+    const notifications = JSON.parse(localStorage.getItem('notifications') || '[]').reverse();
     if (notifications?.length < 0) return;
 
     // Stop here, since default is already a no notification message.
