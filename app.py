@@ -4,6 +4,11 @@ import argparse
 import threading
 import time
 import socket
+import mimetypes
+
+# Windows' registry can map .mjs to text/plain, and browsers refuse to run
+# module scripts served with that type, which breaks the whole UI.
+mimetypes.add_type("text/javascript", ".mjs")
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
