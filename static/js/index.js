@@ -2203,7 +2203,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
-        e.preventDefault();
         appState.elements.accountSwitcherMenu.classList.add('hidden');
     });
     
@@ -2382,7 +2381,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Close dropups when clicking outside
     document.addEventListener('click', (e) => {
-        e.preventDefault();
         appState.elements.settingsDropupMenu.classList.add('hidden');
         appState.elements.notificationDropdown.classList.add('hidden');
     });

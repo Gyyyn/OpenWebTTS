@@ -43,7 +43,7 @@ class UserManager:
             "books": {},
             "podcasts": {}
         }
-        with open(user_file, 'w') as f:
+        with open(user_file, 'w', encoding='utf-8') as f:
             json.dump(user_data, f, indent=4)
         return True, "User created successfully."
 
@@ -52,7 +52,7 @@ class UserManager:
         if not os.path.exists(user_file):
             return False, "Invalid username or password."
 
-        with open(user_file, 'r') as f:
+        with open(user_file, 'r', encoding='utf-8') as f:
             user_data = json.load(f)
 
         if checkpw(password.encode('utf-8'), user_data['password'].encode('utf-8')):
@@ -63,7 +63,7 @@ class UserManager:
     def get_user_data(self, username):
         user_file = self._get_user_file_path(username)
         if os.path.exists(user_file):
-            with open(user_file, 'r') as f:
+            with open(user_file, 'r', encoding='utf-8') as f:
                 user_data = json.load(f)
             
             # Migration: Convert books from list to dict if necessary.
@@ -78,7 +78,7 @@ class UserManager:
 
     def save_user_data(self, username, data):
         user_file = self._get_user_file_path(username)
-        with open(user_file, 'w') as f:
+        with open(user_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4)
 
     def add_book(self, username, book_data):
