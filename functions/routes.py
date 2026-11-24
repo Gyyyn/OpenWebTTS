@@ -88,22 +88,8 @@ class BookData(BaseModel):
     content: str
     is_pdf: bool = False
 
-class PodcastGenerate(BaseModel):
-    title: str
-    text: str
-    engine: str
-    voice: str
-    api_key: Optional[str] = None
-
 class ReadWebsiteRequest(BaseModel):
     url: str
-
-class BookUpdate(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
-    is_pdf: Optional[bool] = None
-    ocr_text: Optional[str] = None
-
 
 # --- Helper Functions ---
 
@@ -611,11 +597,6 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
-class BookData(BaseModel):
-    title: str
-    content: str
-    is_pdf: bool = False
-
 class PodcastGenerate(BaseModel):
     title: str
     text: str
@@ -623,9 +604,6 @@ class PodcastGenerate(BaseModel):
     voice: str
     lang: Optional[str] = 'en'
     api_key: Optional[str] = None
-
-class ReadWebsiteRequest(BaseModel):
-    url: str
 
 class BookUpdate(BaseModel):
     title: Optional[str] = None

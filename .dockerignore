@@ -1,0 +1,17 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+node_modules/
+static/audio_cache/*
+!static/audio_cache/.gitkeep
+users/
+build-dir/
+dist/
+build/
+.secret_key
+.env

@@ -1895,18 +1895,6 @@ document.addEventListener('DOMContentLoaded', () => {
             appState
         );
     });
-    
-    appState.elements.themeToggle.addEventListener('change', () => {
-        if (appState.elements.themeToggle.checked) {
-            document.documentElement.classList.add('dark');
-            appState.variables.localPrefs.theme = 'dark'
-        } else {
-            document.documentElement.classList.remove('dark');
-            appState.variables.localPrefs.theme = 'light';
-        }
-
-        handlePrefs({theme: appState.variables.localPrefs.theme});
-    });
 
     appState.elements.prevChunkButton.addEventListener('click', goToPreviousAudioChunk);
     appState.elements.nextChunkButton.addEventListener('click', goToNextAudioChunk);
