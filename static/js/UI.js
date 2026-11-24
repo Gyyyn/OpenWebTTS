@@ -85,18 +85,14 @@ export function updateCurrentUserUI(appState) {
     });
 
     appState.functions.renderLocalBooks(appState);
-
-    const userDetails = document.querySelector('#current-user + div');
     
     if (!appState.variables.currentUser) {
-        appState.elements.currentUserDisplay.textContent = 'Anonymous';
-        userDetails.textContent = 'Not signed in';
+        appState.elements.currentUserDisplay.textContent = 'Guest';
         appState.elements.logoutBtn.classList.add('hidden');
         return;
     }
 
     appState.elements.currentUserDisplay.textContent = appState.variables.currentUser;
-    userDetails.textContent = 'Signed in';
     appState.elements.logoutBtn.classList.remove('hidden');
 }
 

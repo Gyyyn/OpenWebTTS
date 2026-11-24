@@ -279,6 +279,14 @@ async def read_root(request: Request):
 async def read_config(request: Request):
     return templates.TemplateResponse(request, "config.html")
 
+@router.get("/terms", response_class=HTMLResponse)
+async def read_terms(request: Request):
+    return templates.TemplateResponse(request, "terms.html")
+
+@router.get("/privacy", response_class=HTMLResponse)
+async def read_privacy(request: Request):
+    return templates.TemplateResponse(request, "privacy.html")
+
 # -----------------------
 # ---  API Endpoints  ---
 # -----------------------
@@ -860,7 +868,7 @@ async def generate_podcast_route(username: str, podcast: PodcastGenerate, backgr
 @router.get("/api/noise_files")
 async def get_noise_files():
     """Get all noise audio files from /static/audio/noise"""
-    noise_dir = os.path.join(config.STATIC_DIR, "audio", "noise")
+    noise_dir = os.path.join(STATIC_DIR, "audio", "noise")
     if not os.path.exists(noise_dir):
         return JSONResponse(content={"files": []})
     
