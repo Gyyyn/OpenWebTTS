@@ -79,6 +79,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Checkboxes
             skipHeadersCheckbox: document.getElementById('skip-headers-checkbox'),
             bgNoiseToggle: document.getElementById('bg-noise-toggle'),
+            sleepTimerCheckbox: document.getElementById('sleep-timer-checkbox'),
+            // Sleep Timer Elements
+            sleepTimerModal: document.getElementById('sleep-timer-modal'),
+            sleepTimerCloseBtn: document.getElementById('sleep-timer-close-btn'),
+            sleepTimerCancelBtn: document.getElementById('sleep-timer-cancel-btn'),
+            sleepTimerApplyBtn: document.getElementById('sleep-timer-apply-btn'),
+            sleepHoursInput: document.getElementById('sleep-hours-input'),
+            sleepMinutesInput: document.getElementById('sleep-minutes-input'),
+            sleepTimerBadge: document.getElementById('sleep-timer-badge'),
+            sleepTimerCountdown: document.getElementById('sleep-timer-countdown'),
+            sleepTimerBadgeCancel: document.getElementById('sleep-timer-badge-cancel'),
             // Buttons
             collapseSidebarButton: document.getElementById('collapse-sidebar-btn'),
             newBookBtn: document.getElementById('new-book-btn'),
@@ -188,6 +199,9 @@ document.addEventListener('DOMContentLoaded', () => {
             currentReadingPage: null,
             // Global sleep timer
             playerSleepTimer: null,
+            sleepTimerDurationMs: 0,
+            sleepTimerTargetTime: null,
+            sleepTimerIntervalId: null,
         },
         functions: {
             fetchOnlineUserdata: fetchOnlineUserdata,
@@ -720,6 +734,8 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.elements.audioPlayer.pause();
         appState.elements.audioPlayer.src = '';
 
+        clearSleepTimer();
+
         updatePlayerUI('IDLE', appState);
         appState.elements.speechToTextSection.classList.remove('hidden');
     }
@@ -819,11 +835,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appState.elements.audioOutput.classList.remove('hidden');
 
-        // Start sleep timer if set.
-        // appState.variables.playerSleepTimer = createSleepTimer(30 * 60 * 1000, () => {
-        //     stopAudioQueue();
-        //     showNotification("Playback stopped by sleep timer");
-        // });
+        // Start sleep timer if configured
+        startActiveSleepTimer();
     }
 
     function processAndQueueChunk(chunkIndex) {
@@ -2042,6 +2055,198 @@ document.addEventListener('DOMContentLoaded', () => {
         const bgNoiseAudio = document.getElementById('bg-noise-audio');
         if (bgNoiseAudio) bgNoiseAudio.volume = e.target.value;
     });
+
+    // Sleep Timer Logic
+    function formatTimeRemaining(ms) {
+        if (ms <= 0) return '00:00';
+        const totalSeconds = Math.ceil(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        const pad = (n) => String(n).padStart(2, '0');
+        if (hours > 0) {
+            return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+        }
+        return `${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    function updateSleepTimerBadge() {
+        if (!appState.variables.sleepTimerTargetTime) {
+            appState.elements.sleepTimerBadge?.classList.add('hidden');
+            appState.elements.sleepTimerBadge?.classList.remove('flex');
+            return;
+        }
+        const remaining = appState.variables.sleepTimerTargetTime - Date.now();
+        if (remaining <= 0) {
+            appState.elements.sleepTimerBadge?.classList.add('hidden');
+            appState.elements.sleepTimerBadge?.classList.remove('flex');
+            return;
+        }
+        if (appState.elements.sleepTimerCountdown) {
+            appState.elements.sleepTimerCountdown.textContent = formatTimeRemaining(remaining);
+        }
+        appState.elements.sleepTimerBadge?.classList.remove('hidden');
+        appState.elements.sleepTimerBadge?.classList.add('flex');
+    }
+
+    function startActiveSleepTimer() {
+        // Clear any existing active timer and ticker
+        if (appState.variables.playerSleepTimer) {
+            appState.variables.playerSleepTimer.cancel();
+            appState.variables.playerSleepTimer = null;
+        }
+        if (appState.variables.sleepTimerIntervalId) {
+            clearInterval(appState.variables.sleepTimerIntervalId);
+            appState.variables.sleepTimerIntervalId = null;
+        }
+
+        // If sleep timer duration is set (> 0) and checkbox is enabled
+        if (appState.elements.sleepTimerCheckbox?.checked && appState.variables.sleepTimerDurationMs > 0) {
+            const duration = appState.variables.sleepTimerDurationMs;
+            appState.variables.sleepTimerTargetTime = Date.now() + duration;
+
+            appState.variables.playerSleepTimer = createSleepTimer(duration, () => {
+                stopAudioQueue();
+                showNotification("Playback stopped by sleep timer", "info");
+            });
+
+            updateSleepTimerBadge();
+            appState.variables.sleepTimerIntervalId = setInterval(() => {
+                updateSleepTimerBadge();
+            }, 1000);
+        } else {
+            appState.variables.sleepTimerTargetTime = null;
+            updateSleepTimerBadge();
+        }
+    }
+
+    function clearSleepTimer() {
+        if (appState.variables.playerSleepTimer) {
+            appState.variables.playerSleepTimer.cancel();
+            appState.variables.playerSleepTimer = null;
+        }
+        if (appState.variables.sleepTimerIntervalId) {
+            clearInterval(appState.variables.sleepTimerIntervalId);
+            appState.variables.sleepTimerIntervalId = null;
+        }
+        appState.variables.sleepTimerTargetTime = null;
+        updateSleepTimerBadge();
+    }
+
+    function openSleepTimerModal() {
+        // Populate inputs with current configured duration (or default to 30 mins)
+        if (appState.variables.sleepTimerDurationMs > 0) {
+            const totalMins = Math.round(appState.variables.sleepTimerDurationMs / (60 * 1000));
+            const hours = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            if (appState.elements.sleepHoursInput) appState.elements.sleepHoursInput.value = hours;
+            if (appState.elements.sleepMinutesInput) appState.elements.sleepMinutesInput.value = mins;
+        } else {
+            if (appState.elements.sleepHoursInput) appState.elements.sleepHoursInput.value = 0;
+            if (appState.elements.sleepMinutesInput) appState.elements.sleepMinutesInput.value = 30;
+        }
+        appState.elements.sleepTimerModal?.classList.remove('hidden');
+    }
+
+    function closeSleepTimerModal() {
+        appState.elements.sleepTimerModal?.classList.add('hidden');
+        // If modal was dismissed/cancelled without applying, ensure checkbox state reflects whether a timer is active
+        if (appState.elements.sleepTimerCheckbox) {
+            appState.elements.sleepTimerCheckbox.checked = appState.variables.sleepTimerDurationMs > 0;
+        }
+    }
+
+    if (appState.elements.sleepTimerCheckbox) {
+        appState.elements.sleepTimerCheckbox.addEventListener('click', (e) => {
+            // Keep checked state until modal resolves or sync with whether timer is already set
+            e.preventDefault();
+            openSleepTimerModal();
+        });
+    }
+
+    if (appState.elements.sleepTimerCloseBtn) {
+        appState.elements.sleepTimerCloseBtn.addEventListener('click', closeSleepTimerModal);
+    }
+
+    if (appState.elements.sleepTimerCancelBtn) {
+        appState.elements.sleepTimerCancelBtn.addEventListener('click', closeSleepTimerModal);
+    }
+
+    if (appState.elements.sleepTimerModal) {
+        appState.elements.sleepTimerModal.addEventListener('click', (e) => {
+            if (e.target === appState.elements.sleepTimerModal) {
+                closeSleepTimerModal();
+            }
+        });
+    }
+
+    // Preset chips
+    document.querySelectorAll('.sleep-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const hrs = btn.getAttribute('data-hours') || 0;
+            const mins = btn.getAttribute('data-minutes') || 0;
+            if (appState.elements.sleepHoursInput) appState.elements.sleepHoursInput.value = hrs;
+            if (appState.elements.sleepMinutesInput) appState.elements.sleepMinutesInput.value = mins;
+        });
+    });
+
+    if (appState.elements.sleepTimerApplyBtn) {
+        appState.elements.sleepTimerApplyBtn.addEventListener('click', () => {
+            const hours = parseInt(appState.elements.sleepHoursInput?.value || '0', 10) || 0;
+            const minutes = parseInt(appState.elements.sleepMinutesInput?.value || '0', 10) || 0;
+            const durationMs = (hours * 3600 + minutes * 60) * 1000;
+
+            if (durationMs <= 0) {
+                showNotification('Please enter a duration greater than 0 minutes.', 'warn');
+                return;
+            }
+
+            appState.variables.sleepTimerDurationMs = durationMs;
+            if (appState.elements.sleepTimerCheckbox) {
+                appState.elements.sleepTimerCheckbox.checked = true;
+            }
+
+            // Close modal
+            appState.elements.sleepTimerModal?.classList.add('hidden');
+
+            // If player is currently playing, start/restart active countdown immediately
+            if (appState.variables.isPlaying) {
+                startActiveSleepTimer();
+                showNotification(`Sleep timer set for ${formatTimeRemaining(durationMs)}`, 'info');
+            } else {
+                // Timer is armed for when playback starts; also show countdown badge preview
+                appState.variables.sleepTimerTargetTime = Date.now() + durationMs;
+                updateSleepTimerBadge();
+                if (appState.variables.sleepTimerIntervalId) clearInterval(appState.variables.sleepTimerIntervalId);
+                appState.variables.sleepTimerIntervalId = setInterval(() => {
+                    updateSleepTimerBadge();
+                }, 1000);
+                showNotification(`Sleep timer set for ${formatTimeRemaining(durationMs)} (starts on playback)`, 'info');
+            }
+        });
+    }
+
+    // Clicking the badge opens the sleep timer modal to adjust the timer
+    if (appState.elements.sleepTimerBadge) {
+        appState.elements.sleepTimerBadge.addEventListener('click', (e) => {
+            // If click was on the cancel 'x' button, don't open modal
+            if (e.target.closest('#sleep-timer-badge-cancel')) return;
+            openSleepTimerModal();
+        });
+    }
+
+    // Cancel timer from badge
+    if (appState.elements.sleepTimerBadgeCancel) {
+        appState.elements.sleepTimerBadgeCancel.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearSleepTimer();
+            appState.variables.sleepTimerDurationMs = 0;
+            if (appState.elements.sleepTimerCheckbox) {
+                appState.elements.sleepTimerCheckbox.checked = false;
+            }
+            showNotification('Sleep timer cancelled', 'info');
+        });
+    }
 
     // Infinite Scroll handlers
     const infiniteScrollPageCache = 4;
