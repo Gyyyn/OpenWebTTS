@@ -1020,7 +1020,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.elements.bookView.classList.add('hidden');
         
         if (appState.variables.currentUser)
-        appState.elements.mainDiv.appendChild(await renderUserPdfs(currentUser));
+        appState.elements.mainDiv.appendChild(await renderUserPdfs(appState.variables.currentUser));
         else appState.elements.mainDiv.appendChild(createFilesGrid([]));
     });
 
@@ -1592,6 +1592,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             appState.variables.currentUser = data.username;
             sessionStorage.setItem('currentUser', appState.variables.currentUser);
+            if (data.token) {
+                sessionStorage.setItem('authToken', data.token);
+            }
             await fetchOnlineUserdata(appState);
             updateCurrentUserUI(appState);
 
@@ -1603,9 +1606,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function handleLogout() {
+    async function handleLogout() {
+        try {
+            await fetch('/api/users/logout', { method: 'POST' });
+        } catch (e) {
+            console.debug('Logout error:', e);
+        }
         appState.variables.currentUser = null;
         sessionStorage.removeItem('currentUser');
+        sessionStorage.removeItem('authToken');
         appState.variables.onlineBooks = [];
         appState.variables.onlinePodcasts = [];
         renderOnlineBooks(appState);

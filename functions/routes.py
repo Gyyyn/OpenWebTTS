@@ -14,13 +14,13 @@ from pdf2image import convert_from_bytes
 from PIL import Image
 from bs4 import BeautifulSoup
 from ebooklib import epub
-from fastapi import (APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile)
+from fastapi import (APIRouter, BackgroundTasks, File, Form, HTTPException, Request, Response, UploadFile, status)
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 from langdetect import detect
 
 # Import shared objects from app.py
-from config import templates, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, KOKORO_DIR, USERS_DIR, DEVICE
+from config import templates, STATIC_DIR, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR, PIPER_DIR, KOKORO_DIR, USERS_DIR, DEVICE, SECRET_KEY
 
 # Import other function modules
 from functions.users import UserManager
@@ -564,7 +564,44 @@ async def get_cache_size():
 # -----------------------
 # --- User Management ---
 # -----------------------
-user_manager = UserManager(USERS_DIR)
+user_manager = UserManager(USERS_DIR, secret_key=SECRET_KEY)
+
+def get_current_user(request: Request) -> Optional[str]:
+    """Extract authenticated username from Bearer header, cookie, or custom header."""
+    auth_header = request.headers.get("Authorization")
+    token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = request.cookies.get("session_token")
+    if not token:
+        token = request.headers.get("X-Auth-Token")
+
+    if not token:
+        return None
+
+    username = user_manager.verify_session(token)
+    if username and user_manager.user_exists(username):
+        return username
+    return None
+
+def require_current_user(request: Request) -> str:
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Please log in."
+        )
+    return user
+
+def require_authorized_user(username: str, request: Request) -> str:
+    current_user = require_current_user(request)
+    if current_user != username:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not have permission to access or modify another user's data."
+        )
+    return current_user
 
 class UserCreate(BaseModel):
     username: str
@@ -577,12 +614,14 @@ class UserLogin(BaseModel):
 class BookData(BaseModel):
     title: str
     content: str
+    is_pdf: bool = False
 
 class PodcastGenerate(BaseModel):
     title: str
     text: str
     engine: str
     voice: str
+    lang: Optional[str] = 'en'
     api_key: Optional[str] = None
 
 class ReadWebsiteRequest(BaseModel):
@@ -591,6 +630,7 @@ class ReadWebsiteRequest(BaseModel):
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    is_pdf: Optional[bool] = None
     ocr_text: Optional[str] = None
 
 @router.post("/api/read_website", response_model=PdfText)
@@ -624,40 +664,75 @@ async def create_user_route(user: UserCreate):
     return {"message": message}
 
 @router.post("/api/users/login")
-async def login_route(user: UserLogin):
+async def login_route(user: UserLogin, response: Response):
     success, data = user_manager.authenticate_user(user.username, user.password)
     if not success:
         raise HTTPException(status_code=401, detail=data)
-    return {"message": "Login successful", "username": data["username"]}
+
+    token = user_manager.create_session(data["username"])
+    response.set_cookie(
+        key="session_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=7 * 86400,
+        path="/"
+    )
+    return {
+        "message": "Login successful",
+        "username": data["username"],
+        "token": token
+    }
+
+@router.post("/api/users/logout")
+async def logout_route(response: Response, request: Request):
+    token = request.cookies.get("session_token")
+    if token:
+        user_manager.revoke_session(token)
+    response.delete_cookie(key="session_token", path="/")
+    return {"message": "Logged out successfully"}
+
+@router.get("/api/users/me")
+async def get_me_route(request: Request):
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return {"username": user}
 
 # -----------------------------
 # --- Users Book Management ---
 # -----------------------------
 @router.get("/api/users/{username}/books")
-async def get_books_route(username: str):
+async def get_books_route(username: str, request: Request):
+    require_authorized_user(username, request)
     books = user_manager.get_books(username)
     return {"books": books}
 
 @router.post("/api/users/{username}/books")
-async def add_book_route(username: str, book: BookData):
+async def add_book_route(username: str, book: BookData, request: Request):
+    require_authorized_user(username, request)
     success, book_id = user_manager.add_book(username, book.dict())
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "Book added successfully.", "book_id": book_id}
 
 @router.get("/api/users/{username}/pdfs")
-async def get_user_pdfs_route(username: str):
+async def get_user_pdfs_route(username: str, request: Request):
+    require_authorized_user(username, request)
     pdfs = user_manager.get_pdf_books(username)
     return {"pdfs": pdfs}
 
 @router.post("/api/users/{username}/pdfs")
-async def upload_pdf_route(username: str, file: UploadFile = File(...), content: str = Form(...)):
+async def upload_pdf_route(username: str, request: Request, file: UploadFile = File(...), content: str = Form(...)):
+    require_authorized_user(username, request)
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Invalid file type. Only PDF files are supported.")
 
     pdf_content = await file.read()
     # Sanitize the content (which is the desired filename) to prevent path traversal
     sanitized_content = os.path.basename(content) # Ensures only the filename part is used
+    if not sanitized_content or sanitized_content in ('.', '..'):
+        raise HTTPException(status_code=400, detail="Invalid file name.")
     filename_with_ext = f"{sanitized_content}.pdf"
 
     try:
@@ -685,10 +760,17 @@ async def upload_pdf_route(username: str, file: UploadFile = File(...), content:
         raise HTTPException(status_code=500, detail=f"Failed to save PDF: {str(e)}")
 
 @router.get("/api/users/{username}/pdfs/{filename}")
-async def get_user_pdf(username: str, filename: str):
-    # Sanitize filename to prevent path traversal issues
+async def get_user_pdf(username: str, filename: str, request: Request):
+    require_authorized_user(username, request)
     sanitized_filename = os.path.basename(filename)
-    user_pdf_path = os.path.join(user_manager._get_user_folder(username), sanitized_filename)
+    if not sanitized_filename or sanitized_filename in ('.', '..'):
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    user_folder = os.path.abspath(user_manager._get_user_folder(username, create=False))
+    user_pdf_path = os.path.abspath(os.path.join(user_folder, sanitized_filename))
+
+    if not user_pdf_path.startswith(user_folder + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid file path.")
 
     if not os.path.exists(user_pdf_path):
         raise HTTPException(status_code=404, detail="PDF not found.")
@@ -699,12 +781,14 @@ async def get_user_pdf(username: str, filename: str):
 # --- Users Podcast Management ---
 # --------------------------------
 @router.get("/api/users/{username}/podcasts")
-async def get_podcasts_route(username: str):
+async def get_podcasts_route(username: str, request: Request):
+    require_authorized_user(username, request)
     podcasts = user_manager.get_podcasts(username)
     return {"podcasts": podcasts}
 
 @router.delete("/api/users/{username}/books/{book_id}")
-async def delete_book_route(username: str, book_id: str):
+async def delete_book_route(username: str, book_id: str, request: Request):
+    require_authorized_user(username, request)
     # When deleting a book, check if it's a PDF and remove the file from the server
     user_data = user_manager.get_user_data(username)
     if user_data and book_id in user_data.get('books', {}):
@@ -713,9 +797,10 @@ async def delete_book_route(username: str, book_id: str):
             # Extract filename from the URL to construct the absolute path
             pdf_url = book_to_delete['content']
             filename = os.path.basename(pdf_url)
-            pdf_absolute_path = os.path.join(user_manager._get_user_folder(username), filename)
+            user_folder = os.path.abspath(user_manager._get_user_folder(username, create=False))
+            pdf_absolute_path = os.path.abspath(os.path.join(user_folder, filename))
             
-            if os.path.exists(pdf_absolute_path):
+            if pdf_absolute_path.startswith(user_folder + os.sep) and os.path.exists(pdf_absolute_path):
                 os.unlink(pdf_absolute_path) # Delete the actual PDF file
                 print(f"Deleted PDF file: {pdf_absolute_path}")
 
@@ -725,14 +810,16 @@ async def delete_book_route(username: str, book_id: str):
     return {"message": "Book deleted successfully."}
 
 @router.delete("/api/users/{username}/podcasts/{podcast_id}")
-async def delete_podcast_route(username: str, podcast_id: str):
+async def delete_podcast_route(username: str, podcast_id: str, request: Request):
+    require_authorized_user(username, request)
     success = user_manager.delete_podcast(username, podcast_id)
     if not success:
         raise HTTPException(status_code=404, detail="Podcast not found or user does not exist.")
     return {"message": "Podcast deleted successfully."}
 
 @router.patch("/api/users/{username}/books/{book_id}")
-async def edit_book_route(username: str, book_id: str, book_update: BookUpdate):
+async def edit_book_route(username: str, book_id: str, book_update: BookUpdate, request: Request):
+    require_authorized_user(username, request)
     update_data = book_update.dict(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No update data provided.")
@@ -751,7 +838,8 @@ async def _generate_and_update_podcast_audio(username: str, podcast_id: str, req
 
 # TODO: Currently, this function freezes the app until the audio gen is done lol
 @router.post("/api/users/{username}/podcast")
-async def generate_podcast_route(username: str, podcast: PodcastGenerate, background_tasks: BackgroundTasks):
+async def generate_podcast_route(username: str, podcast: PodcastGenerate, background_tasks: BackgroundTasks, request: Request):
+    require_authorized_user(username, request)
     if not podcast.text.strip():
         raise HTTPException(status_code=400, detail="Podcast text cannot be empty.")
 
@@ -759,6 +847,7 @@ async def generate_podcast_route(username: str, podcast: PodcastGenerate, backgr
     synthesize_request = SynthesizeRequest(
         engine=podcast.engine,
         voice=podcast.voice,
+        lang=podcast.lang or 'en',
         text=podcast.text,
         api_key=podcast.api_key
     )
@@ -793,7 +882,7 @@ async def generate_podcast_route(username: str, podcast: PodcastGenerate, backgr
 @router.get("/api/noise_files")
 async def get_noise_files():
     """Get all noise audio files from /static/audio/noise"""
-    noise_dir = os.path.join("static", "audio", "noise")
+    noise_dir = os.path.join(config.STATIC_DIR, "audio", "noise")
     if not os.path.exists(noise_dir):
         return JSONResponse(content={"files": []})
     

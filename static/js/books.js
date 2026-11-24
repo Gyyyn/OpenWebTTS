@@ -15,11 +15,23 @@ export async function fetchOnlineUserdata(appState) {
 
     try {
         const response = await fetch(`/api/users/${appState.variables.currentUser}/books`);
-        if (!response.ok) throw new Error('Failed to fetch online books.');
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                appState.variables.currentUser = null;
+                sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('authToken');
+                return;
+            }
+            throw new Error('Failed to fetch online books.');
+        }
         const data = await response.json();
         appState.variables.onlineBooks = data.books || [];
     } catch (error) {
-        showNotification(error.message, 'error');
+        if (typeof showNotification === 'function') {
+            showNotification(error.message, 'error');
+        } else if (appState.functions?.showNotification) {
+            appState.functions.showNotification(error.message, 'error');
+        }
     }
 }
 

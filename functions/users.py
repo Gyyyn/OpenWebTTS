@@ -1,41 +1,82 @@
+import base64
 import hashlib
+import hmac
 import json
 import os
+import re
+import secrets
+import time
 import uuid
+from typing import Dict, Optional, Tuple
 from bcrypt import hashpw, gensalt, checkpw
 
 class UserManager:
-    def __init__(self, users_dir):
+    def __init__(self, users_dir: str, secret_key: Optional[str] = None):
         self.users_dir = users_dir
+        self.secret_key = secret_key or "default-openwebtts-secret-key"
+        self._revoked_tokens = set()
         os.makedirs(users_dir, exist_ok=True)
 
-    def _get_user_file_path(self, username):
-        # Hash the username to create a directory for the user's files
+    def _get_user_folder(self, username: str, create: bool = False) -> str:
         user_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
         user_folder = os.path.join(self.users_dir, user_hash)
-        os.makedirs(user_folder, exist_ok=True)
+        if create:
+            os.makedirs(user_folder, exist_ok=True)
+        return user_folder
+
+    def _get_user_file_path(self, username: str, create: bool = False) -> str:
+        user_folder = self._get_user_folder(username, create=create)
         return os.path.join(user_folder, "user_data.json")
 
-    def _get_user_folder(self, username):
-        user_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
-        return os.path.join(self.users_dir, user_hash)
+    def user_exists(self, username: str) -> bool:
+        if not username or not isinstance(username, str):
+            return False
+        user_file = self._get_user_file_path(username, create=False)
+        return os.path.exists(user_file)
 
-    def save_pdf_to_user_folder(self, username: str, filename: str, pdf_content: bytes):
-        user_folder = self._get_user_folder(username)
-        # Sanitize filename to prevent path traversal issues
+    def validate_username(self, username: str) -> Tuple[bool, str]:
+        if not username or not isinstance(username, str):
+            return False, "Username cannot be empty."
+        username = username.strip()
+        if len(username) < 1 or len(username) > 64:
+            return False, "Username must be between 1 and 64 characters."
+        if not re.match(r'^[a-zA-Z0-9_\-\.@+]+$', username):
+            return False, "Username contains invalid characters."
+        return True, ""
+
+    def save_pdf_to_user_folder(self, username: str, filename: str, pdf_content: bytes) -> str:
+        if not self.user_exists(username):
+            raise ValueError("User not found.")
+
+        user_folder = os.path.abspath(self._get_user_folder(username, create=True))
         sanitized_filename = os.path.basename(filename)
-        pdf_path = os.path.join(user_folder, sanitized_filename)
-        
+        if not sanitized_filename or sanitized_filename in ('.', '..'):
+            raise ValueError("Invalid filename.")
+
+        pdf_path = os.path.abspath(os.path.join(user_folder, sanitized_filename))
+        if not pdf_path.startswith(user_folder + os.sep):
+            raise ValueError("Path traversal detected.")
+
         with open(pdf_path, "wb") as f:
             f.write(pdf_content)
 
         return pdf_path
 
-    def create_user(self, username, password):
-        user_file = self._get_user_file_path(username)
+    def create_user(self, username: str, password: str) -> Tuple[bool, str]:
+        is_valid, err_msg = self.validate_username(username)
+        if not is_valid:
+            return False, err_msg
+
+        username = username.strip()
+        if not password or len(password) < 1:
+            return False, "Password cannot be empty."
+
+        user_file = self._get_user_file_path(username, create=False)
         if os.path.exists(user_file):
             return False, "Username already exists."
 
+        # Only create directory when user actually doesn't exist yet
+        user_file = self._get_user_file_path(username, create=True)
         hashed_password = hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')
         user_data = {
             "username": username,
@@ -47,25 +88,34 @@ class UserManager:
             json.dump(user_data, f, indent=4)
         return True, "User created successfully."
 
-    def authenticate_user(self, username, password):
-        user_file = self._get_user_file_path(username)
+    def authenticate_user(self, username: str, password: str) -> Tuple[bool, any]:
+        if not username or not isinstance(username, str) or not password:
+            return False, "Invalid username or password."
+
+        username = username.strip()
+        user_file = self._get_user_file_path(username, create=False)
         if not os.path.exists(user_file):
             return False, "Invalid username or password."
 
-        with open(user_file, 'r', encoding='utf-8') as f:
-            user_data = json.load(f)
+        try:
+            with open(user_file, 'r', encoding='utf-8') as f:
+                user_data = json.load(f)
 
-        if checkpw(password.encode('utf-8'), user_data['password'].encode('utf-8')):
-            return True, user_data
-        else:
+            if checkpw(password.encode('utf-8'), user_data['password'].encode('utf-8')):
+                return True, user_data
+            else:
+                return False, "Invalid username or password."
+        except Exception:
             return False, "Invalid username or password."
 
-    def get_user_data(self, username):
-        user_file = self._get_user_file_path(username)
+    def get_user_data(self, username: str) -> Optional[dict]:
+        if not username:
+            return None
+        user_file = self._get_user_file_path(username, create=False)
         if os.path.exists(user_file):
             with open(user_file, 'r', encoding='utf-8') as f:
                 user_data = json.load(f)
-            
+
             # Migration: Convert books from list to dict if necessary.
             if isinstance(user_data.get('books'), list):
                 print(f"Migrating books to new format for user: {username}")
@@ -76,37 +126,35 @@ class UserManager:
             return user_data
         return None
 
-    def save_user_data(self, username, data):
-        user_file = self._get_user_file_path(username)
+    def save_user_data(self, username: str, data: dict):
+        user_file = self._get_user_file_path(username, create=True)
         with open(user_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4)
 
-    def add_book(self, username, book_data):
-        user_data = self.get_user_data(username) # This ensures data is migrated and correct.
+    def add_book(self, username: str, book_data: dict) -> Tuple[bool, Optional[str]]:
+        user_data = self.get_user_data(username)
         if user_data:
             book_id = str(uuid.uuid4())
-            # 'books' is guaranteed to be a dict here by get_user_data
             user_data.setdefault('books', {})[book_id] = book_data
             self.save_user_data(username, user_data)
             return True, book_id
         return False, None
 
-    def get_books(self, username):
-        user_data = self.get_user_data(username) # This ensures data is migrated and correct.
+    def get_books(self, username: str) -> list:
+        user_data = self.get_user_data(username)
         if user_data:
             books_data = user_data.get('books', {})
-            # 'books' is guaranteed to be a dict here.
             return [{**book_data, 'id': book_id} for book_id, book_data in books_data.items()]
         return []
 
-    def get_podcasts(self, username):
+    def get_podcasts(self, username: str) -> list:
         user_data = self.get_user_data(username)
         if user_data:
             podcasts_data = user_data.get('podcasts', {})
             return [{**podcast_data, 'id': podcast_id} for podcast_id, podcast_data in podcasts_data.items()]
         return []
 
-    def get_pdf_books(self, username):
+    def get_pdf_books(self, username: str) -> list:
         user_data = self.get_user_data(username)
         if user_data:
             books_data = user_data.get('books', {})
@@ -117,7 +165,7 @@ class UserManager:
             return pdf_books
         return []
 
-    def delete_book(self, username, book_id):
+    def delete_book(self, username: str, book_id: str) -> bool:
         user_data = self.get_user_data(username)
         if user_data and book_id in user_data.get('books', {}):
             del user_data['books'][book_id]
@@ -125,7 +173,7 @@ class UserManager:
             return True
         return False
 
-    def edit_book(self, username, book_id, new_data):
+    def edit_book(self, username: str, book_id: str, new_data: dict) -> bool:
         user_data = self.get_user_data(username)
         if user_data and book_id in user_data.get('books', {}):
             user_data['books'][book_id].update(new_data)
@@ -133,18 +181,15 @@ class UserManager:
             return True
         return False
 
-    def delete_podcast(self, username, podcast_id):
+    def delete_podcast(self, username: str, podcast_id: str) -> bool:
         user_data = self.get_user_data(username)
         if user_data and podcast_id in user_data.get('podcasts', {}):
-            # Optional: Delete the audio file from cache as well
-            # This requires knowing the audio_url and extracting the filename
-            # For now, we only remove the entry from the user's JSON.
             del user_data['podcasts'][podcast_id]
             self.save_user_data(username, user_data)
             return True
         return False
 
-    def add_podcast(self, username, podcast_data):
+    def add_podcast(self, username: str, podcast_data: dict) -> Tuple[bool, Optional[str]]:
         user_data = self.get_user_data(username)
         if user_data:
             podcast_id = str(uuid.uuid4())
@@ -153,10 +198,53 @@ class UserManager:
             return True, podcast_id
         return False, None
 
-    def update_podcast(self, username, podcast_id, new_data):
+    def update_podcast(self, username: str, podcast_id: str, new_data: dict) -> bool:
         user_data = self.get_user_data(username)
         if user_data and podcast_id in user_data.get('podcasts', {}):
             user_data['podcasts'][podcast_id].update(new_data)
             self.save_user_data(username, user_data)
+            return True
+        return False
+
+    def create_session(self, username: str, expires_in_seconds: int = 7 * 86400) -> str:
+        issued_at = int(time.time())
+        expires_at = issued_at + expires_in_seconds
+        nonce = secrets.token_hex(8)
+        payload_data = f"{username}:{issued_at}:{expires_at}:{nonce}"
+        signature = hmac.new(
+            self.secret_key.encode('utf-8'),
+            payload_data.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        raw = f"{payload_data}:{signature}"
+        return base64.urlsafe_b64encode(raw.encode('utf-8')).decode('utf-8')
+
+    def verify_session(self, token: str) -> Optional[str]:
+        if not token or token in self._revoked_tokens:
+            return None
+        try:
+            raw = base64.urlsafe_b64decode(token.encode('utf-8')).decode('utf-8')
+            parts = raw.split(":")
+            if len(parts) != 5:
+                return None
+            username, issued_at_str, expires_at_str, nonce, signature = parts
+            expires_at = int(expires_at_str)
+            if time.time() > expires_at:
+                return None
+            payload_data = f"{username}:{issued_at_str}:{expires_at_str}:{nonce}"
+            expected_sig = hmac.new(
+                self.secret_key.encode('utf-8'),
+                payload_data.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(signature, expected_sig):
+                return None
+            return username
+        except Exception:
+            return None
+
+    def revoke_session(self, token: str) -> bool:
+        if token:
+            self._revoked_tokens.add(token)
             return True
         return False
