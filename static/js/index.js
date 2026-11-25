@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!book) return;
 
         // Remove active bg from library.
-        appState.elements.libraryBtn.classList.remove('bg-indigo-100');
+        appState.elements.libraryBtn.classList.remove('bg-indigo-100', 'dark:bg-indigo-900', 'dark:bg-opacity-30');
 
         loadBookContent(book);
         appState.elements.openFilePickerBtn.classList.add('hidden');
@@ -1029,6 +1029,10 @@ document.addEventListener('DOMContentLoaded', () => {
     appState.elements.libraryBtn.addEventListener('click', async () => {
         // First reset the book view.
         setActiveBook(null);
+        // Remove existing library if present
+        const existingLibrary = document.getElementById('library-file-grid');
+        if (existingLibrary) existingLibrary.remove();
+
         appState.elements.libraryBtn.classList.add('bg-indigo-100', 'dark:bg-indigo-900', 'dark:bg-opacity-30');
         appState.elements.bookView.classList.add('hidden');
         
@@ -1615,6 +1619,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Login successful!', 'success');
 
         } catch (error) {
+            console.log(error);            
             showNotification(error.message, 'error');
         }
     }

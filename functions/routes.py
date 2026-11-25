@@ -1,14 +1,16 @@
 import os
 import hashlib
+import json
 import shutil
 import tempfile
+import time
 from io import BytesIO
 from typing import List, Dict, Optional
 import ebooklib
 import fitz
 import docx
 import requests
-import whisper
+#import whisper
 import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
@@ -50,6 +52,10 @@ def lazy_import_kitten():
 def lazy_import_chatterbox():
     from functions.chatterbox import chatterbox_process_audio
     return chatterbox_process_audio
+
+def lazy_import_phonon():
+    from functions.phonon import phonon_process_audio
+    return phonon_process_audio
 
 router = APIRouter()
 
@@ -119,7 +125,7 @@ def get_coqui_voices() -> List[Voice]:
     for file_name in os.listdir(COQUI_DIR):
         if file_name.endswith(".wav"):
             voice_id = file_name.replace(".wav", "")
-            voices.append(Voice(id=voice_id, name=f"Coqui: {voice_id}"))
+            voices.append(Voice(id=voice_id, name=f"{voice_id}"))
     return voices
 
 # Piper's models are just .onnx files.
@@ -130,7 +136,7 @@ def get_piper_voices() -> List[Voice]:
     for file_name in os.listdir(PIPER_DIR):
         if file_name.endswith(".onnx"):
             voice_id = file_name.replace(".onnx", "")
-            voices.append(Voice(id=voice_id, name=f"Piper: {voice_id}"))
+            voices.append(Voice(id=voice_id, name=f"{voice_id}"))
     return voices
 
 # Kokoro uses .pt for models files
@@ -141,7 +147,7 @@ def get_kokoro_voices() -> List[Voice]:
     for file_name in os.listdir(KOKORO_DIR):
         if file_name.endswith(".pt"):
             voice_id = file_name.replace(".pt", "")
-            voices.append(Voice(id=voice_id, name=f"Kokoro: {voice_id}"))
+            voices.append(Voice(id=voice_id, name=f"{voice_id}"))
     return voices
 
 # Kitten doesn't need model files. And currently
@@ -160,9 +166,51 @@ def get_kitten_voices() -> List[Voice]:
     ]
 
     for voice in voices:
-        output.append(Voice(id=voice, name=f"Kitten: {voice}"))
+        output.append(Voice(id=voice, name=f"{voice}"))
 
     return output
+
+# Get from HuggingFace.
+def get_phonon_voices() -> List[Voice]:
+    voices = []
+    cache_dir = os.path.join(tempfile.gettempdir(), "openwebtts_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, "phonon_voices.jsonl")
+    one_day_seconds = 86400
+
+    url = "https://huggingface.co/gradium/phonon-voices/raw/main/voices.jsonl"
+
+    need_download = True
+    if os.path.exists(cache_file):
+        file_age = time.time() - os.path.getmtime(cache_file)
+        if file_age < one_day_seconds:
+            need_download = False
+
+    if need_download:
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    f.write(response.text)
+        except Exception as e:
+            print(f"Error fetching phonon voices from Hugging Face: {e}")
+
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    name = data.get("name")
+                    lang = data.get("language")
+                    if name:
+                        voices.append(Voice(id=name, name=f"{lang} - {name}"))
+        except Exception as e:
+            print(f"Error reading cached phonon voices: {e}")
+
+    return voices
 
 # "Gemini Voice", or Google Cloud Text-To-Speech requires a service account 
 # JSON file, or the enviroment variable to authenticate with Google Cloud.
@@ -184,7 +232,7 @@ def get_gemini_voices(api_key: str) -> List[Voice]:
     for voice in voices:
         # Also adding the language code to the name for better user experience
         lang_code = voice.language_codes[0] if voice.language_codes else 'unknown'
-        output.append(Voice(id=voice.name, name=f"Gemini: {voice.name} ({lang_code})"))
+        output.append(Voice(id=voice.name, name=f"{voice.name} ({lang_code})"))
 
     if not voices:
          print("---")
@@ -258,6 +306,13 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
         elif request.engine == "kitten":
             kitten_process_audio = lazy_import_kitten()
             kitten_process_audio(request.voice, False, request.text, output_path)
+
+        # ---
+        # Process audio with Kitten
+        # ---
+        elif request.engine == "phonon":
+            phonon_process_audio = lazy_import_phonon()
+            phonon_process_audio(request.voice, request.lang, request.text, output_path)
         # ---
         # Or fail.
         # ---
@@ -373,6 +428,8 @@ async def list_voices(engine: str, api_key: Optional[str] = None):
         return get_kokoro_voices()
     elif engine == "kitten":
         return get_kitten_voices()
+    elif engine == "phonon":
+        return get_phonon_voices()
     elif engine == "gemini":
         return get_gemini_voices(api_key=api_key)
     else:
