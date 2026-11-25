@@ -61,7 +61,7 @@ export function renderNotifications(appState) {
 
 
     const liList = notifications.map(item => `
-    <li class="p-4 hover:bg-gray-50">
+    <li class=" py-1 hover:bg-gray-50 overflow-hidden">
         <div class="text-sm text-gray-800">${item.message}</div>
         <div class="mt-1 text-xs text-gray-500">${appState.functions.readableUnixTime(item.time)}</div>
     </li>
@@ -87,7 +87,7 @@ export function updateCurrentUserUI(appState) {
     appState.functions.renderLocalBooks(appState);
     
     if (!appState.variables.currentUser) {
-        appState.elements.currentUserDisplay.textContent = 'Guest';
+        appState.elements.currentUserDisplay.textContent = 'Account';
         appState.elements.logoutBtn.classList.add('hidden');
         return;
     }

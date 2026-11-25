@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loginPasswordInput: document.getElementById('login-password-input'),
             loginActionBtn: document.getElementById('login-modal-action-btn'),
             createAccountBtn: document.getElementById('create-account-btn'),
-            currentUserDisplay: document.getElementById('current-user'),
+            currentUserDisplay: document.getElementById('account-switcher-label'),
             saveBookBtn: document.getElementById('save-book-btn'),
             logoutBtn: document.getElementById('logout-btn'),
             themeToggle: document.getElementById('dropdown-theme-toggle'),
@@ -1809,10 +1809,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Toggle account switcher dropdown
     appState.elements.accountSwitcherBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const active = appState.elements.accountSwitcherMenu.classList.toggle('hidden');
+        const isHidden = appState.elements.accountSwitcherMenu.classList.toggle('hidden');
+        if (isHidden) {
+            appState.elements.notificationDropdown.classList.add('hidden');
+        }
         
         // Animate dropdown
-        if (!active) {
+        if (!isHidden) {
             appState.elements.accountSwitcherMenu.style.opacity = '0';
             appState.elements.accountSwitcherMenu.style.transform = 'translateY(10px)';
             setTimeout(() => {
@@ -1825,10 +1828,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
         appState.elements.accountSwitcherMenu.classList.add('hidden');
+        appState.elements.notificationDropdown.classList.add('hidden');
     });
     
     // Prevent dropdown from closing when clicking inside it
     appState.elements.accountSwitcherMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    appState.elements.notificationDropdown.addEventListener('click', (e) => {
         e.stopPropagation();
     });
     
@@ -1837,6 +1845,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') {
             e.preventDefault();
             appState.elements.accountSwitcherMenu.classList.add('hidden');
+            appState.elements.notificationDropdown.classList.add('hidden');
             appState.elements.accountSwitcherBtn.focus();
         }
     });
@@ -1936,10 +1945,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    function positionNotificationDropdown() {
+        const menuRect = appState.elements.accountSwitcherMenu.getBoundingClientRect();
+        const dropdown = appState.elements.notificationDropdown;
+        if (window.innerWidth >= 768) {
+            dropdown.style.left = `${menuRect.right + 8}px`;
+            dropdown.style.bottom = `${window.innerHeight - menuRect.bottom}px`;
+        } else {
+            dropdown.style.left = `${menuRect.left}px`;
+            dropdown.style.bottom = `${window.innerHeight - menuRect.top + 8}px`;
+        }
+    }
+
     appState.elements.currentUserButton.addEventListener('click', (e) => {
         e.preventDefault();
-        renderNotifications(appState);  
-        appState.elements.notificationDropdown.classList.remove('hidden');
+        e.stopPropagation();
+        const dropdown = appState.elements.notificationDropdown;
+        const isHidden = dropdown.classList.contains('hidden');
+        if (isHidden) {
+            renderNotifications(appState);
+            dropdown.classList.remove('hidden');
+            positionNotificationDropdown();
+        } else {
+            dropdown.classList.add('hidden');
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (!appState.elements.notificationDropdown.classList.contains('hidden')) {
+            positionNotificationDropdown();
+        }
     });
     
     // Theme toggle functionality

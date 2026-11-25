@@ -78,18 +78,30 @@
                 <!-- Account Switcher -->
                 <div class="relative w-full">
                     <button id="account-switcher-btn" class="w-full justify-between flex items-center p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition-colors focus:outline-none">
-                        <div class="flex flex-row items-center justify-start">
-                            <i class="fas fa-user-circle me-2 text-lg"></i>
-                            <span class="text-sm font-bold">Account</span>
+                        <div class="flex flex-row items-center justify-start min-w-0">
+                            <i class="fas fa-user-circle me-2 text-lg shrink-0"></i>
+                            <span id="account-switcher-label" class="text-sm font-bold truncate">Account</span>
                         </div>
-                        <i class="fas fa-chevron-up ms-2 text-xs"></i>
+                        <i class="fas fa-chevron-up ms-2 text-xs shrink-0"></i>
                     </button>
                     
                     <div id="account-switcher-menu" class="absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 bottom-full mb-2 rounded-lg shadow-lg w-56 z-10 hidden">
-                        <div id="current-user-button" class="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                            <div class="text-sm font-medium dark:text-gray-200" id="current-user">Guest</div>
-                        </div>
                         <div class="p-2">
+                            <a href="/terms" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm text-left dark:text-gray-200">Terms of Service</a>
+                            <a href="/privacy" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm text-left dark:text-gray-200">Privacy Policy</a>
+                            <hr class="my-2 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
+                            <div class="flex items-center justify-between w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
+                                <span class="text-sm font-medium dark:text-gray-200">Dark Mode</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="dropdown-theme-toggle" class="sr-only peer">
+                                    <div class="w-10 h-5 bg-gray-400 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
+                                    <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                                </label>
+                            </div>
+                            <button type="button" id="current-user-button" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
+                                <i class="fas fa-bell me-3 text-lg"></i>
+                                <span class="font-medium dark:text-gray-200">Notifications</span>
+                            </button>
                             <a href="#" id="add-account-btn" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
                                 <i class="fas fa-user-plus me-3 text-lg"></i>
                                 <div>
@@ -102,19 +114,6 @@
                                     <div class="font-medium dark:text-gray-200">Logout</div>
                                 </div>
                             </a>
-                            <hr class="my-2 w-[50%] mx-auto border-indigo-200 dark:border-gray-700" />
-                            <div>
-                                <div class="flex items-center justify-between w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
-                                    <span class="text-sm font-medium dark:text-gray-200">Dark Mode</span>
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="dropdown-theme-toggle" class="sr-only peer">
-                                        <div class="w-10 h-5 bg-gray-400 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
-                                        <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
-                                    </label>
-                                </div>
-                                <a href="/terms" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm text-left dark:text-gray-200">Terms of Service</a>
-                                <a href="/privacy" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm text-left dark:text-gray-200">Privacy Policy</a>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -123,12 +122,12 @@
     </div>
 
     <!-- Dropdown container -->
-    <div id="notification-dropdown" class="absolute left-0 bottom-2 md:ml-[260px] mb-2 p-6 bg-white shadow-lg rounded-md z-50 hidden">
-        <div class="p-4 border-b border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-700">Notifications</h3>
+    <div id="notification-dropdown" class="fixed w-56 md:w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg z-50 hidden">
+        <div class="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Notifications</h3>
         </div>
-        <ul id="notification-list" class="max-h-60 overflow-y-auto divide-y divide-gray-100">
-            <li>No new notifications</li>
+        <ul id="notification-list" class="max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 p-2 text-sm text-gray-600 dark:text-gray-300">
+            <li class="p-2">No new notifications</li>
         </ul>
     </div>
 

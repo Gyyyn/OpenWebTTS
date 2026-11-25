@@ -16,15 +16,31 @@
         .form-radio:focus, .form-checkbox:focus, select:focus, input:focus {
             --tw-ring-color: #4f46e5;
         }
+        .sticky-header-fade {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            padding-bottom: 2rem;
+            background: linear-gradient(to bottom, #f9fafb 60%, rgba(249, 250, 251, 0) 100%);
+        }
+        .sticky-header-fade > * {
+            pointer-events: auto;
+        }
+        .dark .sticky-header-fade {
+            background: linear-gradient(to bottom, #111827 60%, rgba(17, 24, 39, 0) 100%);
+        }
+        body.dark\:bg-black .sticky-header-fade {
+            background: linear-gradient(to bottom, #000000 60%, rgba(0, 0, 0, 0) 100%);
+        }
     </style>
 </head>
 
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
-    <div class="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+    <div class="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8" style="padding-top: 0;">
         
         <!-- Header -->
-        <header class="flex items-center justify-between mb-8">
+        <header class="sticky-header-fade flex items-center justify-between pt-4 mb-2 pointer-events-none">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Configuration</h1>
             <a id="back" href="/" class="inline-flex items-center gap-2 rounded-lg bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <i class="fas fa-arrow-left text-lg"></i>
