@@ -2,6 +2,9 @@ import {
     showBookModal,
     hideBookModal
 } from "./UI.js";
+import {
+    attachContentPreview
+} from "./preview.js";
 
 /**
  * Populates userdata on the appState object.
@@ -110,6 +113,47 @@ export function createBookListItem(appState, book, source) {
     actionsDiv.appendChild(deleteBtn);
     li.appendChild(containerSpan);
     li.appendChild(actionsDiv);
+
+    // Attach content preview on hover
+    attachContentPreview(li, () => {
+        let textContent = '';
+        let isPdf = Boolean(book.is_pdf);
+        const charsPerPage = appState.variables.charsPerPage || 1000;
+
+        if (source === 'local') {
+            const localData = appState.variables.localBooks?.[book.id];
+            if (localData) {
+                textContent = localData.text || '';
+                if (localData.pdfId) isPdf = true;
+            }
+        } else {
+            textContent = (typeof book.content === 'string' && !book.is_pdf) ? book.content : '';
+        }
+
+        // Clean snippet
+        const snippet = textContent ? textContent.replace(/\s+/g, ' ').trim().slice(0, 220) : '';
+
+        // Reading progress calculation
+        let progress = '';
+        const savedPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;
+        if (textContent.length > 0) {
+            const totalPages = Math.max(1, Math.ceil(textContent.length / charsPerPage));
+            progress = `Page ${savedPage} of ${totalPages} (${Math.round((savedPage / totalPages) * 100)}%)`;
+        } else if (isPdf) {
+            progress = 'PDF Document';
+        }
+
+        return {
+            title: book.title,
+            isPdf: isPdf,
+            badge: isPdf ? 'PDF' : (source === 'local' ? 'Local' : 'Online'),
+            iconHtml: isPdf ? '<i class="fas fa-file-pdf"></i>' : '<i class="fas fa-book"></i>',
+            progress: progress,
+            details: source === 'local' ? 'Saved locally' : 'Cloud sync',
+            snippet: snippet || (isPdf ? 'PDF Document.' : 'Empty document.')
+        };
+    });
+
     return li;
 }
 
@@ -212,6 +256,18 @@ export function renderOnlinePodcasts(appState) {
             actionsDiv.appendChild(deleteBtn);
             mainContentDiv.appendChild(actionsDiv);
             li.appendChild(mainContentDiv);
+
+            // Attach preview for podcast
+            attachContentPreview(li, () => {
+                return {
+                    title: podcast.title,
+                    badge: podcast.status || 'Podcast',
+                    iconHtml: '<i class="fas fa-microphone"></i>',
+                    details: `Status: ${podcast.status || 'unknown'}`,
+                    progress: podcast.audio_url ? 'Audio ready' : 'Processing audio',
+                    snippet: podcast.description || podcast.title || 'Generated podcast audio episode.'
+                };
+            });
 
             // Collapsible Audio Player
             const audioPlayerContainer = document.createElement('div');

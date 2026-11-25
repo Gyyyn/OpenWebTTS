@@ -11,7 +11,7 @@
         "build-css": "npx @tailwindcss/cli -i ./static/css/pre.css -o ./static/css/style.css",
         "build-pdf-js": "cp node_modules/pdfjs-dist/build/pdf.min.mjs static/js/; cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs static/js/",
         "build-marked": "cp node_modules/marked/lib/marked.umd.js static/js/",
-        "build-icons": "rm -rf static/icons; cp -r node_modules/@fortawesome/fontawesome-free static/icons/",
+        "build-icons": "rm -rf static/icons/*; cp -r node_modules/@fortawesome/fontawesome-free static/icons/",
         "build": "concurrently \"npm run build-pdf-js\" \"npm run build-marked\" \"npm run build-icons\" \"npm run build-css\""
     }
 }

@@ -1,40 +1,48 @@
+import { attachContentPreview } from './preview.js';
+
 // Suggested famous books from Project Gutenberg to teach users about file importing
 const GUTENBERG_SUGGESTIONS = [
     {
         title: 'Pride and Prejudice',
         author: 'Jane Austen',
         format: 'EPUB',
-        downloadUrl: 'https://www.gutenberg.org/ebooks/1342.epub3.images'
+        downloadUrl: 'https://www.gutenberg.org/ebooks/1342.epub3.images',
+        description: 'A romantic novel following the turbulent relationship between Elizabeth Bennet and Fitzwilliam Darcy.'
     },
     {
         title: 'Frankenstein',
         author: 'Mary Shelley',
         format: 'EPUB',
-        downloadUrl: 'https://www.gutenberg.org/ebooks/84.epub3.images'
+        downloadUrl: 'https://www.gutenberg.org/ebooks/84.epub3.images',
+        description: 'The story of Victor Frankenstein, a young scientist who creates a sapient creature in an unorthodox scientific experiment.'
     },
     {
         title: "Alice's Adventures in Wonderland",
         author: 'Lewis Carroll',
         format: 'EPUB',
-        downloadUrl: 'https://www.gutenberg.org/ebooks/11.epub3.images'
+        downloadUrl: 'https://www.gutenberg.org/ebooks/11.epub3.images',
+        description: 'A young girl named Alice falls through a rabbit hole into a fantasy world of anthropomorphic creatures.'
     },
     {
         title: 'The Great Gatsby',
         author: 'F. Scott Fitzgerald',
         format: 'EPUB',
-        downloadUrl: 'https://www.gutenberg.org/ebooks/64317.epub3.images'
+        downloadUrl: 'https://www.gutenberg.org/ebooks/64317.epub3.images',
+        description: 'The tragic story of Jay Gatsby, a self-made millionaire, and his pursuit of Daisy Buchanan in 1920s America.'
     },
     {
         title: 'The Adventures of Sherlock Holmes',
         author: 'Arthur Conan Doyle',
         format: 'EPUB',
-        downloadUrl: 'https://www.gutenberg.org/ebooks/1661.epub3.images'
+        downloadUrl: 'https://www.gutenberg.org/ebooks/1661.epub3.images',
+        description: 'A collection of twelve short stories featuring Sherlock Holmes and Dr. Watson solving complex Victorian mysteries.'
     },
     {
         title: 'Dracula',
         author: 'Bram Stoker',
         format: 'EPUB',
-        downloadUrl: 'https://www.gutenberg.org/ebooks/345.epub3.images'
+        downloadUrl: 'https://www.gutenberg.org/ebooks/345.epub3.images',
+        description: 'The classic Gothic horror novel of Count Dracula’s attempt to move from Transylvania to England.'
     }
 ];
 
@@ -120,6 +128,18 @@ export function createFileGrid(items, options = {}) {
             card.appendChild(openBtn);
         }
 
+        // Attach content preview on card hover
+        attachContentPreview(card, () => {
+            return {
+                title: item.title ?? item.name ?? 'File',
+                badge: item.format || (item.type ? item.type.split('/').pop().toUpperCase() : 'FILE'),
+                iconHtml: item.iconHtml || getFileIconHtml(item.type),
+                details: item.subtitle ?? item.author ?? '',
+                progress: item.downloadUrl ? 'Ready to download' : 'Uploaded document',
+                snippet: item.description || item.snippet || `Click to download or open "${item.title ?? item.name}". Import into OpenWebTTS to read and synthesize speech.`
+            };
+        });
+
         grid.appendChild(card);
     });
 
@@ -156,7 +176,8 @@ function createGutenbergSection() {
         subtitle: book.author,
         type: 'book',
         format: book.format,
-        downloadUrl: book.downloadUrl
+        downloadUrl: book.downloadUrl,
+        description: book.description
     }));
 
     section.appendChild(
