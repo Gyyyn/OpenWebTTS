@@ -472,6 +472,17 @@ os.makedirs(OCR_CACHE_DIR, exist_ok=True)
 def _perform_ocr(pdf_bytes: bytes, task_id: str):
     """Background task to perform OCR and save the result."""
     try:
+        missing = []
+        if not shutil.which("pdftoppm"):
+            missing.append("poppler (pdftoppm)")
+        if not shutil.which("tesseract"):
+            missing.append("tesseract-ocr")
+        if missing:
+            raise RuntimeError(
+                f"OCR requires {', '.join(missing)} to be installed and on PATH. "
+                "See BUILD.md for installation instructions."
+            )
+
         images = convert_from_bytes(pdf_bytes)
         ocr_text = ""
         for image in images:

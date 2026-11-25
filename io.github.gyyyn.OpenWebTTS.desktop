@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=OpenWebTTS
+Comment=Local Text-to-Speech Web UI and Document Reader
+Exec=OpenWebTTS
+Icon=io.github.gyyyn.OpenWebTTS
+Terminal=false
+Categories=AudioVideo;Audio;Utility;
+StartupNotify=true

@@ -46,10 +46,14 @@ OpenWebTTS/
 
 ### 1. Prerequisites
 
-1. Python 3.12 (Recommended). 
+1. Python 3.12 (Recommended).
 2. `pip` for managing dependencies (usually comes with Python).
-3. `espeak-ng` for fallback.
-4. `ffmpeg` or `libav` for audio processing.
+3. `espeak-ng` for fallback (Piper and Kokoro also bundle their own via Python wheels).
+4. `ffmpeg` or `libav` for audio processing (automatically bundled via `imageio-ffmpeg` if not installed on your system).
+5. **Optional — Scanned PDF OCR only** (`tesseract-ocr` and `poppler`): Regular text PDFs work out of the box, but OCR on image-only PDFs requires both tools installed and available on `PATH`:
+   - **Linux (Debian/Ubuntu):** `sudo apt install tesseract-ocr poppler-utils`
+   - **macOS (Homebrew):** `brew install tesseract poppler`
+   - **Windows:** Install [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) and [Poppler for Windows](https://github.com/oschwartz10612/poppler-windows/releases), and add both `bin` folders to your `PATH`.
 
 > **Note:** Other Python versions might not be fully compatible due to dependencies. Later version might work, but use at your own risk.
 
@@ -75,13 +79,17 @@ source venv/bin/activate
 
 ### 3. Install Dependencies
 
-Install all the required Python libraries using the `requirements.txt` file.
-> **Note:** If you have an older graphics card PyTorch might need to be installed differently. Check the [PyTorch docs](https://pytorch.org/get-started/locally/).
+Install PyTorch first (CPU-only is recommended for smaller standalone builds; use the CUDA index if you want GPU acceleration), then install all required Python libraries from `requirements.txt`.
+> **Note:** If you have an older graphics card, check the [PyTorch docs](https://pytorch.org/get-started/locally/) for the right index URL.
 
 ```bash
+# CPU-only PyTorch (recommended for smaller builds)
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Optional: CUDA PyTorch instead of CPU-only (example: CUDA 12.4)
+# pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+
 pip install -r requirements.txt
-pip install https://github.com/KittenML/KittenTTS/releases/download/0.8.1/kittentts-0.8.1-py3-none-any.whl
-pip install https://github.com/rsxdalv/chatterbox/releases/download/v0.4.4/tts_webui_chatterbox_tts-0.4.4-py3-none-any.whl
 ```
 
 Next, adquire dependencies using npm:
@@ -124,8 +132,25 @@ flatpak-builder --run build-dir io.github.gyyyn.OpenWebTTS.json
 
 ## Building using PyInstaller
 
-This uses the `--app` mode and PyWebView. PyInstaller needs to be running on the target OS. Run:
+This uses the `--app` mode and PyWebView. PyInstaller needs to be running on the target OS. Make sure `npm run build` has been run and CPU PyTorch is installed in your `venv` before running PyInstaller:
 
 ```bash
+# On macOS / Linux:
 ./venv/bin/pyinstaller OpenWebTTS.spec
+
+# On Windows:
+.\venv\Scripts\pyinstaller OpenWebTTS.spec
 ```
+
+Optional build flags via environment variables:
+- `OPENWEBTTS_CONSOLE=1`: Keep the terminal/console window visible for debugging.
+- `OPENWEBTTS_CUDA=1`: Keep NVIDIA/CUDA packages when building from a CUDA-enabled `venv`.
+
+### Platform Notes
+
+- **Windows (`dist/OpenWebTTS/OpenWebTTS.exe`)**: Uses `tts.ico` for the executable icon and Edge WebView2 at runtime (preinstalled on Windows 11 and most Windows 10 systems; otherwise install the [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)).
+- **macOS (`dist/OpenWebTTS.app`)**: Uses `tts.icns` if present (otherwise falls back to `maskable_icon_x512.png` via Pillow). Package for distribution as a `.dmg`:
+  ```bash
+  hdiutil create -volname "OpenWebTTS" -srcfolder dist/OpenWebTTS.app -ov -format UDZO dist/OpenWebTTS-macOS.dmg
+  ```
+- **Linux (`dist/OpenWebTTS/OpenWebTTS`)**: Uses `pywebview[qt]` (installed automatically via `requirements.txt` on Linux) for a self-contained webview backend. You can pair `dist/OpenWebTTS/` with `io.github.gyyyn.OpenWebTTS.desktop` and `maskable_icon_x512.png` to wrap into an AppImage (`appimagetool`) or archive.

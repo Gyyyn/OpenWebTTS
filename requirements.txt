@@ -12,7 +12,8 @@ coqui-tts
 PyMuPDF
 requests
 ebooklib
-pywebview
+pywebview[qt]; sys_platform == "linux"
+pywebview; sys_platform != "linux"
 openai-whisper
 google-cloud-texttospeech
 pytesseract
@@ -21,4 +22,7 @@ Pillow
 python-docx
 langdetect
 pydub
+imageio-ffmpeg
 ptts
+kittentts @ https://github.com/KittenML/KittenTTS/releases/download/0.8.1/kittentts-0.8.1-py3-none-any.whl
+tts-webui-chatterbox-tts @ https://github.com/rsxdalv/chatterbox/releases/download/v0.4.4/tts_webui_chatterbox_tts-0.4.4-py3-none-any.whl

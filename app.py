@@ -1,6 +1,16 @@
 import os
+import sys
+
+# In windowed/GUI frozen builds (console=False), sys.stdout and sys.stderr can be None,
+# which causes uvicorn's log formatter and libraries like tqdm to crash.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
 import uvicorn
 import argparse
+import multiprocessing
 import threading
 import time
 import socket
@@ -20,6 +30,9 @@ from functions.openai_api import openai_api_router
 
 # --- FastAPI Setup ---
 app = FastAPI()
+os.makedirs(config.AUDIO_CACHE_DIR, exist_ok=True)
+# Mount writable audio cache before bundled static assets so /static/audio_cache/* works when frozen
+app.mount("/static/audio_cache", StaticFiles(directory=config.AUDIO_CACHE_DIR), name="audio_cache")
 app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
 
 app.include_router(router)
@@ -38,10 +51,13 @@ def _find_free_port(preferred_port: int) -> int:
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
+
     parser = argparse.ArgumentParser(description="OpenWebTTS server")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind the server to")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to")
     parser.add_argument("--app", action="store_true", help="Launch as a desktop app using a webview")
+    parser.add_argument("--server", action="store_true", help="Force server-only mode without opening a desktop window")
     parser.add_argument("--debug", action="store_true", help="Toggle various debug features")
     parser.add_argument("--device", default="cpu", help="Use specific device for inference with AI models")
     args = parser.parse_args()
@@ -52,7 +68,9 @@ if __name__ == "__main__":
     if args.device == 'cuda':
         config.DEVICE = 'cuda'
 
-    if not args.app:
+    run_app = (args.app or config.IS_FROZEN) and not args.server
+
+    if not run_app:
         print("Starting OpenWebTTS server...")
         print(f"Access the UI at http://{host}:{port}")
         uvicorn.run(app, host=host, port=port)
@@ -87,7 +105,8 @@ if __name__ == "__main__":
         try:
             window = webview.create_window("OpenWebTTS", url,
             width=1280, height=720, resizable=True, text_select=True, fullscreen=False)
-            window.icon = f"{config.DATA_DIR}/maskable_icon_x128.png"
+            if os.path.exists(config.ICON_PATH):
+                window.icon = config.ICON_PATH
 
             webview.start(debug=server_debug, private_mode=False)
         finally:
