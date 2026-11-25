@@ -251,6 +251,12 @@ def get_gemini_voices(api_key: str) -> List[Voice]:
 # -------------------------
 
 def _generate_audio_file(request: SynthesizeRequest, output_path: str):
+
+    # Clean non UTF-8
+    clean_text = request.text.encode("utf-8", errors="surrogatepass").decode(
+        "utf-8", errors="replace"
+    )
+
     try:
         # ---
         # Process audio with Piper
@@ -258,61 +264,71 @@ def _generate_audio_file(request: SynthesizeRequest, output_path: str):
         if request.engine == "piper":
             model_path = os.path.join(PIPER_DIR, f"{request.voice}.onnx")
             piper_process_audio = lazy_import_piper()
-            piper_process_audio(model_path, request.lang, request.text, output_path)
+            piper_process_audio(model_path, request.lang, clean_text, output_path)
         # ---
         # Process audio with Coqui
         # ---
         elif request.engine == 'coqui':
             voice_path = os.path.join(COQUI_DIR, f"{request.voice}.wav")
             coqui_process_audio, _ = lazy_import_coqui()
-            coqui_process_audio(voice_path, request.lang, request.text, output_path)
+            coqui_process_audio(voice_path, request.lang, clean_text, output_path)
         elif request.engine == 'chatterbox':
             voice_path = os.path.join(COQUI_DIR, f"{request.voice}.wav")
             chatterbox_process_audio = lazy_import_chatterbox()
-            chatterbox_process_audio(voice_path, request.lang, request.text, output_path)
+            chatterbox_process_audio(voice_path, request.lang, clean_text, output_path)
         # ---
         # Process audio with Kokoro
         # ---
         elif request.engine == "kokoro":
             kokoro_process_audio = lazy_import_kokoro()
-            kokoro_process_audio(request.voice, False, request.text, output_path)
+            kokoro_process_audio(request.voice, False, clean_text, output_path)
         # ---
         # Process audio with Google Cloud TTS
         # ---
         elif request.engine == "gemini":
-            use_env_var = "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
-
+            env_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
             gemini_process_audio, _ = lazy_import_gemini()
-            if os.path.exists(request.api_key):
+
+            if request.api_key and os.path.exists(request.api_key):
                 print(f"Found '{request.api_key}', using it for authentication.")
-                gemini_process_audio(text=request.text, voice=request.voice, output_filename=output_path, credentials_json_path=request.api_key)
-            elif use_env_var:
+                gemini_process_audio(
+                    text=clean_text,
+                    voice=request.voice,
+                    output_filename=output_path,
+                    credentials_json_path=request.api_key,
+                )
+            elif env_creds:
                 print("Found GOOGLE_APPLICATION_CREDENTIALS environment variable, using it for authentication.")
                 # No need to pass the path, the function will find it automatically
-                gemini_process_audio(text=request.text, voice=request.voice, output_filename=output_path)
+                gemini_process_audio(
+                    text=request.text,
+                    voice=request.voice,
+                    output_filename=output_path,
+                )
             else:
+                if request.api_key:
+                    print(f"Configured credentials path not found: '{request.api_key}'")
                 print("-" * 80)
                 print("WARNING: Could not find credentials.")
                 print("This script requires authentication to work.")
                 print("\nPlease do one of the following:")
-                print(f"1. Place your service account JSON key in this directory and name it '{local_credentials_file}'")
+                print("1. Set your API Key / credentials path in the config screen.")
                 print("OR")
                 print("2. Set the GOOGLE_APPLICATION_CREDENTIALS environment variable.")
-                print("\nSee the README.md file for detailed instructions.")
                 print("-" * 80)
         # ---
         # Process audio with Kitten
         # ---
         elif request.engine == "kitten":
             kitten_process_audio = lazy_import_kitten()
-            kitten_process_audio(request.voice, False, request.text, output_path)
+            kitten_process_audio(request.voice, False, clean_text, output_path)
 
         # ---
         # Process audio with Kitten
         # ---
         elif request.engine == "phonon":
             phonon_process_audio = lazy_import_phonon()
-            phonon_process_audio(request.voice, request.lang, request.text, output_path)
+            phonon_process_audio(request.voice, request.lang, clean_text, output_path)
         # ---
         # Or fail.
         # ---

@@ -64,8 +64,8 @@ if __name__ == "__main__":
             raise
 
         print("Starting OpenWebTTS in app mode...")
-        config = uvicorn.Config(app, host=host, port=port, log_level="info")
-        server = uvicorn.Server(config)
+        uvi_config = uvicorn.Config(app, host=host, port=port, log_level="info")
+        server = uvicorn.Server(uvi_config)
 
         server_thread = threading.Thread(target=server.run, daemon=True)
         server_thread.start()
@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
         server_debug = False
 
-        if (args.debug == "true"):
+        if args.debug:
             server_debug = True
 
         try:

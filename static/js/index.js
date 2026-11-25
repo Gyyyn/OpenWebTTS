@@ -30,7 +30,7 @@ import {
     saveLocalBooks
 } from "./helpers.js";
 
-import { createFilesGrid, renderUserPdfs } from './library.js';
+import { createUserFiles, renderUserPdfs } from './library.js';
 
 // Import UI
 import {
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localBooks: JSON.parse(localStorage.getItem('books')) || {},
             onlineBooks: [],
             onlinePodcasts: [], // New array to store online podcasts
-            activeBook: null,
+            activeBook: {}, // Important that activeBook is never not an object
             audioQueue: [],
             isPlaying: false,
             isPaused: false,
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveLocalBooks(appState);
 
                 if (appState.variables.activeBook && appState.variables.activeBook.id === bookId) {
-                    appState.variables.activeBook = null;
+                    appState.variables.activeBook = {};
                     appState.elements.textDisplay.innerHTML = '';
                     resetPdfView(appState);
                 }
@@ -580,7 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     appState.elements.skipHeadersCheckbox.addEventListener('change', () => {
         if (appState.variables.activeBook?.source === 'local') {
-            appState.variables.localBooks[appState.variables.activeBook.id].skipHeadersNFooters = skipHeadersCheckbox.checked;
+            appState.variables.localBooks[appState.variables.activeBook.id].skipHeadersNFooters = appState.elements.skipHeadersCheckbox.checked;
             saveLocalBooks(appState);
         } else {
             handlePrefs({ skipHeaders: appState.elements.skipHeadersCheckbox.checked })
@@ -1038,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (appState.variables.currentUser)
         appState.elements.mainDiv.appendChild(await renderUserPdfs(appState.variables.currentUser));
-        else appState.elements.mainDiv.appendChild(createFilesGrid([]));
+        else appState.elements.mainDiv.appendChild(createUserFiles([]));
     });
 
     appState.elements.playbackSpeed.addEventListener('input', () => {
@@ -1124,7 +1124,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     clearInterval(interval);
                     showNotification('PDF OCR completed successfully.', 'success');
 
-                    if (bookId && currentUser) {
+                    if (bookId && appState.variables.currentUser) {
                         const newOnlineBook = await saveOcrText(bookId, data.text);
                         if (newOnlineBook) {
                             setActiveBook({ ...newOnlineBook, source: 'online' });
@@ -1294,7 +1294,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showNotification(`An error occurred: ${error.message}`, 'error');
                 appState.elements.textDisplay.innerHTML = '';
             }
-        } showNotification('Please select a valid PDF, EPUB, or DOCX file.', 'warn');
+        } else {
+            showNotification('Please select a valid PDF, EPUB, or DOCX file.', 'warn');
+        }
 
         if (appState.variables.currentUser) appState.elements.saveBookBtn.classList.remove('hidden');
         
@@ -1415,21 +1417,13 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: 'New Book', icon: 'fa-file-circle-plus', description: 'Create a new temporary book', action: () => { createNewBook(); hideCommandPalette(); } },
         { name: 'Delete Book', icon: 'fa-trash', description: 'Delete the currently active book', action: () => { 
             if (appState.variables.activeBook) {
-                if (appState.variables.activeBook.source === 'online') {
-                    deleteOnlineBook(appState.variables.activeBook.id);
-                } else if (appState.variables.activeBook.source === 'local') {
-                    deleteLocalBook(appState.variables.activeBook.id);
-                }
+                deleteBook(appState.variables.activeBook.id);
                 hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
         { name: 'Rename Book', icon: 'fa-i-cursor', description: 'Rename the currently active book', action: () => { 
             if (appState.variables.activeBook) {
-                if (appState.variables.activeBook.source === 'online') {
-                    renameOnlineBook(appState.variables.activeBook);
-                } else if (appState.variables.activeBook.source === 'local') {
-                    renameLocalBook(appState.variables.activeBook);
-                }
+                renameBook(appState.variables.activeBook);
                 hideCommandPalette();
             } else showNotification('No book is currently active.');
          } },
@@ -1456,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } },
         { name: 'Transcribe Audio File', icon: 'fa-file-signature', description: 'Transcribe an audio file', action: () => {
             if (appState.variables.activeBook) {
-                audioFileInput.click(); hideCommandPalette();
+                appState.elements.audioFileInput.click(); hideCommandPalette();
             } else showNotification('No book is currently active.');
         } },
         { name: 'Save Book', icon: 'fa-floppy-disk', description: 'Save the current book to your online account', action: () => {
@@ -1725,7 +1719,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveLocalBooks(appState);
                     updateCurrentUserUI(appState);
                 }
-                appState.variables.activeBook = null;
+                appState.variables.activeBook = {};
             }
         } catch (error) {
             showNotification(error.message, 'error');
@@ -1755,7 +1749,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderOnlineBooks(appState);
 
                     if (appState.variables.activeBook && appState.variables.activeBook.id === bookId) {
-                        appState.variables.activeBook = null;
+                        appState.variables.activeBook = {};
                         resetBookView(appState);
                     }
                 } catch (error) {

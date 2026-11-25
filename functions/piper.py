@@ -1,7 +1,7 @@
 import subprocess
 import sys
 from functions.audio import normalize_audio
-from config import DEVICE
+import config
 
 def piper_process_audio(voice, lang, text, output):
     
@@ -11,7 +11,7 @@ def piper_process_audio(voice, lang, text, output):
         "--output_file", output
     ]
 
-    if DEVICE == 'cuda':
+    if config.DEVICE == 'cuda':
         command.append('--cuda')
 
     subprocess.run(command, input=text, text=True, check=True, encoding='utf-8')

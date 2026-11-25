@@ -91,6 +91,7 @@ def extract_readable_content(html_content):
     scored_candidates = []
     all_elements = soup.find_all(True)
 
+    element_scores = {}
     # Dictionary to aggregate scores for unique parent/grandparent tags
     aggregated_scores = {}
 
@@ -101,7 +102,7 @@ def extract_readable_content(html_content):
             
         score = get_element_score(element)
         # Store score directly on the tag object for later access
-        element['readability_score'] = score 
+        element_scores[element] = score
         
         # Propagate score to parent and grandparent
         current_parent = element.parent
@@ -140,7 +141,7 @@ def extract_readable_content(html_content):
         for i, child in enumerate(children):
             if hasattr(child, 'name') and child.name is not None:
                 # Use the readability_score stored on the child element itself
-                child_score = child.get('readability_score', 0)
+                child_score = element_scores.get(child, 0)
                 # If a child's score is low compared to the top candidate, it's likely not part of the main content.
                 if child_score < top_score_for_threshold * 0.2:
                     elements_to_remove.append(child)

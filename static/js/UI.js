@@ -153,11 +153,6 @@ export async function updateVoices(appState) {
 
         if (engine === 'gemini') {
             apiKey = localStorage.getItem('geminiApiKey');
-            if (!apiKey) {
-                showNotification('Please set your Gemini API Key in the Config page.', 'warn');
-                voiceSelect.innerHTML = '<option value="">-- API key needed --</option>';
-                return;
-            }
             endpoint += `&api_key=${apiKey}`;
         }
 

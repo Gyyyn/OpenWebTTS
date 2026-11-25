@@ -55,6 +55,8 @@ def gemini_process_audio(text: str, output_filename: str, voice: str = "en-US-Wa
             model_name = "gemini-1.0-pro"
             print(f"Detected a premium voice ('{voice}'). Using model: '{model_name}'")
             
+            # Using mp3 here, but later saving it with .wav doesn't seem to cause problems,
+            # but it's useful to keep in mind.
             audio_config = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3,
                 model=model_name

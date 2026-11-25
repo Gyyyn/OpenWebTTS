@@ -61,7 +61,3 @@ export async function deletePodcast(username, podcastId) {
         return { success: false, error: error.message };
     }
 }
-
-export function getPodcastById(params) {
-    
-}

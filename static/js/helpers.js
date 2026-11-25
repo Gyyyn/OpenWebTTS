@@ -365,9 +365,9 @@ export async function getAllPdfText(pdf, options={}) {
         
         if (options.skipHeadersNFooters && options.canvasHeight) {
             parsedTextContent = detectHeadersAndFooters(textContent, options.canvasHeight);
-            countPromises.push(parsedTextContent.body.items.map(function (s) { return s.str; }).join('')); // value page text
+            countPromises.push(parsedTextContent.body.items.map(function (s) { return s.str; }).join(' ')); // value page text
         } else {
-            countPromises.push(parsedTextContent.items.map(function (s) { return s.str; }).join('')); // value page text
+            countPromises.push(parsedTextContent.items.map(function (s) { return s.str; }).join(' ')); // value page text
         }
 
     }

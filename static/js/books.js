@@ -1,3 +1,7 @@
+import {
+    showBookModal,
+    hideBookModal
+} from "./UI.js";
 
 /**
  * Populates userdata on the appState object.
@@ -10,7 +14,7 @@ export async function fetchOnlineUserdata(appState) {
         const result = await appState.functions.getPodcasts(appState.variables.currentUser);
         appState.variables.onlinePodcasts = result.podcasts || [];
     } catch (error) {
-        showNotification(error.message, 'error');
+        appState.functions.showNotification(error.message, 'error');
     }
 
     try {
@@ -28,7 +32,7 @@ export async function fetchOnlineUserdata(appState) {
         appState.variables.onlineBooks = data.books || [];
     } catch (error) {
         if (typeof showNotification === 'function') {
-            showNotification(error.message, 'error');
+           appState.functions.showNotification(error.message, 'error');
         } else if (appState.functions?.showNotification) {
             appState.functions.showNotification(error.message, 'error');
         }
@@ -155,7 +159,7 @@ export function renderOnlinePodcasts(appState) {
 
                 const playerDiv = li.querySelector(`#podcast-audio-player-${podcast.id}`);
 
-                if (sidebar.classList.contains('collapsed')) {
+                if (appState.elements.sidebar.classList.contains('collapsed')) {
                     appState.functions.handleSidebarCollapse();
                     playerDiv.classList.add('hidden');
                 }
@@ -189,14 +193,14 @@ export function renderOnlinePodcasts(appState) {
             deleteBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
 
-                    (
+                    showBookModal(
                     `Delete Podcast: ${podcast.title}?`,
                     'Delete',
                     async () => {
         
-                        const result = await appState.functions.deletePodcast(currentUser, podcast.id);
-                        if (result.success) showNotification(`Podcast '${podcast.title}' deleted.`, 'success');
-                        else showNotification(`Failed to delete podcast: ${result.error}`, 'error');
+                        const result = await appState.functions.deletePodcast(appState.variables.currentUser, podcast.id);
+                        if (result.success) appState.functions.showNotification(`Podcast '${podcast.title}' deleted.`, 'success');
+                        else appState.functions.showNotification(`Failed to delete podcast: ${result.error}`, 'error');
 
                         hideBookModal(appState);
 
@@ -356,7 +360,7 @@ export async function renderPage(appState, num, skipTextExtraction = false, appe
         if (lastPage) {
             // Populate with last pages info, while we await.
             canvas.height = lastPage.offsetHeight;
-            canvas.width = lastPage.OffsetWidth;
+            canvas.width = lastPage.offsetWidth;
         }
 
         // Immediately render the page, even while we wait for PDF.js
@@ -393,7 +397,7 @@ export async function renderPage(appState, num, skipTextExtraction = false, appe
         const page1Text = await renderSinglePage(num, appState.elements.pdfViewer, append);
         let page2Text = '';
 
-        if (num + 1 <= pdfDoc.numPages)
+        if (num + 1 <= appState.variables.pdfDoc.numPages)
         page2Text = await renderSinglePage(num + 1, appState.elements.pdfViewer, append);
 
         if (!skipTextExtraction) {

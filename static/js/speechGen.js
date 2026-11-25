@@ -14,10 +14,6 @@ export async function generateSpeech(textChunk, lang='en', engine, voice) {
     if (!voice) return false;
 
     let apiKey = null;
-    if (engine === 'gemini') {
-        apiKey = localStorage.getItem('geminiApiKey');
-        if (!apiKey) return false
-    }
 
     try {
         const requestBody = { engine, lang, voice, text: textChunk };
@@ -56,7 +52,7 @@ export async function generateSpeech(textChunk, lang='en', engine, voice) {
                         // Network error, keep polling, but log it for debugging
                         console.warn('Polling for audio file, network error:', error);
                     }
-                }, 2000); // Polling rate
+                }, 2000); // Polling rate, could lead to infinite polling, but never seen it in practice
             });
         } else {
             return data.audio_url;

@@ -1,7 +1,7 @@
 from kittentts import KittenTTS
 import soundfile as sf
 from functions.audio import normalize_audio
-from config import DEVICE
+import config
 
 # Kitten has "mini" and "nano" variants.
 def kitten_process_audio(voice, lang, text, output):

@@ -2,7 +2,7 @@ import os
 import torch
 from TTS.api import TTS
 from config import COQUI_DIR
-from config import DEVICE
+import config
 
 def save_voice_sample(file_data: bytes, filename: str):
     """Saves an audio file to the Coqui models directory."""
@@ -26,7 +26,7 @@ def save_voice_sample(file_data: bytes, filename: str):
 # TTS to a file, use a preset speaker
 def coqui_process_audio(voice, lang, text, output):
     # Initialize TTS
-    tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(DEVICE)
+    tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(config.DEVICE)
 
     torch.cuda.empty_cache()
 
