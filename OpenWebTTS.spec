@@ -75,6 +75,8 @@ _collect_packages = [
     '_soundfile_data',
     'imageio_ffmpeg',
     'qtpy',
+    'pythonnet',
+    'clr_loader',
 ]
 
 for _pkg in _collect_packages:
@@ -119,7 +121,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=_console,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -133,7 +135,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='OpenWebTTS',
 )
