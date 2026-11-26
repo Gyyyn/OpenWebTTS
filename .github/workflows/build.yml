@@ -1,0 +1,96 @@
+name: Build Desktop Releases
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            artifact_name: OpenWebTTS-Windows-x64.zip
+          - os: macos-latest
+            platform: macos
+            artifact_name: OpenWebTTS-macOS-arm64.dmg
+          - os: ubuntu-22.04
+            platform: linux
+            artifact_name: OpenWebTTS-Linux-x64.tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Build frontend assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Linux Qt/WebEngine dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 libegl1 libxkbcommon0 libdbus-1-3 libnss3 libasound2
+
+      - name: Install Python dependencies (CPU PyTorch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller OpenWebTTS.spec
+
+      - name: Package Windows artifact
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/OpenWebTTS/* -DestinationPath dist/${{ matrix.artifact_name }}
+
+      - name: Package macOS DMG
+        if: matrix.platform == 'macos'
+        run: |
+          hdiutil create -volname "OpenWebTTS" -srcfolder dist/OpenWebTTS.app -ov -format UDZO dist/${{ matrix.artifact_name }}
+
+      - name: Package Linux archive
+        if: matrix.platform == 'linux'
+        run: |
+          cp io.github.gyyyn.OpenWebTTS.desktop dist/OpenWebTTS/
+          cp maskable_icon_x512.png dist/OpenWebTTS/io.github.gyyyn.OpenWebTTS.png
+          tar -C dist -czf dist/${{ matrix.artifact_name }} OpenWebTTS
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.artifact_name }}
