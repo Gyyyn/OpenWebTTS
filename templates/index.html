@@ -340,11 +340,12 @@
                             <span id="page-num" class="text-xs md:text-sm text-gray-600 dark:text-gray-400 cursor-pointer"></span>
                         </div>
                         <div class="flex justify-center items-center ms-2 md:ms-0">
-                            <button aria-label="Zoom in PDF button" id="zoom-in-btn" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                                <i class="fas fa-magnifying-glass-plus"></i>
-                            </button>
-                            <button aria-label="Zoom out PDF button" id="zoom-out-btn" class="ml-2 px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                            <button aria-label="Zoom out" title="Zoom out" id="zoom-out-btn" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 disabled:opacity-40 disabled:pointer-events-none transition-colors">
                                 <i class="fas fa-magnifying-glass-minus"></i>
+                            </button>
+                            <button type="button" id="zoom-level-btn" title="Reset zoom" class="mx-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 min-w-[3ch] text-center">100%</button>
+                            <button aria-label="Zoom in" title="Zoom in" id="zoom-in-btn" class="px-2 py-1 md:px-3 md:py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 disabled:opacity-40 disabled:pointer-events-none transition-colors">
+                                <i class="fas fa-magnifying-glass-plus"></i>
                             </button>
                         </div>
                     </div>

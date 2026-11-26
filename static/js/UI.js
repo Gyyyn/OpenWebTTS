@@ -226,6 +226,7 @@ export function goToPage(appState) {
             appState.functions.renderTextPage(appState, page);
             const pageEl = appState.variables.currentPageContainer.querySelector(`[data-page="${page}"]`);
             if (pageEl) pageEl.scrollIntoView({ behavior: 'instant', block: 'start' });
+            appState.functions.saveReadingProgress?.(appState, { page, scrollRatio: 0, chunkIndex: 0 });
         }
         updateCurrentPage(appState);
         requestAnimationFrame(() => {
@@ -327,9 +328,8 @@ export function resetPdfView(appState) {
     appState.elements.pdfViewer.innerHTML = '';
     appState.variables.pdfDoc = null;
 
-    // When resetting PDF view, ensure PDF-specific controls are disabled
-    appState.elements.zoomInBtn.disabled = true;
-    appState.elements.zoomOutBtn.disabled = true;
+    // Re-enable zoom controls for text/EPUB mode and sync zoom UI
+    appState.functions.updateZoomUI?.(appState);
 }
 
 /**
@@ -344,6 +344,7 @@ export function resetBookView(appState) {
     appState.elements.bookView.classList.add('hidden');
     appState.elements.textboxViewerWrapper.classList.remove('hidden');
     appState.variables.fullBookText = '';
+    appState.variables.textPages = [];
     appState.variables.totalTextPages = 1;
     appState.variables.textCurrentPage = 1;
     appState.variables.bookChapters = [];

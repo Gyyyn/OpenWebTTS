@@ -6,6 +6,9 @@ import {
 import {
     attachContentPreview
 } from "./preview.js";
+import {
+    splitTextIntoChunks
+} from "./helpers.js";
 
 /**
  * Populates userdata on the appState object.
@@ -403,6 +406,7 @@ export async function renderPage(appState, num, skipTextExtraction = false, appe
     appState.elements.textboxViewerWrapper.classList.add('hidden');
     appState.elements.zoomInBtn.disabled = false;
     appState.elements.zoomOutBtn.disabled = false;
+    appState.functions.updateZoomUI?.(appState);
     appState.variables.currentPageNum = num;
 
     const renderSinglePage = async (pageNumber, container) => {
@@ -474,6 +478,155 @@ export async function renderPage(appState, num, skipTextExtraction = false, appe
 }
 
 /**
+ * Splits fullBookText into HTML-aware pages targeting charsPerPage characters
+ * per page without cutting inside HTML tags or breaking block elements.
+ * @param {string} fullBookText
+ * @param {number} charsPerPage
+ * @returns {Array<{start: number, end: number}>}
+ */
+export function computeTextPages(fullBookText, charsPerPage = 4000) {
+    if (!fullBookText || typeof fullBookText !== 'string') {
+        return [{ start: 0, end: 0 }];
+    }
+
+    const safeChars = Math.max(1, charsPerPage || 4000);
+    const len = fullBookText.length;
+    if (len <= safeChars) {
+        return [{ start: 0, end: len }];
+    }
+
+    const isHtml = /<([a-z][a-z0-9]*)\b[^>]*>/i.test(fullBookText);
+    const blockEndRegex = /<\/(?:p|h[1-6]|div|li|blockquote|pre|table|figure|section|article|body)>|<hr\s*\/?>/gi;
+    const pages = [];
+    let start = 0;
+
+    while (start < len) {
+        const target = start + safeChars;
+        if (target >= len) {
+            pages.push({ start, end: len });
+            break;
+        }
+
+        let end = -1;
+
+        if (isHtml) {
+            // 1. Prefer a block-closing tag in the backward window [minBack, target]
+            const minBack = Math.max(start + Math.floor(safeChars * 0.4), start + 1);
+            const backSlice = fullBookText.slice(minBack, target);
+            blockEndRegex.lastIndex = 0;
+            let match;
+            let lastBlockEnd = -1;
+            while ((match = blockEndRegex.exec(backSlice)) !== null) {
+                lastBlockEnd = minBack + match.index + match[0].length;
+            }
+            if (lastBlockEnd > start) {
+                end = lastBlockEnd;
+            }
+
+            // 2. If none found behind target, check if target is inside an open <...> tag
+            if (end === -1) {
+                const lastLt = fullBookText.lastIndexOf('<', target);
+                const lastGt = fullBookText.lastIndexOf('>', target);
+                if (lastLt > lastGt && lastLt >= start) {
+                    if (lastLt > start) {
+                        end = lastLt;
+                    } else {
+                        // Tag starts right at `start` and exceeds charsPerPage; include whole tag
+                        const nextGt = fullBookText.indexOf('>', target);
+                        end = nextGt !== -1 ? nextGt + 1 : len;
+                    }
+                }
+            }
+
+            // 3. Look slightly ahead for the next block-closing tag if no tag boundary was found
+            if (end === -1) {
+                const maxAhead = Math.min(len, target + Math.floor(safeChars * 0.5));
+                const aheadSlice = fullBookText.slice(target, maxAhead);
+                blockEndRegex.lastIndex = 0;
+                const aheadMatch = blockEndRegex.exec(aheadSlice);
+                if (aheadMatch) {
+                    end = target + aheadMatch.index + aheadMatch[0].length;
+                }
+            }
+        }
+
+        // 4. Fallback: snap to whitespace near target (safe outside HTML tags)
+        if (end === -1) {
+            const minSpaceBack = Math.max(start + Math.floor(safeChars * 0.5), start + 1);
+            let spaceIdx = -1;
+            for (let i = target; i >= minSpaceBack; i--) {
+                const ch = fullBookText[i];
+                if (ch === '\n' || ch === ' ' || ch === '\t') {
+                    spaceIdx = i + 1;
+                    break;
+                }
+            }
+            end = spaceIdx > start ? spaceIdx : target;
+        }
+
+        // Final safety: never split inside an HTML tag and always advance
+        if (isHtml && end < len) {
+            const lt = fullBookText.lastIndexOf('<', end - 1);
+            const gt = fullBookText.lastIndexOf('>', end - 1);
+            if (lt > gt && lt >= start) {
+                if (lt > start) {
+                    end = lt;
+                } else {
+                    const nextGt = fullBookText.indexOf('>', end);
+                    end = nextGt !== -1 ? nextGt + 1 : len;
+                }
+            }
+        }
+
+        if (end <= start) {
+            end = Math.min(len, target);
+        }
+
+        pages.push({ start, end });
+        start = end;
+    }
+
+    return pages;
+}
+
+/**
+ * Computes and stores HTML-aware pagination ranges on appState.
+ * @param {object} appState The main appState object.
+ */
+export function paginateBookText(appState) {
+    const pages = computeTextPages(appState.variables.fullBookText, appState.variables.charsPerPage);
+    appState.variables.textPages = pages;
+    appState.variables.totalTextPages = Math.max(1, pages.length);
+}
+
+/**
+ * Finds the 1-based page number containing charIndex.
+ * @param {number} charIndex
+ * @param {number} charsPerPage
+ * @param {Array<{start: number, end: number}>|null} textPages
+ * @returns {number}
+ */
+function findPageForCharIndex(charIndex, charsPerPage, textPages) {
+    if (Array.isArray(textPages) && textPages.length > 0) {
+        let lo = 0;
+        let hi = textPages.length - 1;
+        while (lo <= hi) {
+            const mid = (lo + hi) >> 1;
+            const page = textPages[mid];
+            if (charIndex < page.start) {
+                hi = mid - 1;
+            } else if (charIndex >= page.end && mid < textPages.length - 1) {
+                lo = mid + 1;
+            } else {
+                return mid + 1;
+            }
+        }
+        return textPages.length;
+    }
+    return Math.floor(charIndex / Math.max(1, charsPerPage || 4000)) + 1;
+}
+
+/**
  * Render a single text (markdown, HMTL or plain) page.
  * @param {object} appState The main appState object.
  * @param {int} num 
@@ -481,8 +634,9 @@ export async function renderPage(appState, num, skipTextExtraction = false, appe
  */
 export function renderTextPage(appState, num, append = true) {
     appState.variables.textCurrentPage = num;
-    const start = (num - 1) * appState.variables.charsPerPage;
-    const end = start + appState.variables.charsPerPage;
+    const pageRange = appState.variables.textPages?.[num - 1];
+    const start = pageRange ? pageRange.start : (num - 1) * appState.variables.charsPerPage;
+    const end = pageRange ? pageRange.end : start + appState.variables.charsPerPage;
     const pageText = appState.variables.fullBookText.substring(start, end);    
 
     const injectHTML = document.createElement('div');
@@ -494,9 +648,11 @@ export function renderTextPage(appState, num, append = true) {
     if (append) { appState.elements.textDisplay.appendChild(injectHTML) }
     else { appState.elements.textDisplay.prepend(injectHTML) }
 
-    // Ensure we are in text view mode
+    // Ensure we are in text view mode and apply saved text zoom
     appState.elements.pdfViewerWrapper.classList.add('hidden');
     appState.elements.textboxViewerWrapper.classList.remove('hidden');
+    appState.elements.textDisplay.style.fontSize = `${appState.variables.textZoom || 100}%`;
+    appState.functions.updateZoomUI?.(appState);
 }
 
 /**
@@ -528,7 +684,7 @@ function stripHtmlToText(htmlFragment) {
  * @param {number} charsPerPage
  * @returns {Array<{title: string, level: number, charIndex: number, page: number}>}
  */
-export function extractChapters(fullBookText, charsPerPage = 4000) {
+export function extractChapters(fullBookText, charsPerPage = 4000, textPages = null) {
     if (!fullBookText || typeof fullBookText !== 'string') return [];
 
     const chapters = [];
@@ -545,7 +701,7 @@ export function extractChapters(fullBookText, charsPerPage = 4000) {
                 title,
                 level: Number.parseInt(match[1], 10),
                 charIndex: match.index,
-                page: Math.floor(match.index / safeCharsPerPage) + 1
+                page: findPageForCharIndex(match.index, safeCharsPerPage, textPages)
             });
         }
 
@@ -561,7 +717,7 @@ export function extractChapters(fullBookText, charsPerPage = 4000) {
                     title: text.slice(0, 60) + (text.length > 60 ? '...' : ''),
                     level: 1,
                     charIndex: bodyMatch.index,
-                    page: Math.floor(bodyMatch.index / safeCharsPerPage) + 1
+                    page: findPageForCharIndex(bodyMatch.index, safeCharsPerPage, textPages)
                 });
             }
             if (bodies.length > 1) return bodies;
@@ -580,7 +736,7 @@ export function extractChapters(fullBookText, charsPerPage = 4000) {
             title,
             level: mdMatch[1].length,
             charIndex: mdMatch.index,
-            page: Math.floor(mdMatch.index / safeCharsPerPage) + 1
+            page: findPageForCharIndex(mdMatch.index, safeCharsPerPage, textPages)
         });
     }
 
@@ -588,12 +744,78 @@ export function extractChapters(fullBookText, charsPerPage = 4000) {
 }
 
 /**
+ * Saves finer reading progress (page, scrollRatio, chunkIndex) for the active book.
+ * @param {object} appState The main appState object.
+ * @param {object} [overrides] Optional fields to override.
+ */
+export function saveReadingProgress(appState, overrides = {}) {
+    const bookId = appState.variables.activeBook?.id;
+    if (!bookId || appState.variables.pdfDoc) return;
+
+    const existing = loadReadingProgress(bookId);
+    const visiblePage = Number.parseInt(appState.variables.currentMostVisiblePage?.dataset?.page, 10);
+    const page = overrides.page ?? (Number.isFinite(visiblePage) ? visiblePage : (appState.variables.textCurrentPage || 1));
+
+    let scrollRatio = overrides.scrollRatio;
+    if (typeof scrollRatio !== 'number') {
+        const pageEl = appState.elements.textDisplay?.querySelector(`[data-page="${page}"]`);
+        if (pageEl && pageEl.offsetHeight > 0) {
+            const rawRatio = (window.scrollY - pageEl.offsetTop) / pageEl.offsetHeight;
+            scrollRatio = Math.max(0, Math.min(1, Number(rawRatio.toFixed(4))));
+        } else {
+            scrollRatio = existing.scrollRatio || 0;
+        }
+    }
+
+    const chunkIndex = typeof overrides.chunkIndex === 'number'
+        ? overrides.chunkIndex
+        : (page === existing.page ? (existing.chunkIndex || 0) : 0);
+
+    const payload = {
+        page,
+        scrollRatio,
+        chunkIndex,
+        updatedAt: Date.now()
+    };
+
+    localStorage.setItem(`reading-progress-${bookId}`, JSON.stringify(payload));
+    localStorage.setItem(`text-page-${bookId}`, String(page));
+}
+
+/**
+ * Loads saved reading progress (page, scrollRatio, chunkIndex) for a book.
+ * @param {string} bookId
+ * @returns {{page: number, scrollRatio: number, chunkIndex: number}}
+ */
+export function loadReadingProgress(bookId) {
+    if (!bookId) return { page: 1, scrollRatio: 0, chunkIndex: 0 };
+
+    try {
+        const raw = localStorage.getItem(`reading-progress-${bookId}`);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+                page: Math.max(1, Number.parseInt(parsed.page, 10) || 1),
+                scrollRatio: Math.max(0, Math.min(1, Number(parsed.scrollRatio) || 0)),
+                chunkIndex: Math.max(0, Number.parseInt(parsed.chunkIndex, 10) || 0)
+            };
+        }
+    } catch (e) {
+        console.debug('Failed to parse reading progress:', e);
+    }
+
+    const legacyPage = Number.parseInt(localStorage.getItem(`text-page-${bookId}`), 10) || 1;
+    return { page: Math.max(1, legacyPage), scrollRatio: 0, chunkIndex: 0 };
+}
+
+/**
  * Navigates the text/EPUB reader to a specific chapter.
  * @param {object} appState The main appState object.
  * @param {{title: string, level: number, charIndex: number, page: number}} chapter
+ * @returns {{pageEl: Element|null, matchedHeading: Element|null}}
  */
 export function goToChapter(appState, chapter) {
-    if (!chapter || appState.variables.pdfDoc) return;
+    if (!chapter || appState.variables.pdfDoc) return { pageEl: null, matchedHeading: null };
 
     const targetPage = Math.max(1, Math.min(chapter.page, appState.variables.totalTextPages || 1));
     appState.functions.disconnectUpwardsScroll?.();
@@ -606,16 +828,12 @@ export function goToChapter(appState, chapter) {
     }
     renderTextPage(appState, targetPage, true);
 
-    if (appState.variables.activeBook?.id) {
-        localStorage.setItem(`text-page-${appState.variables.activeBook.id}`, targetPage);
-    }
-
     const pageEl = appState.elements.textDisplay.querySelector(`[data-page="${targetPage}"]`);
     const targetTitle = chapter.title.toLowerCase();
     const headings = (pageEl || appState.elements.textDisplay).querySelectorAll('h1, h2, h3, h4');
     const matchedHeading = Array.from(headings).find(
         el => el.textContent.replace(/\s+/g, ' ').trim().toLowerCase() === targetTitle
-    );
+    ) || null;
 
     const scrollTarget = matchedHeading || pageEl;
     if (scrollTarget) {
@@ -625,10 +843,53 @@ export function goToChapter(appState, chapter) {
     }
 
     updateCurrentPage(appState);
+    saveReadingProgress(appState, { page: targetPage, chunkIndex: 0 });
 
     requestAnimationFrame(() => {
         appState.functions.resetUpwardsScroll?.();
     });
+
+    return { pageEl, matchedHeading };
+}
+
+/**
+ * Jumps to a chapter and starts TTS playback from that chapter's heading.
+ * @param {object} appState The main appState object.
+ * @param {{title: string, level: number, charIndex: number, page: number}} chapter
+ */
+export function playFromChapter(appState, chapter) {
+    if (!chapter || appState.variables.pdfDoc) return;
+
+    if (appState.variables.isPlaying || appState.variables.isPaused) {
+        appState.functions.stopAudioQueue?.();
+    }
+
+    const { pageEl, matchedHeading } = goToChapter(appState, chapter);
+    if (!pageEl) return;
+
+    appState.variables.currentMostVisiblePage = pageEl;
+    appState.variables.currentReadingPage = pageEl;
+
+    let startChunkIndex = 0;
+    const pageText = pageEl.textContent.trim();
+    if (matchedHeading && pageText) {
+        const headingText = matchedHeading.textContent.trim();
+        const headingOffset = headingText ? pageText.indexOf(headingText) : -1;
+        if (headingOffset > 0) {
+            const chunks = splitTextIntoChunks(pageText);
+            let cursor = 0;
+            for (let i = 0; i < chunks.length; i++) {
+                const chunkEnd = cursor + chunks[i].text.length;
+                if (chunkEnd > headingOffset) {
+                    startChunkIndex = i;
+                    break;
+                }
+                cursor = chunkEnd + 1;
+            }
+        }
+    }
+
+    appState.functions.startSpeechGeneration?.(startChunkIndex);
 }
 
 /**
@@ -684,7 +945,11 @@ export function renderChapterList(appState) {
         return;
     }
 
-    const chapters = extractChapters(appState.variables.fullBookText, appState.variables.charsPerPage);
+    const chapters = extractChapters(
+        appState.variables.fullBookText,
+        appState.variables.charsPerPage,
+        appState.variables.textPages
+    );
     appState.variables.bookChapters = chapters;
 
     if (chapters.length === 0) {
@@ -705,11 +970,13 @@ export function renderChapterList(appState) {
 
     chapters.forEach((chapter, index) => {
         const li = document.createElement('li');
+        li.className = 'flex items-center gap-1';
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.dataset.chapterIndex = String(index);
         btn.title = chapter.title;
-        btn.className = `w-full text-left py-1 pr-2 ${indentClasses[chapter.level] || 'pl-2'} rounded-lg flex items-center justify-between gap-2 transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`;
+        btn.className = `flex-1 min-w-0 text-left py-1 pr-2 ${indentClasses[chapter.level] || 'pl-2'} rounded-lg flex items-center justify-between gap-2 transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`;
 
         const titleSpan = document.createElement('span');
         titleSpan.className = 'truncate';
@@ -723,7 +990,19 @@ export function renderChapterList(appState) {
         btn.appendChild(pageSpan);
         btn.addEventListener('click', () => goToChapter(appState, chapter));
 
+        const playBtn = document.createElement('button');
+        playBtn.type = 'button';
+        playBtn.title = `Play from ${chapter.title}`;
+        playBtn.ariaLabel = `Play from ${chapter.title}`;
+        playBtn.className = 'shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors';
+        playBtn.innerHTML = '<i class="fas fa-play text-[10px]"></i>';
+        playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playFromChapter(appState, chapter);
+        });
+
         li.appendChild(btn);
+        li.appendChild(playBtn);
         list.appendChild(li);
     });
 

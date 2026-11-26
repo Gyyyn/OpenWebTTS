@@ -61,9 +61,12 @@ import {
     renderOnlinePodcasts,
     renderPage,
     renderTextPage,
+    paginateBookText,
     clearHighlights,
     renderChapterList,
-    updateActiveChapter
+    updateActiveChapter,
+    saveReadingProgress,
+    loadReadingProgress
 } from "./books.js"
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -122,6 +125,9 @@ document.addEventListener('DOMContentLoaded', () => {
             bookPageTitle: document.getElementById('book-title'),
             pageNumSpan: document.getElementById('page-num'),
             pageNumInput: document.createElement('input'),
+            zoomInBtn: document.getElementById('zoom-in-btn'),
+            zoomOutBtn: document.getElementById('zoom-out-btn'),
+            zoomLevelBtn: document.getElementById('zoom-level-btn'),
             chapterSelectContainer: document.getElementById('chapter-select-container'),
             chapterList: document.getElementById('chapter-list'),
             chapterCount: document.getElementById('chapter-count'),
@@ -191,11 +197,13 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUser: null,
             isTwoPageView: false,
             currentScale: 1.5, // Initial scale
+            textZoom: Math.max(70, Math.min(200, Number.parseInt(localStorage.getItem('text-zoom'), 10) || 100)),
 
             // Pagination
             textCurrentPage: 1,
             charsPerPage: 4000, // Characters per page for text content
             totalTextPages: 1,
+            textPages: [],
             fullBookText: '', // To store the entire text of a book
             bookChapters: [],
             currentTextPageLength: 0, // To track text length for editing
@@ -224,7 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
             getCurrentMainVisiblePage: getCurrentMainVisiblePage,
             readableUnixTime: readableUnixTime,
             updatePlayerUI: updatePlayerUI,
-            updateActiveChapter: updateActiveChapter
+            updateActiveChapter: updateActiveChapter,
+            saveReadingProgress: saveReadingProgress
         },
     };
     // Set workerSrc for PDF.js
@@ -453,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Text Pagination Logic
         appState.variables.fullBookText = bookContent || '';
-        appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
+        paginateBookText(appState);
         appState.variables.textCurrentPage = 1;
 
         appState.elements.bookView.classList.remove('hidden');
@@ -482,7 +491,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             resetPdfView(appState);
-            const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;        
+            const progress = loadReadingProgress(book.id);
+            const lastTextPage = Math.max(1, Math.min(progress.page, appState.variables.totalTextPages));
+            if (lastTextPage > 1) renderTextPage(appState, lastTextPage - 1);
             renderTextPage(appState, lastTextPage);
             renderChapterList(appState);
         }
@@ -532,15 +543,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Start scroll events
         if (book.is_pdf) {
             scrollCompensationElement = appState.elements.pdfViewer.children[0];
+            if (scrollCompensationElement && scrollCompensationElement.dataset.page > 1) {
+                document.scrollingElement.scrollTop = scrollCompensationElement.scrollHeight + 100;
+            }
             upwardsScroll.observe(appState.elements.pdfViewer.children[0]);
         } else {
-            scrollCompensationElement = appState.elements.textDisplay.children[0];
-            upwardsScroll.observe(appState.elements.textDisplay.children[0]);
-        }
-
-        // Only scroll if not on first page.
-        if (scrollCompensationElement && scrollCompensationElement.dataset.page > 1) {
-            document.scrollingElement.scrollTop = scrollCompensationElement.scrollHeight + 100;
+            const progress = loadReadingProgress(book.id);
+            const targetPage = Math.max(1, Math.min(progress.page, appState.variables.totalTextPages));
+            const targetPageEl = appState.elements.textDisplay.querySelector(`[data-page="${targetPage}"]`);
+            if (targetPageEl && (progress.scrollRatio > 0 || targetPage > 1)) {
+                const topOffset = targetPageEl.offsetTop + Math.round((progress.scrollRatio || 0) * targetPageEl.offsetHeight);
+                window.scrollTo({ top: topOffset, behavior: 'instant' });
+            }
+            if (appState.elements.textDisplay.children[0]) {
+                upwardsScroll.observe(appState.elements.textDisplay.children[0]);
+            }
         }
 
         downwardsScroll.observe(document.querySelector("#toolbar-space"));
@@ -666,6 +683,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const currentAudio = appState.variables.audioQueue[appState.variables.currentChunkIndex];
         updateTextChunkReader(appState);
+
+        if (!appState.variables.pdfDoc && appState.variables.currentReadingPage) {
+            const readingPageNum = Number.parseInt(appState.variables.currentReadingPage.dataset.page, 10);
+            if (Number.isFinite(readingPageNum)) {
+                saveReadingProgress(appState, {
+                    page: readingPageNum,
+                    chunkIndex: appState.variables.currentChunkIndex
+                });
+            }
+        }
 
         if (appState.variables.pdfDoc)
         await highlightPdfChunk(currentAudio.text);
@@ -805,7 +832,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playAudioQueue();
     }
 
-    function startSpeechGeneration() {
+    function startSpeechGeneration(startChunkIndex = null) {
         updatePlayerUI('BUFFERING', appState);
         // If currentReadingPage is not set, we are going to find
         // the page the user is currently looking at.
@@ -821,10 +848,6 @@ document.addEventListener('DOMContentLoaded', () => {
             text = mapTextContent(appState.variables.pdfTextContent[appState.variables.currentReadingPage.dataset.page]);
             // Update local page tracker.
             localStorage.setItem(appState.variables.pdfDoc.fingerprints[0], appState.variables.currentReadingPage.dataset.page);
-        } else {
-            if (appState.variables.activeBook) {
-                localStorage.setItem(`text-page-${appState.variables.activeBook.id}`, appState.variables.currentReadingPage.dataset.page);
-            }
         }
 
         // Now that we have our page text, prepare for generation.
@@ -832,12 +855,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (appState.variables.allTextChunks.length === 0) return;
 
+        let resolvedStartChunk = 0;
+        if (typeof startChunkIndex === 'number' && Number.isFinite(startChunkIndex)) {
+            resolvedStartChunk = startChunkIndex;
+        } else if (!appState.variables.pdfDoc && appState.variables.activeBook?.id) {
+            const readingPageNum = Number.parseInt(appState.variables.currentReadingPage.dataset.page, 10) || 1;
+            const saved = loadReadingProgress(appState.variables.activeBook.id);
+            if (saved.page === readingPageNum && saved.chunkIndex > 0 && saved.chunkIndex < appState.variables.allTextChunks.length) {
+                resolvedStartChunk = saved.chunkIndex;
+            }
+        }
+
+        const safeStartChunk = Math.max(0, Math.min(resolvedStartChunk, appState.variables.allTextChunks.length - 1));
+        appState.variables.currentChunkIndex = safeStartChunk;
+
+        if (!appState.variables.pdfDoc && appState.variables.activeBook?.id) {
+            const readingPageNum = Number.parseInt(appState.variables.currentReadingPage.dataset.page, 10) || 1;
+            saveReadingProgress(appState, { page: readingPageNum, chunkIndex: safeStartChunk });
+        }
+
         // If we got here okay, we can reset the view and queues.
         appState.elements.speechToTextSection.classList.add('hidden');
         appState.variables.audioQueue = [];      
 
-        const initialBufferSize = Math.min(3, appState.variables.allTextChunks.length);
-        for (let i = 0; i < initialBufferSize; i++) {
+        const bufferEnd = Math.min(safeStartChunk + 3, appState.variables.allTextChunks.length);
+        for (let i = safeStartChunk; i < bufferEnd; i++) {
             processAndQueueChunk(i);
         }
 
@@ -1185,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     appState.variables.localBooks[appState.variables.activeBook.id].text = appState.variables.fullBookText;
                     saveLocalBooks(appState);
                 }
-                appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
+                paginateBookText(appState);
                 renderTextPage(appState, 1);
                 renderChapterList(appState);
                 appState.functions.resetUpwardsScroll?.();
@@ -1267,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     appState.variables.localBooks[appState.variables.activeBook.id].text = appState.variables.fullBookText;
                     saveLocalBooks(appState);
                 }
-                appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
+                paginateBookText(appState);
                 renderTextPage(appState, 1);
                 renderChapterList(appState);
                 appState.functions.resetUpwardsScroll?.();
@@ -1298,7 +1340,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     localBooks[appState.variables.activeBook.id].text = fullBookText;
                     saveLocalBooks(appState);
                 }
-                appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
+                paginateBookText(appState);
                 renderTextPage(appState, 1);
                 renderChapterList(appState);
                 appState.functions.resetUpwardsScroll?.();
@@ -1317,16 +1359,59 @@ document.addEventListener('DOMContentLoaded', () => {
         hideFileModal(appState);
     });
 
+    function updateZoomUI(state = appState) {
+        if (state.variables.pdfDoc) {
+            state.elements.zoomInBtn.disabled = false;
+            state.elements.zoomOutBtn.disabled = state.variables.currentScale <= 0.25;
+            if (state.elements.zoomLevelBtn) {
+                state.elements.zoomLevelBtn.textContent = `${Math.round((state.variables.currentScale / 1.5) * 100)}%`;
+            }
+        } else {
+            const zoom = state.variables.textZoom || 100;
+            state.elements.textDisplay.style.fontSize = `${zoom}%`;
+            state.elements.zoomInBtn.disabled = zoom >= 200;
+            state.elements.zoomOutBtn.disabled = zoom <= 70;
+            if (state.elements.zoomLevelBtn) {
+                state.elements.zoomLevelBtn.textContent = `${zoom}%`;
+            }
+        }
+    }
+    appState.functions.updateZoomUI = updateZoomUI;
+    updateZoomUI(appState);
+
     appState.elements.zoomInBtn.addEventListener('click', () => {
-        if (!appState.variables.pdfDoc) return;
-        appState.variables.currentScale += 0.25;
-        renderPage(appState, appState.variables.currentPageNum);
+        if (appState.variables.pdfDoc) {
+            appState.variables.currentScale += 0.25;
+            renderPage(appState, appState.variables.currentPageNum);
+            updateZoomUI(appState);
+            return;
+        }
+        appState.variables.textZoom = Math.min(200, (appState.variables.textZoom || 100) + 10);
+        localStorage.setItem('text-zoom', String(appState.variables.textZoom));
+        updateZoomUI(appState);
     });
 
     appState.elements.zoomOutBtn.addEventListener('click', () => {
-        if (!appState.variables.pdfDoc) return;
-        appState.variables.currentScale = Math.max(0.25, appState.variables.currentScale - 0.25);
-        renderPage(appState, appState.variables.currentPageNum);
+        if (appState.variables.pdfDoc) {
+            appState.variables.currentScale = Math.max(0.25, appState.variables.currentScale - 0.25);
+            renderPage(appState, appState.variables.currentPageNum);
+            updateZoomUI(appState);
+            return;
+        }
+        appState.variables.textZoom = Math.max(70, (appState.variables.textZoom || 100) - 10);
+        localStorage.setItem('text-zoom', String(appState.variables.textZoom));
+        updateZoomUI(appState);
+    });
+
+    appState.elements.zoomLevelBtn?.addEventListener('click', () => {
+        if (appState.variables.pdfDoc) {
+            appState.variables.currentScale = 1.5;
+            renderPage(appState, appState.variables.currentPageNum);
+        } else {
+            appState.variables.textZoom = 100;
+            localStorage.setItem('text-zoom', '100');
+        }
+        updateZoomUI(appState);
     });
 
     appState.elements.engineSelect.addEventListener('change', (e) => { e.preventDefault(); updateVoices(appState) });
@@ -2326,6 +2411,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(bookInfoFadeTimeout);
         scrollTimeout = setTimeout(() => {
             updateCurrentPage(appState);
+            saveReadingProgress(appState);
             bookInfoFadeTimeout = setTimeout(() => {
                 if (!isHoveringBookInfo) bookInfoEl?.classList.add('opacity-0');
             }, 1500);
@@ -2454,6 +2540,8 @@ document.addEventListener('DOMContentLoaded', () => {
     appState.functions.deleteOnlineBook = deleteOnlineBook;
     appState.functions.deletePodcast = deletePodcast;
     appState.functions.handleSidebarCollapse = handleSidebarCollapse;
+    appState.functions.startSpeechGeneration = startSpeechGeneration;
+    appState.functions.stopAudioQueue = stopAudioQueue;
     
     // Smooth animations
     appState.elements.settingsDropupMenu.style.transition = 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out';
