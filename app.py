@@ -26,7 +26,6 @@ from fastapi.staticfiles import StaticFiles
 # Import config and router
 import config
 from functions.routes import router
-from functions.openai_api import openai_api_router
 
 # --- FastAPI Setup ---
 app = FastAPI()
@@ -36,7 +35,6 @@ app.mount("/static/audio_cache", StaticFiles(directory=config.AUDIO_CACHE_DIR), 
 app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
 
 app.include_router(router)
-app.include_router(openai_api_router)
 
 # --- Main Execution ---
 def _find_free_port(preferred_port: int) -> int:

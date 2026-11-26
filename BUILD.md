@@ -18,7 +18,6 @@ OpenWebTTS/
 |   ├── kitten.py          # Kitten TTS
 │   ├── kokoro.py          # Kokoro TTS
 │   ├── coqui.py           # Coqui TTS
-|   ├── openai_api.py      # OpenAI compatible API endpoints
 |   └── webpage.py         # Webpage extraction
 |
 ├── models/                # Place your TTS models here
