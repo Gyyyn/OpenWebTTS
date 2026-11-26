@@ -1,17 +1,17 @@
 import re
 from bs4 import BeautifulSoup, Comment
 
-def extract_readable_content(html_content):
+def extract_readable_content(html_content, from_encoding=None):
     """
     Analyzes an HTML document to extract the main readable content, similar to a "reader mode".
     This is useful for passing clean text to a Text-to-Speech (TTS) engine.
 
     Args:
-        html_content (str): The HTML content of the page as a string.
+        html_content (str | bytes): The HTML content of the page as a string or raw bytes.
+        from_encoding (str, optional): Explicit character encoding hint when html_content is bytes.
 
     Returns:
-        BeautifulSoup.Tag or None: The Tag object containing the main content, 
-                                   or None if no suitable content is found.
+        str: The extracted main text content, or an empty string if no suitable content is found.
     """
     # Regular expressions for matching class names and IDs.
     UNLIKELY_CANDIDATES_REGEX = re.compile(
@@ -26,7 +26,10 @@ def extract_readable_content(html_content):
     # Tags to remove from the document immediately.
     TAGS_TO_REMOVE = ['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'noscript']
 
-    soup = BeautifulSoup(html_content, 'html.parser')
+    soup_kwargs = {}
+    if isinstance(html_content, (bytes, bytearray)) and from_encoding:
+        soup_kwargs["from_encoding"] = from_encoding
+    soup = BeautifulSoup(html_content, 'html.parser', **soup_kwargs)
 
     # 1. Remove unwanted tags, comments, etc. from the document.
     for tag in TAGS_TO_REMOVE:

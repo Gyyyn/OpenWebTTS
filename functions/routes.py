@@ -1,4 +1,5 @@
 import os
+import re
 import hashlib
 import json
 import shutil
@@ -711,7 +712,13 @@ async def read_website(request: ReadWebsiteRequest):
         }
         response = requests.get(request.url, headers=headers)
         response.raise_for_status()  # Raise an exception for HTTP errors
-        content = extract_readable_content(response.text)
+        content_type = response.headers.get("content-type", "")
+        from_encoding = (
+            response.encoding
+            if re.search(r"charset\s*=", content_type, re.IGNORECASE)
+            else None
+        )
+        content = extract_readable_content(response.content, from_encoding=from_encoding)
         return PdfText(text=content)
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch website content: {e}")
