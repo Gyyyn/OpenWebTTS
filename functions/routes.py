@@ -976,10 +976,35 @@ async def delete_book_route(username: str, book_id: str, request: Request):
 @router.delete("/api/users/{username}/podcasts/{podcast_id}")
 async def delete_podcast_route(username: str, podcast_id: str, request: Request):
     require_authorized_user(username, request)
+    user_data = user_manager.get_user_data(username)
+    podcasts = user_data.get('podcasts', {}) if user_data else {}
+    podcast_to_delete = podcasts.get(podcast_id)
+    if not podcast_to_delete:
+        raise HTTPException(status_code=404, detail="Audiobook not found or user does not exist.")
+
+    audio_url = podcast_to_delete.get('audio_url')
     success = user_manager.delete_podcast(username, podcast_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Podcast not found or user does not exist.")
-    return {"message": "Podcast deleted successfully."}
+        raise HTTPException(status_code=404, detail="Audiobook not found or user does not exist.")
+
+    # Remove cached audio file if no other audiobook for this user references it
+    if audio_url and isinstance(audio_url, str) and audio_url.startswith("/static/audio_cache/"):
+        remaining_urls = {
+            p.get('audio_url')
+            for pid, p in podcasts.items()
+            if pid != podcast_id and p.get('audio_url')
+        }
+        if audio_url not in remaining_urls:
+            filename = os.path.basename(audio_url)
+            cache_root = os.path.abspath(AUDIO_CACHE_DIR)
+            audio_path = os.path.abspath(os.path.join(cache_root, filename))
+            if audio_path.startswith(cache_root + os.sep) and os.path.exists(audio_path):
+                try:
+                    os.unlink(audio_path)
+                except OSError as e:
+                    print(f"Failed to delete cached audiobook file {audio_path}: {e}")
+
+    return {"message": "Audiobook deleted successfully."}
 
 @router.patch("/api/users/{username}/books/{book_id}")
 async def edit_book_route(username: str, book_id: str, book_update: BookUpdate, request: Request):

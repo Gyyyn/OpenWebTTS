@@ -199,7 +199,7 @@ export function renderOnlinePodcasts(appState) {
             const li = document.createElement('li');
             li.className = 'relative p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200 '; // Added relative for absolute positioning of player
             li.title = `${podcast.title}`;
-            li.ariaLabel = `Podcast item ${podcast.title}`;
+            li.ariaLabel = `Audiobook item ${podcast.title}`;
 
             const mainContentDiv = document.createElement('div');
             mainContentDiv.className = 'flex justify-between items-center whitespace-nowrap overflow-hidden text-ellipsis';
@@ -224,7 +224,7 @@ export function renderOnlinePodcasts(appState) {
             containerSpan.classList = 'overflow-hidden cursor-pointer';
 
             const titleIcon = document.createElement('span');
-            titleIcon.innerHTML = '<i class="fas fa-microphone"></i>';
+            titleIcon.innerHTML = '<i class="fas fa-headphones"></i>';
 
             containerSpan.prepend(titleIcon);
             containerSpan.append(titleSpan);
@@ -237,18 +237,18 @@ export function renderOnlinePodcasts(appState) {
             const deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
             deleteBtn.className = 'hover:text-gray-500';
-            deleteBtn.title = 'Delete Podcast';
+            deleteBtn.title = 'Delete Audiobook';
             deleteBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
 
                     showBookModal(
-                    `Delete Podcast: ${podcast.title}?`,
+                    `Delete Audiobook: ${podcast.title}?`,
                     'Delete',
                     async () => {
         
                         const result = await appState.functions.deletePodcast(appState.variables.currentUser, podcast.id);
-                        if (result.success) appState.functions.showNotification(`Podcast '${podcast.title}' deleted.`, 'success');
-                        else appState.functions.showNotification(`Failed to delete podcast: ${result.error}`, 'error');
+                        if (result.success) appState.functions.showNotification(`Audiobook '${podcast.title}' deleted.`, 'success');
+                        else appState.functions.showNotification(`Failed to delete audiobook: ${result.error}`, 'error');
 
                         hideBookModal(appState);
 
@@ -261,15 +261,15 @@ export function renderOnlinePodcasts(appState) {
             mainContentDiv.appendChild(actionsDiv);
             li.appendChild(mainContentDiv);
 
-            // Attach preview for podcast
+            // Attach preview for audiobook
             attachContentPreview(li, () => {
                 return {
                     title: podcast.title,
-                    badge: podcast.status || 'Podcast',
-                    iconHtml: '<i class="fas fa-microphone"></i>',
+                    badge: podcast.status || 'Audiobook',
+                    iconHtml: '<i class="fas fa-headphones"></i>',
                     details: `Status: ${podcast.status || 'unknown'}`,
                     progress: podcast.audio_url ? 'Audio ready' : 'Processing audio',
-                    snippet: podcast.description || podcast.title || 'Generated podcast audio episode.'
+                    snippet: podcast.description || podcast.title || 'Generated audiobook.'
                 };
             });
 
@@ -370,7 +370,7 @@ export function renderOnlinePodcasts(appState) {
                 const compressBtn = document.createElement('button');
                 compressBtn.innerHTML = '<i class="fas fa-compress"></i>';
                 compressBtn.className = 'hover:text-gray-500';
-                compressBtn.title = 'Compress Podcast';
+                compressBtn.title = 'Compress Audiobook';
 
                 actionsDiv.prepend(compressBtn);
 
@@ -380,12 +380,12 @@ export function renderOnlinePodcasts(appState) {
                 const retryBtn = document.createElement('button');
                 retryBtn.innerHTML = '<i class="fas fa-repeat"></i>';
                 retryBtn.className = 'hover:text-gray-500';
-                retryBtn.title = 'Retry Podcast';
+                retryBtn.title = 'Retry Audiobook';
 
                 actionsDiv.prepend(retryBtn);
                 
             } else {
-                audioPlayerContainer.innerHTML = '<span class="text-gray-500">Podcast audio not ready.</span>';
+                audioPlayerContainer.innerHTML = '<span class="text-gray-500">Audiobook audio not ready.</span>';
             }
             
             li.appendChild(audioPlayerContainer);

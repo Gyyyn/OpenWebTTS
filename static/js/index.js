@@ -1958,11 +1958,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     appState.elements.generatePodcastBtn.addEventListener('click', () => {
         if (!appState.variables.currentUser) {
-            showNotification('You must be logged in to generate a podcast.', 'warning');
+            showNotification('You must be logged in to generate an audiobook.', 'warning');
             return;
         }
 
-        let podcastText = appState.variables.fullBookText.trim(); // Use full text for podcast
+        let podcastText = appState.variables.fullBookText.trim(); // Use full text for audiobook
         
         if (!podcastText) {
             showNotification('No text found!', 'warning');
@@ -1970,12 +1970,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         showBookModal(
-            'Generate Podcast', 
+            'Generate Audiobook', 
             'Generate', 
             async () => {
                 const podcastTitle = appState.elements.bookTitleInput.value.trim();
                 if (!podcastTitle) {
-                    showNotification('Podcast title cannot be empty.', 'warning');
+                    showNotification('Audiobook title cannot be empty.', 'warning');
                     return;
                 }
 
@@ -2005,11 +2005,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     apiKey
                 );
 
-                if (result.success) showNotification(`Your podcast is generating and will be ready soon!`, 'success');
-                else showNotification(`Failed to start podcast generation: ${result.error}`, 'error');
+                if (result.success) showNotification(`Your audiobook is generating and will be ready soon!`, 'success');
+                else showNotification(`Failed to start audiobook generation: ${result.error}`, 'error');
 
                 appState.elements.generatePodcastBtn.disabled = false;
-                appState.elements.generatePodcastBtn.innerHTML = '<i class="fas fa-podcast"></i><span class="ms-2">New Podcast</span>';
+                appState.elements.generatePodcastBtn.innerHTML = '<i class="fas fa-headphones"></i><span class="hidden md:inline text-sm ms-2">Audiobook</span>';
             },
             { showInput: true, inputValue: appState.variables.activeBook ? appState.variables.activeBook.title : '' },
             appState

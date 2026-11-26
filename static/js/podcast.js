@@ -17,13 +17,13 @@ export async function generatePodcast(username, title, text, lang, engine, voice
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.detail || 'Failed to generate podcast.');
+            throw new Error(errorData.detail || 'Failed to generate audiobook.');
         }
 
         const data = await response.json();
         return { success: true, ...data };
     } catch (error) {
-        console.error('Error generating podcast:', error);
+        console.error('Error generating audiobook:', error);
         return { success: false, error: error.message };
     }
 }
@@ -33,12 +33,12 @@ export async function getPodcasts(username) {
         const response = await fetch(`/api/users/${username}/podcasts`);
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.detail || 'Failed to fetch podcasts.');
+            throw new Error(errorData.detail || 'Failed to fetch audiobooks.');
         }
         const data = await response.json();
         return { success: true, podcasts: data.podcasts };
     } catch (error) {
-        console.error('Error fetching podcasts:', error);
+        console.error('Error fetching audiobooks:', error);
         return { success: false, error: error.message };
     }
 }
@@ -51,13 +51,13 @@ export async function deletePodcast(username, podcastId) {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.detail || 'Failed to delete podcast.');
+            throw new Error(errorData.detail || 'Failed to delete audiobook.');
         }
 
         const data = await response.json();
         return { success: true, ...data };
     } catch (error) {
-        console.error('Error deleting podcast:', error);
+        console.error('Error deleting audiobook:', error);
         return { success: false, error: error.message };
     }
 }
