@@ -207,6 +207,7 @@ export function updateCurrentPage(appState) {
     
     // Update the span.
     appState.elements.pageNumSpan.textContent = `Page ${Number.parseInt(appState.variables.currentMostVisiblePage.dataset.page)} of ${Number.parseInt(maxPages)}`;
+    appState.functions.updateActiveChapter?.(appState);
 }
 
 /**
@@ -216,9 +217,20 @@ export function updateCurrentPage(appState) {
 export function goToPage(appState) {
     const page = parseInt(appState.elements.pageNumInput.value);
     if (!isNaN(page)) {
+        appState.functions.disconnectUpwardsScroll?.();
         appState.variables.currentPageContainer.innerHTML = ''; // Clear current view.
-        if (appState.variables.pdfDoc) appState.functions.renderPage(appState, page);
-        else appState.functions.renderTextPage(appState, page);
+        if (appState.variables.pdfDoc) {
+            appState.functions.renderPage(appState, page);
+        } else {
+            if (page > 1) appState.functions.renderTextPage(appState, page - 1);
+            appState.functions.renderTextPage(appState, page);
+            const pageEl = appState.variables.currentPageContainer.querySelector(`[data-page="${page}"]`);
+            if (pageEl) pageEl.scrollIntoView({ behavior: 'instant', block: 'start' });
+        }
+        updateCurrentPage(appState);
+        requestAnimationFrame(() => {
+            appState.functions.resetUpwardsScroll?.();
+        });
     }
     
     appState.elements.pageNumInput.style.display = 'none';
@@ -334,7 +346,11 @@ export function resetBookView(appState) {
     appState.variables.fullBookText = '';
     appState.variables.totalTextPages = 1;
     appState.variables.textCurrentPage = 1;
+    appState.variables.bookChapters = [];
     appState.elements.pageNumSpan.textContent = '';
+    if (appState.elements.chapterSelectContainer) appState.elements.chapterSelectContainer.classList.add('hidden');
+    if (appState.elements.chapterList) appState.elements.chapterList.innerHTML = '';
+    if (appState.elements.chapterCount) appState.elements.chapterCount.textContent = '';
 }
 
 /**

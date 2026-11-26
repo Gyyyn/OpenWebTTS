@@ -412,6 +412,25 @@ export function fastFormatDetect(text) {
 }
 
 /**
+ * Sanitizes an HTML string so scripts, external stylesheets, inline styles,
+ * and event-handler attributes cannot leak onto the host page.
+ * @param {string} html
+ * @returns {string}
+ */
+function sanitizeHtmlFragment(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script, style, link').forEach(el => el.remove());
+    doc.querySelectorAll('*').forEach(el => {
+        for (const attr of Array.from(el.attributes)) {
+            if (attr.name.toLowerCase().startsWith('on')) {
+                el.removeAttribute(attr.name);
+            }
+        }
+    });
+    return doc.body ? doc.body.innerHTML : '';
+}
+
+/**
  * Detects and parses a text for rendering.
  * @param {string} text The text for the page.
  * @returns An element that can be assigned to innerHTML.
@@ -422,7 +441,7 @@ export function parseTextContent(text) {
     
     switch (detectedFormat) {
         case 'html':
-            return text;
+            return sanitizeHtmlFragment(text);
         case 'markdown':
             return marked.parse(text);
         case 'plain':

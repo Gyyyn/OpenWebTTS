@@ -5,6 +5,10 @@ import json
 import shutil
 import tempfile
 import time
+import base64
+import mimetypes
+import posixpath
+from urllib.parse import unquote
 from io import BytesIO
 from typing import List, Dict, Optional
 import ebooklib
@@ -563,11 +567,94 @@ async def read_epub(file: UploadFile = File(...)):
             temp_epub_path = temp_epub_file.name
         try:
             book = epub.read_epub(temp_epub_path)
+
+            # Build a lookup of every image/resource in the EPUB keyed
+            # by its internal path so we can resolve <img src="…"> refs.
+            image_map = {}  # normalised EPUB path → data-URI
+            image_map_lower = {}
+            for item in book.get_items():
+                media_type = (getattr(item, 'media_type', '') or '').lower()
+                is_image_item = (
+                    item.get_type() == ebooklib.ITEM_IMAGE
+                    or (item.get_type() == ebooklib.ITEM_COVER and not media_type.startswith(('application/xhtml', 'text/html')))
+                    or media_type.startswith('image/')
+                )
+                if is_image_item:
+                    fname = item.get_name().replace('\\', '/')  # e.g. "OEBPS/Images/fig1.png"
+                    mime = media_type or mimetypes.guess_type(fname)[0] or 'application/octet-stream'
+                    b64 = base64.b64encode(item.content).decode('ascii')
+                    data_uri = f"data:{mime};base64,{b64}"
+                    # Store under every useful variant of the path so
+                    # relative, absolute-looking, and flat references all
+                    # resolve.  E.g. for "OEBPS/Images/fig.png" we store:
+                    #   OEBPS/Images/fig.png
+                    #   Images/fig.png   (without top-level directory)
+                    #   fig.png          (basename only)
+                    norm = posixpath.normpath(unquote(fname))
+                    variants = [norm, posixpath.basename(norm)]
+                    parts = norm.split('/')
+                    for i in range(1, len(parts)):
+                        variants.append('/'.join(parts[i:]))
+                    for key in variants:
+                        image_map[key] = data_uri
+                        image_map_lower[key.lower()] = data_uri
+
             full_html = []
             for item in book.get_items():
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
                     soup = BeautifulSoup(item.content, 'html.parser')
-                    full_html.append(str(soup))
+                    # Strip tags whose content can leak onto the host page:
+                    # scripts, stylesheets, and external resources.
+                    for tag in soup.find_all(['script', 'style', 'link']):
+                        tag.decompose()
+                    # Remove event-handler attributes (onclick, onerror, …).
+                    for tag in soup.find_all(True):
+                        for attr in list(tag.attrs):
+                            if attr.startswith('on'):
+                                del tag[attr]
+
+                    # Rewrite image src attributes to inline data-URIs so
+                    # they render without a separate server endpoint.
+                    doc_dir = posixpath.dirname(item.get_name().replace('\\', '/'))
+
+                    def _resolve_to_data_uri(src):
+                        """Try every reasonable interpretation of *src* and
+                        return the matching data-URI, or None."""
+                        clean_src = unquote(src.split('#', 1)[0].split('?', 1)[0]).replace('\\', '/')
+                        if not clean_src or clean_src.startswith(('data:', 'http://', 'https://')):
+                            return None
+                        resolved = posixpath.normpath(posixpath.join(doc_dir, clean_src))
+                        candidates = [
+                            resolved,
+                            clean_src.lstrip('/'),
+                            re.sub(r'^(\.\./)+', '', resolved),
+                            posixpath.basename(clean_src),
+                        ]
+                        for candidate in candidates:
+                            if candidate in image_map:
+                                return image_map[candidate]
+                            lower = candidate.lower()
+                            if lower in image_map_lower:
+                                return image_map_lower[lower]
+                        return None
+
+                    for img in soup.find_all('img', src=True):
+                        data_uri = _resolve_to_data_uri(img['src'])
+                        if data_uri:
+                            img['src'] = data_uri
+
+                    # Also handle SVG <image xlink:href="…"> references.
+                    for img in soup.find_all('image'):
+                        for href_attr in ('xlink:href', 'href'):
+                            if img.get(href_attr):
+                                data_uri = _resolve_to_data_uri(img[href_attr])
+                                if data_uri:
+                                    img[href_attr] = data_uri
+
+                    # Use only the <body> content so stray <html>/<head>
+                    # wrappers don't end up in the page.
+                    body = soup.find('body')
+                    full_html.append(str(body) if body else str(soup))
             return PdfText(text="\n".join(full_html))
         finally:
             os.unlink(temp_epub_path)

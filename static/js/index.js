@@ -61,7 +61,9 @@ import {
     renderOnlinePodcasts,
     renderPage,
     renderTextPage,
-    clearHighlights
+    clearHighlights,
+    renderChapterList,
+    updateActiveChapter
 } from "./books.js"
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -120,6 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
             bookPageTitle: document.getElementById('book-title'),
             pageNumSpan: document.getElementById('page-num'),
             pageNumInput: document.createElement('input'),
+            chapterSelectContainer: document.getElementById('chapter-select-container'),
+            chapterList: document.getElementById('chapter-list'),
+            chapterCount: document.getElementById('chapter-count'),
             speechToTextSection: document.getElementById('speech-to-text-section'),
             emptyTextOverlay: document.getElementById('empty-text-overlay'),
             pasteClipboardOverlayBtn: document.getElementById('paste-clipboard-overlay-btn'),
@@ -192,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             charsPerPage: 4000, // Characters per page for text content
             totalTextPages: 1,
             fullBookText: '', // To store the entire text of a book
+            bookChapters: [],
             currentTextPageLength: 0, // To track text length for editing
             bookDetectedLang: '',
             currentPageContainer: null,
@@ -217,7 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification: showNotification,
             getCurrentMainVisiblePage: getCurrentMainVisiblePage,
             readableUnixTime: readableUnixTime,
-            updatePlayerUI: updatePlayerUI
+            updatePlayerUI: updatePlayerUI,
+            updateActiveChapter: updateActiveChapter
         },
     };
     // Set workerSrc for PDF.js
@@ -477,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetPdfView(appState);
             const lastTextPage = parseInt(localStorage.getItem(`text-page-${book.id}`)) || 1;        
             renderTextPage(appState, lastTextPage);
+            renderChapterList(appState);
         }
 
         if (bookContent.length > 0) {
@@ -1179,6 +1187,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
                 renderTextPage(appState, 1);
+                renderChapterList(appState);
+                appState.functions.resetUpwardsScroll?.();
             } else if (data.status === 'ocr_started') {
                 showNotification('PDF contains no text. Starting background OCR...', 'info');
                 pollOcrResult(data.task_id, bookId);
@@ -1259,6 +1269,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
                 renderTextPage(appState, 1);
+                renderChapterList(appState);
+                appState.functions.resetUpwardsScroll?.();
 
             } catch (error) {
                 console.error('Error reading EPUB:', error);
@@ -1288,6 +1300,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 appState.variables.totalTextPages = Math.max(1, Math.ceil(appState.variables.fullBookText.length / appState.variables.charsPerPage));
                 renderTextPage(appState, 1);
+                renderChapterList(appState);
+                appState.functions.resetUpwardsScroll?.();
 
             } catch (error) {
                 console.error('Error reading DOCX:', error);
@@ -2285,21 +2299,53 @@ document.addEventListener('DOMContentLoaded', () => {
     // Infinite Scroll handlers
     const infiniteScrollPageCache = 4;
     let scrollTimeout = 0;
+    let bookInfoFadeTimeout = 0;
+    let isHoveringBookInfo = false;
+    const bookInfoEl = document.querySelector('#book-info');
+
+    if (bookInfoEl) {
+        bookInfoEl.addEventListener('mouseenter', () => {
+            isHoveringBookInfo = true;
+            clearTimeout(bookInfoFadeTimeout);
+            bookInfoEl.classList.remove('hidden', 'opacity-0');
+        });
+        bookInfoEl.addEventListener('mouseleave', () => {
+            isHoveringBookInfo = false;
+            clearTimeout(bookInfoFadeTimeout);
+            bookInfoFadeTimeout = setTimeout(() => {
+                if (!isHoveringBookInfo) bookInfoEl.classList.add('opacity-0');
+            }, 1500);
+        });
+    }
 
     window.addEventListener('scroll', () => {
 
-        const bookInfo = document.querySelector('#book-info');
-        bookInfo?.classList.remove('hidden', 'opacity-0');
+        bookInfoEl?.classList.remove('hidden', 'opacity-0');
 
         clearTimeout(scrollTimeout);
+        clearTimeout(bookInfoFadeTimeout);
         scrollTimeout = setTimeout(() => {
             updateCurrentPage(appState);
-            setTimeout(() => {
-                bookInfo?.classList.add('opacity-0');
+            bookInfoFadeTimeout = setTimeout(() => {
+                if (!isHoveringBookInfo) bookInfoEl?.classList.add('opacity-0');
             }, 1500);
         }, 100);
 
     });
+
+    appState.functions.disconnectUpwardsScroll = () => {
+        upwardsScroll.disconnect();
+    };
+
+    appState.functions.resetUpwardsScroll = () => {
+        upwardsScroll.disconnect();
+        const container = appState.variables.pdfDoc
+            ? appState.elements.pdfViewer
+            : appState.elements.textDisplay;
+        if (container?.children[0]) {
+            upwardsScroll.observe(container.children[0]);
+        }
+    };
     
     const downwardsScroll = new IntersectionObserver((entries) => {
         if (!entries[0].isIntersecting) return;

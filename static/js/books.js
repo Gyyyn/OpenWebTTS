@@ -1,6 +1,7 @@
 import {
     showBookModal,
-    hideBookModal
+    hideBookModal,
+    updateCurrentPage
 } from "./UI.js";
 import {
     attachContentPreview
@@ -508,4 +509,223 @@ export function clearHighlights(appState) {
     
     const highlightLayer = document.getElementById('highlight-layer');
     if (highlightLayer) highlightLayer.innerHTML = '';
+}
+
+/**
+ * Extracts clean plain text from an HTML fragment string.
+ * @param {string} htmlFragment
+ * @returns {string}
+ */
+function stripHtmlToText(htmlFragment) {
+    const doc = new DOMParser().parseFromString(htmlFragment, 'text/html');
+    return (doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Extracts chapter/heading entries with their character offset and page number
+ * from the book's full text.
+ * @param {string} fullBookText
+ * @param {number} charsPerPage
+ * @returns {Array<{title: string, level: number, charIndex: number, page: number}>}
+ */
+export function extractChapters(fullBookText, charsPerPage = 4000) {
+    if (!fullBookText || typeof fullBookText !== 'string') return [];
+
+    const chapters = [];
+    const safeCharsPerPage = Math.max(1, charsPerPage || 4000);
+    const hasHtmlTags = /<([a-z][a-z0-9]*)\b[^>]*>/i.test(fullBookText);
+
+    if (hasHtmlTags) {
+        const headingRegex = /<h([1-4])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
+        let match;
+        while ((match = headingRegex.exec(fullBookText)) !== null) {
+            const title = stripHtmlToText(match[2]);
+            if (!title) continue;
+            chapters.push({
+                title,
+                level: Number.parseInt(match[1], 10),
+                charIndex: match.index,
+                page: Math.floor(match.index / safeCharsPerPage) + 1
+            });
+        }
+
+        // Fallback for EPUBs whose spine documents lack <h1>-<h4> headings
+        if (chapters.length === 0) {
+            const bodyRegex = /<body\b[^>]*>([\s\S]*?)<\/body>/gi;
+            const bodies = [];
+            let bodyMatch;
+            while ((bodyMatch = bodyRegex.exec(fullBookText)) !== null) {
+                const text = stripHtmlToText(bodyMatch[1]);
+                if (!text) continue;
+                bodies.push({
+                    title: text.slice(0, 60) + (text.length > 60 ? '...' : ''),
+                    level: 1,
+                    charIndex: bodyMatch.index,
+                    page: Math.floor(bodyMatch.index / safeCharsPerPage) + 1
+                });
+            }
+            if (bodies.length > 1) return bodies;
+        }
+
+        return chapters;
+    }
+
+    // Markdown heading fallback
+    const mdHeadingRegex = /^(#{1,4})\s+(.+)$/gm;
+    let mdMatch;
+    while ((mdMatch = mdHeadingRegex.exec(fullBookText)) !== null) {
+        const title = mdMatch[2].replace(/\s+/g, ' ').trim();
+        if (!title) continue;
+        chapters.push({
+            title,
+            level: mdMatch[1].length,
+            charIndex: mdMatch.index,
+            page: Math.floor(mdMatch.index / safeCharsPerPage) + 1
+        });
+    }
+
+    return chapters;
+}
+
+/**
+ * Navigates the text/EPUB reader to a specific chapter.
+ * @param {object} appState The main appState object.
+ * @param {{title: string, level: number, charIndex: number, page: number}} chapter
+ */
+export function goToChapter(appState, chapter) {
+    if (!chapter || appState.variables.pdfDoc) return;
+
+    const targetPage = Math.max(1, Math.min(chapter.page, appState.variables.totalTextPages || 1));
+    appState.functions.disconnectUpwardsScroll?.();
+    appState.elements.textDisplay.innerHTML = '';
+
+    // Render the preceding page above when targetPage > 1 so upwards infinite
+    // scroll starts above the viewport instead of firing immediately.
+    if (targetPage > 1) {
+        renderTextPage(appState, targetPage - 1, true);
+    }
+    renderTextPage(appState, targetPage, true);
+
+    if (appState.variables.activeBook?.id) {
+        localStorage.setItem(`text-page-${appState.variables.activeBook.id}`, targetPage);
+    }
+
+    const pageEl = appState.elements.textDisplay.querySelector(`[data-page="${targetPage}"]`);
+    const targetTitle = chapter.title.toLowerCase();
+    const headings = (pageEl || appState.elements.textDisplay).querySelectorAll('h1, h2, h3, h4');
+    const matchedHeading = Array.from(headings).find(
+        el => el.textContent.replace(/\s+/g, ' ').trim().toLowerCase() === targetTitle
+    );
+
+    const scrollTarget = matchedHeading || pageEl;
+    if (scrollTarget) {
+        scrollTarget.scrollIntoView({ behavior: 'instant', block: 'start' });
+    } else {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    updateCurrentPage(appState);
+
+    requestAnimationFrame(() => {
+        appState.functions.resetUpwardsScroll?.();
+    });
+}
+
+/**
+ * Highlights the active chapter in #chapter-list based on the current visible page.
+ * @param {object} appState The main appState object.
+ */
+export function updateActiveChapter(appState) {
+    const chapterList = appState.elements.chapterList;
+    const chapters = appState.variables.bookChapters;
+    if (!chapterList || !chapters || chapters.length === 0) return;
+
+    const visiblePageAttr = appState.variables.currentMostVisiblePage?.dataset?.page;
+    const currentPage = Number.parseInt(visiblePageAttr, 10) || appState.variables.textCurrentPage || 1;
+
+    let activeIndex = 0;
+    for (let i = 0; i < chapters.length; i++) {
+        if (chapters[i].page <= currentPage) activeIndex = i;
+        else break;
+    }
+
+    const activeClasses = ['bg-indigo-100', 'dark:bg-indigo-900/40', 'text-indigo-700', 'dark:text-indigo-300', 'font-medium'];
+    const inactiveClasses = ['text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-800'];
+
+    const buttons = chapterList.querySelectorAll('button[data-chapter-index]');
+    buttons.forEach((btn, idx) => {
+        if (idx === activeIndex) {
+            btn.classList.add(...activeClasses);
+            btn.classList.remove(...inactiveClasses);
+            btn.scrollIntoView({ block: 'nearest' });
+        } else {
+            btn.classList.remove(...activeClasses);
+            btn.classList.add(...inactiveClasses);
+        }
+    });
+}
+
+/**
+ * Populates the chapter selection box inside #book-info.
+ * @param {object} appState The main appState object.
+ */
+export function renderChapterList(appState) {
+    const container = appState.elements.chapterSelectContainer;
+    const list = appState.elements.chapterList;
+    const countEl = appState.elements.chapterCount;
+    if (!container || !list) return;
+
+    list.innerHTML = '';
+
+    if (appState.variables.pdfDoc) {
+        appState.variables.bookChapters = [];
+        container.classList.add('hidden');
+        if (countEl) countEl.textContent = '';
+        return;
+    }
+
+    const chapters = extractChapters(appState.variables.fullBookText, appState.variables.charsPerPage);
+    appState.variables.bookChapters = chapters;
+
+    if (chapters.length === 0) {
+        container.classList.add('hidden');
+        if (countEl) countEl.textContent = '';
+        return;
+    }
+
+    container.classList.remove('hidden');
+    if (countEl) countEl.textContent = `${chapters.length}`;
+
+    const indentClasses = {
+        1: 'pl-2',
+        2: 'pl-4',
+        3: 'pl-6',
+        4: 'pl-8'
+    };
+
+    chapters.forEach((chapter, index) => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.chapterIndex = String(index);
+        btn.title = chapter.title;
+        btn.className = `w-full text-left py-1 pr-2 ${indentClasses[chapter.level] || 'pl-2'} rounded-lg flex items-center justify-between gap-2 transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`;
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'truncate';
+        titleSpan.textContent = chapter.title;
+
+        const pageSpan = document.createElement('span');
+        pageSpan.className = 'shrink-0 text-[10px] text-gray-400 dark:text-gray-500';
+        pageSpan.textContent = `p.${chapter.page}`;
+
+        btn.appendChild(titleSpan);
+        btn.appendChild(pageSpan);
+        btn.addEventListener('click', () => goToChapter(appState, chapter));
+
+        li.appendChild(btn);
+        list.appendChild(li);
+    });
+
+    updateActiveChapter(appState);
 }

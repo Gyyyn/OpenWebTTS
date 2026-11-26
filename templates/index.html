@@ -332,7 +332,7 @@
             </div>
 
             <div class="xl:w-[750px] xl:mx-auto">
-                <div id="book-info" class="hidden opacity-0 transition backdrop-blur-lg w-[90dvw] md:w-[350px] z-10 border border-indigo-200 dark:border-gray-700 fixed items-center justify-between m-4 p-4 rounded-xl shadow-xl top-0 right-0">
+                <div id="book-info" class="hidden opacity-0 hover:opacity-100 transition backdrop-blur-lg w-[90dvw] md:w-[350px] z-10 border border-indigo-200 dark:border-gray-700 fixed items-center justify-between m-4 p-4 rounded-xl shadow-xl top-0 right-0">
                     <header id="book-title" class="text-gray-800 dark:text-gray-200">New Book</header>
 
                     <div id="pagination-controls" class="flex flex-row justify-between items-center">
@@ -347,6 +347,14 @@
                                 <i class="fas fa-magnifying-glass-minus"></i>
                             </button>
                         </div>
+                    </div>
+
+                    <div id="chapter-select-container" class="hidden mt-3 pt-2 border-t border-indigo-100 dark:border-gray-700">
+                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 flex items-center justify-between">
+                            <span>Chapters</span>
+                            <span id="chapter-count" class="text-[11px] font-normal"></span>
+                        </div>
+                        <ul id="chapter-list" class="max-h-48 overflow-y-auto space-y-1 pr-1 text-xs"></ul>
                     </div>
                 </div>
 
