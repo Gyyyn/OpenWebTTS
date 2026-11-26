@@ -6,7 +6,6 @@
 
 # Ignore node modules
 node_modules/
-package-lock.json
 
 # Ignore Python cache files
 __pycache__/
