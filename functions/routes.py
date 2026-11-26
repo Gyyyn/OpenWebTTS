@@ -32,6 +32,7 @@ from config import templates, STATIC_DIR, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR,
 # Import other function modules
 from functions.users import UserManager
 from functions.webpage import extract_readable_content
+from functions.audiobook import AudiobookWorker, recover_interrupted_jobs, split_into_chapters
 
 # Lazy imports for TTS engines - these will be imported only when needed
 def lazy_import_piper():
@@ -732,6 +733,23 @@ async def get_cache_size():
 # -----------------------
 user_manager = UserManager(USERS_DIR, secret_key=SECRET_KEY)
 
+def _synthesize_audiobook_chunk(payload: dict, output_path: str) -> None:
+    req = SynthesizeRequest(
+        engine=payload["engine"],
+        voice=payload["voice"],
+        lang=payload.get("lang") or "en",
+        text=payload["text"],
+        api_key=payload.get("api_key"),
+    )
+    _generate_audio_file(req, output_path)
+
+audiobook_worker = AudiobookWorker(
+    audio_cache_dir=AUDIO_CACHE_DIR,
+    user_manager=user_manager,
+    synthesize_fn=_synthesize_audiobook_chunk,
+)
+recover_interrupted_jobs(USERS_DIR, user_manager)
+
 def get_current_user(request: Request) -> Optional[str]:
     """Extract authenticated username from Bearer header, cookie, or custom header."""
     auth_header = request.headers.get("Authorization")
@@ -982,12 +1000,21 @@ async def delete_podcast_route(username: str, podcast_id: str, request: Request)
     if not podcast_to_delete:
         raise HTTPException(status_code=404, detail="Audiobook not found or user does not exist.")
 
+    audiobook_worker.request_pause(username, podcast_id)
     audio_url = podcast_to_delete.get('audio_url')
     success = user_manager.delete_podcast(username, podcast_id)
     if not success:
         raise HTTPException(status_code=404, detail="Audiobook not found or user does not exist.")
 
-    # Remove cached audio file if no other audiobook for this user references it
+    # Remove per-audiobook chunk/chapter directory if present
+    podcast_dir = audiobook_worker.get_podcast_dir(podcast_id)
+    if os.path.isdir(podcast_dir):
+        try:
+            shutil.rmtree(podcast_dir)
+        except OSError as e:
+            print(f"Failed to delete audiobook directory {podcast_dir}: {e}")
+
+    # Remove legacy single cached audio file if no other audiobook for this user references it
     if audio_url and isinstance(audio_url, str) and audio_url.startswith("/static/audio_cache/"):
         remaining_urls = {
             p.get('audio_url')
@@ -1017,55 +1044,145 @@ async def edit_book_route(username: str, book_id: str, book_update: BookUpdate, 
         raise HTTPException(status_code=404, detail="Book not found.")
     return {"message": "Book updated successfully."}
 
-async def _generate_and_update_podcast_audio(username: str, podcast_id: str, request: SynthesizeRequest, output_path: str, audio_url: str):
-    try:
-        _generate_audio_file(request, output_path)
-        user_manager.update_podcast(username, podcast_id, {"status": "ready", "audio_url": audio_url})
-    except Exception as e:
-        print(f"Error generating podcast audio for {username}/{podcast_id}: {e}")
-        user_manager.update_podcast(username, podcast_id, {"status": "failed", "error": str(e)})
-
-# TODO: Currently, this function freezes the app until the audio gen is done lol
 @router.post("/api/users/{username}/podcast")
-async def generate_podcast_route(username: str, podcast: PodcastGenerate, background_tasks: BackgroundTasks, request: Request):
+async def generate_podcast_route(username: str, podcast: PodcastGenerate, request: Request):
     require_authorized_user(username, request)
     if not podcast.text.strip():
-        raise HTTPException(status_code=400, detail="Podcast text cannot be empty.")
+        raise HTTPException(status_code=400, detail="Audiobook text cannot be empty.")
 
-    # Create a SynthesizeRequest for audio generation
-    synthesize_request = SynthesizeRequest(
-        engine=podcast.engine,
-        voice=podcast.voice,
-        lang=podcast.lang or 'en',
-        text=podcast.text,
-        api_key=podcast.api_key
-    )
+    chapters = split_into_chapters(podcast.text)
+    if not chapters:
+        raise HTTPException(status_code=400, detail="Audiobook text cannot be empty.")
 
-    # Generate a unique hash for the audio file
-    hash_input = f"{podcast.text}-{podcast.voice}-{podcast.engine}"
-    unique_hash = hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
-    output_filename = f"{unique_hash}.wav"
-    output_path = os.path.join(AUDIO_CACHE_DIR, output_filename)
-    audio_url = f"/static/audio_cache/{output_filename}"
+    total_chunks = sum(len(ch["chunks"]) for ch in chapters)
+    chapter_summaries = [
+        {
+            "index": ch["index"],
+            "title": ch["title"],
+            "status": "pending",
+            "audio_url": None,
+            "duration_sec": 0.0,
+            "chunks_total": len(ch["chunks"]),
+            "chunks_done": 0,
+        }
+        for ch in chapters
+    ]
+    progress = {
+        "completed_chunks": 0,
+        "total_chunks": total_chunks,
+        "percent": 0.0,
+        "current_chapter": 1,
+        "total_chapters": len(chapters),
+        "current_chapter_title": chapters[0]["title"],
+    }
 
-    # Add initial podcast entry with 'Generating' status
-    podcast_data = podcast.dict()
-    podcast_data["status"] = "generating"
-    podcast_data["audio_url"] = audio_url # Add the audio_url even if not ready yet
+    snippet = re.sub(r'\s+', ' ', podcast.text.strip())[:240]
+    podcast_data = {
+        "title": podcast.title,
+        "engine": podcast.engine,
+        "voice": podcast.voice,
+        "lang": podcast.lang or "en",
+        "description": snippet,
+        "status": "queued",
+        "audio_url": None,
+        "chapters": chapter_summaries,
+        "progress": progress,
+        "created_at": time.time(),
+    }
     success, podcast_id = user_manager.add_podcast(username, podcast_data)
 
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found or failed to add podcast.")
-    
-    # Schedule the audio generation as a background task
-    background_tasks.add_task(_generate_and_update_podcast_audio, username, podcast_id, synthesize_request, output_path, audio_url)
+    if not success or not podcast_id:
+        raise HTTPException(status_code=404, detail="User not found or failed to add audiobook.")
+
+    manifest = {
+        "podcast_id": podcast_id,
+        "title": podcast.title,
+        "engine": podcast.engine,
+        "voice": podcast.voice,
+        "lang": podcast.lang or "en",
+        "api_key": podcast.api_key,
+        "chapters": chapters,
+    }
+    audiobook_worker.save_manifest(podcast_id, manifest)
+    audiobook_worker.enqueue(username, podcast_id)
 
     return JSONResponse(content={
-        "message": "Podcast generation started.",
+        "message": "Audiobook generation started.",
         "podcast_id": podcast_id,
-        "status": "generating",
-        "audio_url": audio_url
+        "status": "queued",
+        "progress": progress,
+        "chapters": chapter_summaries,
     })
+
+
+@router.get("/api/users/{username}/podcasts/{podcast_id}/status")
+async def get_podcast_status_route(username: str, podcast_id: str, request: Request):
+    require_authorized_user(username, request)
+    user_data = user_manager.get_user_data(username)
+    podcasts = user_data.get("podcasts", {}) if user_data else {}
+    podcast_data = podcasts.get(podcast_id)
+    if not podcast_data:
+        raise HTTPException(status_code=404, detail="Audiobook not found.")
+
+    return {
+        "id": podcast_id,
+        "status": podcast_data.get("status", "unknown"),
+        "progress": podcast_data.get("progress"),
+        "chapters": podcast_data.get("chapters", []),
+        "audio_url": podcast_data.get("audio_url"),
+        "duration_sec": podcast_data.get("duration_sec"),
+        "error": podcast_data.get("error"),
+    }
+
+
+@router.post("/api/users/{username}/podcasts/{podcast_id}/pause")
+async def pause_podcast_route(username: str, podcast_id: str, request: Request):
+    require_authorized_user(username, request)
+    user_data = user_manager.get_user_data(username)
+    podcasts = user_data.get("podcasts", {}) if user_data else {}
+    podcast_data = podcasts.get(podcast_id)
+    if not podcast_data:
+        raise HTTPException(status_code=404, detail="Audiobook not found.")
+
+    signaled = audiobook_worker.request_pause(username, podcast_id)
+    if not signaled and podcast_data.get("status") in ("queued", "generating"):
+        user_manager.update_podcast(username, podcast_id, {"status": "paused"})
+
+    return {"message": "Audiobook pause requested.", "podcast_id": podcast_id}
+
+
+@router.post("/api/users/{username}/podcasts/{podcast_id}/retry")
+async def retry_podcast_route(username: str, podcast_id: str, request: Request):
+    require_authorized_user(username, request)
+    user_data = user_manager.get_user_data(username)
+    podcasts = user_data.get("podcasts", {}) if user_data else {}
+    podcast_data = podcasts.get(podcast_id)
+    if not podcast_data:
+        raise HTTPException(status_code=404, detail="Audiobook not found.")
+
+    if audiobook_worker.is_job_active(username, podcast_id):
+        return {"message": "Audiobook is already generating.", "podcast_id": podcast_id, "status": "generating"}
+
+    manifest = audiobook_worker.load_manifest(podcast_id)
+    if not manifest:
+        legacy_text = (podcast_data.get("text") or "").strip()
+        if not legacy_text:
+            raise HTTPException(status_code=400, detail="Audiobook source text is unavailable for retry.")
+        chapters = split_into_chapters(legacy_text)
+        manifest = {
+            "podcast_id": podcast_id,
+            "title": podcast_data.get("title", "Audiobook"),
+            "engine": podcast_data.get("engine", "piper"),
+            "voice": podcast_data.get("voice", ""),
+            "lang": podcast_data.get("lang", "en"),
+            "api_key": podcast_data.get("api_key"),
+            "chapters": chapters,
+        }
+        audiobook_worker.save_manifest(podcast_id, manifest)
+
+    user_manager.update_podcast(username, podcast_id, {"status": "queued", "error": None})
+    audiobook_worker.enqueue(username, podcast_id)
+    return {"message": "Audiobook generation resumed.", "podcast_id": podcast_id, "status": "queued"}
 
 
 @router.get("/api/noise_files")

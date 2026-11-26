@@ -9,6 +9,11 @@ import {
 import {
     splitTextIntoChunks
 } from "./helpers.js";
+import {
+    getPodcastStatus,
+    pausePodcast,
+    retryPodcast
+} from "./podcast.js";
 
 /**
  * Populates userdata on the appState object.
@@ -192,12 +197,110 @@ export function renderOnlineBooks(appState) {
  * Renders the local book list in the sidebar.
  * @param {object} appState The main appState object.
  */
+let podcastPollTimer = null;
+
+function formatPodcastStatusLabel(podcast) {
+    const pct = podcast.progress && typeof podcast.progress.percent === 'number'
+        ? Math.round(podcast.progress.percent)
+        : null;
+    if ((podcast.status === 'generating' || podcast.status === 'queued') && pct !== null) {
+        return `${podcast.title} (${pct}%)`;
+    }
+    if (podcast.status === 'paused' && pct !== null) {
+        return `${podcast.title} (paused ${pct}%)`;
+    }
+    return `${podcast.title} (${podcast.status})`;
+}
+
+function syncPodcastPolling(appState) {
+    const hasActive = (appState.variables.onlinePodcasts || []).some(
+        p => p.status === 'generating' || p.status === 'queued'
+    );
+
+    if (!hasActive) {
+        if (podcastPollTimer) {
+            clearInterval(podcastPollTimer);
+            podcastPollTimer = null;
+        }
+        return;
+    }
+
+    if (podcastPollTimer) return;
+
+    podcastPollTimer = setInterval(async () => {
+        const username = appState.variables.currentUser;
+        if (!username) {
+            clearInterval(podcastPollTimer);
+            podcastPollTimer = null;
+            return;
+        }
+
+        const activeItems = (appState.variables.onlinePodcasts || []).filter(
+            p => p.status === 'generating' || p.status === 'queued'
+        );
+        if (activeItems.length === 0) {
+            clearInterval(podcastPollTimer);
+            podcastPollTimer = null;
+            return;
+        }
+
+        let needsFullRender = false;
+        for (const item of activeItems) {
+            const res = await getPodcastStatus(username, item.id);
+            if (!res.success) continue;
+
+            const prevStatus = item.status;
+            item.status = res.status;
+            item.progress = res.progress;
+            item.chapters = res.chapters;
+            item.audio_url = res.audio_url;
+            item.duration_sec = res.duration_sec;
+            item.error = res.error;
+
+            if (prevStatus !== res.status && (res.status === 'ready' || res.status === 'failed' || res.status === 'paused')) {
+                needsFullRender = true;
+                if (res.status === 'ready') {
+                    appState.functions.showNotification?.(`Audiobook '${item.title}' is ready!`, 'success');
+                } else if (res.status === 'failed') {
+                    appState.functions.showNotification?.(`Audiobook '${item.title}' failed: ${res.error || 'Unknown error'}`, 'error');
+                }
+            } else {
+                const li = appState.elements.podcastList?.querySelector(`[data-podcast-id="${item.id}"]`);
+                if (li) {
+                    const titleEl = li.querySelector('.podcast-title-text');
+                    if (titleEl) titleEl.textContent = formatPodcastStatusLabel(item);
+                    const barFill = li.querySelector('.podcast-progress-fill');
+                    if (barFill && item.progress) {
+                        barFill.style.width = `${Math.min(100, Math.max(0, item.progress.percent || 0))}%`;
+                    }
+                    const progressText = li.querySelector('.podcast-progress-detail');
+                    if (progressText && item.progress) {
+                        const ch = item.progress.current_chapter || 1;
+                        const totalCh = item.progress.total_chapters || 1;
+                        progressText.textContent = `Ch. ${ch}/${totalCh} • ${Math.round(item.progress.percent || 0)}%`;
+                    }
+                }
+            }
+        }
+
+        if (needsFullRender) {
+            renderOnlinePodcasts(appState);
+        }
+        syncPodcastPolling(appState);
+    }, 2500);
+}
+
 export function renderOnlinePodcasts(appState) {
-        if (appState.variables.onlinePodcasts.length < 1) return; // Quit if we have an empty list.
+        if (!appState.elements.podcastList) return;
         appState.elements.podcastList.innerHTML = '';
+        if (appState.variables.onlinePodcasts.length < 1) {
+            syncPodcastPolling(appState);
+            return;
+        }
         appState.variables.onlinePodcasts.forEach(podcast => {
             const li = document.createElement('li');
             li.className = 'relative p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200 '; // Added relative for absolute positioning of player
+            li.dataset.podcastId = podcast.id;
             li.title = `${podcast.title}`;
             li.ariaLabel = `Audiobook item ${podcast.title}`;
 
@@ -217,8 +320,8 @@ export function renderOnlinePodcasts(appState) {
             });
 
             const titleSpan = document.createElement('span');
-            titleSpan.className = 'ms-2 text-xs hide-on-collapse';
-            titleSpan.textContent = `${podcast.title} (${podcast.status})`;
+            titleSpan.className = 'podcast-title-text ms-2 text-xs hide-on-collapse';
+            titleSpan.textContent = formatPodcastStatusLabel(podcast);
 
             const containerSpan = document.createElement('span');
             containerSpan.classList = 'overflow-hidden cursor-pointer';
@@ -247,8 +350,13 @@ export function renderOnlinePodcasts(appState) {
                     async () => {
         
                         const result = await appState.functions.deletePodcast(appState.variables.currentUser, podcast.id);
-                        if (result.success) appState.functions.showNotification(`Audiobook '${podcast.title}' deleted.`, 'success');
-                        else appState.functions.showNotification(`Failed to delete audiobook: ${result.error}`, 'error');
+                        if (result.success) {
+                            appState.variables.onlinePodcasts = (appState.variables.onlinePodcasts || []).filter(p => p.id !== podcast.id);
+                            renderOnlinePodcasts(appState);
+                            appState.functions.showNotification(`Audiobook '${podcast.title}' deleted.`, 'success');
+                        } else {
+                            appState.functions.showNotification(`Failed to delete audiobook: ${result.error}`, 'error');
+                        }
 
                         hideBookModal(appState);
 
@@ -263,12 +371,15 @@ export function renderOnlinePodcasts(appState) {
 
             // Attach preview for audiobook
             attachContentPreview(li, () => {
+                const pct = podcast.progress && typeof podcast.progress.percent === 'number'
+                    ? `${Math.round(podcast.progress.percent)}%`
+                    : null;
                 return {
                     title: podcast.title,
                     badge: podcast.status || 'Audiobook',
                     iconHtml: '<i class="fas fa-headphones"></i>',
-                    details: `Status: ${podcast.status || 'unknown'}`,
-                    progress: podcast.audio_url ? 'Audio ready' : 'Processing audio',
+                    details: `Status: ${podcast.status || 'unknown'}${podcast.chapters?.length ? ` • ${podcast.chapters.length} ch.` : ''}`,
+                    progress: podcast.audio_url ? 'Audio ready' : (pct ? `Progress: ${pct}` : 'Processing audio'),
                     snippet: podcast.description || podcast.title || 'Generated audiobook.'
                 };
             });
@@ -374,23 +485,81 @@ export function renderOnlinePodcasts(appState) {
 
                 actionsDiv.prepend(compressBtn);
 
-            } else if (podcast.status === 'failed') {
+            } else if (podcast.status === 'failed' || podcast.status === 'paused') {
 
-                // Retry Button (TODO)
                 const retryBtn = document.createElement('button');
-                retryBtn.innerHTML = '<i class="fas fa-repeat"></i>';
-                retryBtn.className = 'hover:text-gray-500';
-                retryBtn.title = 'Retry Audiobook';
+                retryBtn.innerHTML = podcast.status === 'paused' ? '<i class="fas fa-play"></i>' : '<i class="fas fa-repeat"></i>';
+                retryBtn.className = 'hover:text-indigo-500';
+                retryBtn.title = podcast.status === 'paused' ? 'Resume Audiobook' : 'Retry Audiobook';
+                retryBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    retryBtn.disabled = true;
+                    const res = await retryPodcast(appState.variables.currentUser, podcast.id);
+                    if (res.success) {
+                        podcast.status = 'queued';
+                        appState.functions.showNotification?.(`Resuming '${podcast.title}'...`, 'info');
+                        renderOnlinePodcasts(appState);
+                    } else {
+                        retryBtn.disabled = false;
+                        appState.functions.showNotification?.(`Failed to resume: ${res.error}`, 'error');
+                    }
+                });
 
                 actionsDiv.prepend(retryBtn);
+
+                const pct = Math.min(100, Math.max(0, podcast.progress?.percent || 0));
+                audioPlayerContainer.innerHTML = `
+                    <div class="text-xs text-gray-600 dark:text-gray-300 space-y-1">
+                        <div class="flex justify-between">
+                            <span>${podcast.status === 'paused' ? 'Paused' : 'Failed'}</span>
+                            <span class="podcast-progress-detail">${Math.round(pct)}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div class="podcast-progress-fill h-full bg-amber-500 transition-all" style="width: ${pct}%"></div>
+                        </div>
+                        ${podcast.error ? `<div class="text-[11px] text-red-500 truncate" title="${podcast.error}">${podcast.error}</div>` : ''}
+                    </div>
+                `;
                 
             } else {
-                audioPlayerContainer.innerHTML = '<span class="text-gray-500">Audiobook audio not ready.</span>';
+                const pauseBtn = document.createElement('button');
+                pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                pauseBtn.className = 'hover:text-amber-500';
+                pauseBtn.title = 'Pause Generation';
+                pauseBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    pauseBtn.disabled = true;
+                    const res = await pausePodcast(appState.variables.currentUser, podcast.id);
+                    if (res.success) {
+                        appState.functions.showNotification?.(`Pausing '${podcast.title}' after current chunk...`, 'info');
+                    } else {
+                        pauseBtn.disabled = false;
+                        appState.functions.showNotification?.(`Failed to pause: ${res.error}`, 'error');
+                    }
+                });
+                actionsDiv.prepend(pauseBtn);
+
+                const pct = Math.min(100, Math.max(0, podcast.progress?.percent || 0));
+                const ch = podcast.progress?.current_chapter || 1;
+                const totalCh = podcast.progress?.total_chapters || 1;
+                audioPlayerContainer.classList.remove('hidden');
+                audioPlayerContainer.innerHTML = `
+                    <div class="text-xs text-gray-600 dark:text-gray-300 space-y-1">
+                        <div class="flex justify-between">
+                            <span>Generating...</span>
+                            <span class="podcast-progress-detail">Ch. ${ch}/${totalCh} • ${Math.round(pct)}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div class="podcast-progress-fill h-full bg-indigo-600 transition-all" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
             }
             
             li.appendChild(audioPlayerContainer);
             appState.elements.podcastList.appendChild(li);
         });
+        syncPodcastPolling(appState);
     }
 
 /**

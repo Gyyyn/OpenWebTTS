@@ -2005,8 +2005,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     apiKey
                 );
 
-                if (result.success) showNotification(`Your audiobook is generating and will be ready soon!`, 'success');
-                else showNotification(`Failed to start audiobook generation: ${result.error}`, 'error');
+                if (result.success) {
+                    showNotification(`Your audiobook is generating and will be ready soon!`, 'success');
+                    const listRes = await getPodcasts(appState.variables.currentUser);
+                    if (listRes.success) {
+                        appState.variables.onlinePodcasts = listRes.podcasts || [];
+                        renderOnlinePodcasts(appState);
+                    }
+                } else {
+                    showNotification(`Failed to start audiobook generation: ${result.error}`, 'error');
+                }
 
                 appState.elements.generatePodcastBtn.disabled = false;
                 appState.elements.generatePodcastBtn.innerHTML = '<i class="fas fa-headphones"></i><span class="hidden md:inline text-sm ms-2">Audiobook</span>';
