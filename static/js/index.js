@@ -8,6 +8,7 @@
 
 // Import podcast generation
 import { getPodcasts, generatePodcast, deletePodcast } from './podcast.js';
+import { audiobookPlayer } from './audiobookPlayer.js';
 
 // Import Speech Generation functions
 import { generateSpeech } from "./speechGen.js";
@@ -2248,6 +2249,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             appState.variables.playerSleepTimer = createSleepTimer(duration, () => {
                 stopAudioQueue();
+                audiobookPlayer.pause();
                 showNotification("Playback stopped by sleep timer", "info");
             });
 
@@ -2351,7 +2353,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appState.elements.sleepTimerModal?.classList.add('hidden');
 
             // If player is currently playing, start/restart active countdown immediately
-            if (appState.variables.isPlaying) {
+            if (appState.variables.isPlaying || audiobookPlayer.isPlaying()) {
                 startActiveSleepTimer();
                 showNotification(`Sleep timer set for ${formatTimeRemaining(durationMs)}`, 'info');
             } else {
@@ -2547,6 +2549,9 @@ document.addEventListener('DOMContentLoaded', () => {
     appState.functions.deleteBook = deleteBook;
     appState.functions.deleteOnlineBook = deleteOnlineBook;
     appState.functions.deletePodcast = deletePodcast;
+    appState.functions.openSleepTimerModal = openSleepTimerModal;
+    appState.functions.startActiveSleepTimer = startActiveSleepTimer;
+    appState.functions.clearSleepTimer = clearSleepTimer;
     appState.functions.handleSidebarCollapse = handleSidebarCollapse;
     appState.functions.startSpeechGeneration = startSpeechGeneration;
     appState.functions.stopAudioQueue = stopAudioQueue;

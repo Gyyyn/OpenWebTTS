@@ -4,8 +4,11 @@ import re
 import threading
 import time
 import wave
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Dict, List, Optional, Tuple
+
+from functions.audio import transcode_wav_to_mp3
 
 
 CHAPTER_HEADING_RE = re.compile(
@@ -297,19 +300,28 @@ class AudiobookWorker:
             for ch in chapters:
                 ch_idx = ch["index"]
                 ch_chunks = ch.get("chunks", [])
+                ch_mp3_path = os.path.join(podcast_dir, f"chapter_{ch_idx:03d}.mp3")
+                ch_wav_path = os.path.join(podcast_dir, f"chapter_{ch_idx:03d}.wav")
+                ch_ready_mp3 = os.path.exists(ch_mp3_path) and os.path.getsize(ch_mp3_path) > 128
+                ch_ready_wav = os.path.exists(ch_wav_path) and os.path.getsize(ch_wav_path) > 44
+                ch_ready = ch_ready_mp3 or ch_ready_wav
+
                 ch_done = 0
-                for ck_idx in range(len(ch_chunks)):
-                    ck_path = os.path.join(chunks_dir, f"ch_{ch_idx:03d}_ck_{ck_idx:04d}.wav")
-                    if os.path.exists(ck_path) and os.path.getsize(ck_path) > 44:
-                        ch_done += 1
+                if ch_ready:
+                    ch_done = len(ch_chunks)
+                else:
+                    for ck_idx in range(len(ch_chunks)):
+                        ck_path = os.path.join(chunks_dir, f"ch_{ch_idx:03d}_ck_{ck_idx:04d}.wav")
+                        if os.path.exists(ck_path) and os.path.getsize(ck_path) > 44:
+                            ch_done += 1
                 completed_chunks += ch_done
-                ch_out_path = os.path.join(podcast_dir, f"chapter_{ch_idx:03d}.wav")
-                ch_ready = os.path.exists(ch_out_path) and os.path.getsize(ch_out_path) > 44
+
+                ch_filename = f"chapter_{ch_idx:03d}.mp3" if ch_ready_mp3 else f"chapter_{ch_idx:03d}.wav"
                 chapter_summaries.append({
                     "index": ch_idx,
                     "title": ch["title"],
                     "status": "ready" if ch_ready else "pending",
-                    "audio_url": f"/static/audio_cache/podcasts/{podcast_id}/chapter_{ch_idx:03d}.wav" if ch_ready else None,
+                    "audio_url": f"/static/audio_cache/podcasts/{podcast_id}/{ch_filename}" if ch_ready else None,
                     "duration_sec": ch.get("duration_sec", 0.0),
                     "chunks_total": len(ch_chunks),
                     "chunks_done": ch_done,
@@ -334,6 +346,17 @@ class AudiobookWorker:
                         },
                     })
                     return
+
+                ch_mp3_path = os.path.join(podcast_dir, f"chapter_{ch_idx:03d}.mp3")
+                ch_wav_path = os.path.join(podcast_dir, f"chapter_{ch_idx:03d}.wav")
+
+                if os.path.exists(ch_mp3_path) and os.path.getsize(ch_mp3_path) > 128:
+                    ch_url = f"/static/audio_cache/podcasts/{podcast_id}/chapter_{ch_idx:03d}.mp3"
+                    duration_sec = chapter_summaries[ch_idx].get("duration_sec", 0.0)
+                    chapter_summaries[ch_idx]["status"] = "ready"
+                    chapter_summaries[ch_idx]["audio_url"] = ch_url
+                    chapter_summaries[ch_idx]["duration_sec"] = duration_sec
+                    continue
 
                 chapter_summaries[ch_idx]["status"] = "generating"
 
@@ -383,14 +406,30 @@ class AudiobookWorker:
                         },
                     })
 
-                # Assemble chapter WAV
-                ch_out_path = os.path.join(podcast_dir, f"chapter_{ch_idx:03d}.wav")
-                if not (os.path.exists(ch_out_path) and os.path.getsize(ch_out_path) > 44):
-                    duration_sec = concatenate_wav_files(ch_chunk_paths, ch_out_path)
+                # Assemble chapter WAV, then transcode to MP3 to keep disk usage small
+                if not (os.path.exists(ch_wav_path) and os.path.getsize(ch_wav_path) > 44):
+                    duration_sec = concatenate_wav_files(ch_chunk_paths, ch_wav_path)
                 else:
                     duration_sec = chapter_summaries[ch_idx].get("duration_sec", 0.0)
 
-                ch_url = f"/static/audio_cache/podcasts/{podcast_id}/chapter_{ch_idx:03d}.wav"
+                ch_filename = f"chapter_{ch_idx:03d}.wav"
+                try:
+                    duration_sec = transcode_wav_to_mp3(ch_wav_path, ch_mp3_path, bitrate="96k")
+                    ch_filename = f"chapter_{ch_idx:03d}.mp3"
+                    if os.path.exists(ch_wav_path):
+                        os.unlink(ch_wav_path)
+                except Exception as transcode_err:
+                    print(f"MP3 transcode fallback to WAV for {podcast_id} ch {ch_idx}: {transcode_err}")
+
+                # Remove raw chunk WAVs once chapter is finalized
+                for ck_path in ch_chunk_paths:
+                    if os.path.exists(ck_path):
+                        try:
+                            os.unlink(ck_path)
+                        except OSError:
+                            pass
+
+                ch_url = f"/static/audio_cache/podcasts/{podcast_id}/{ch_filename}"
                 chapter_summaries[ch_idx]["status"] = "ready"
                 chapter_summaries[ch_idx]["audio_url"] = ch_url
                 chapter_summaries[ch_idx]["duration_sec"] = duration_sec
@@ -454,3 +493,89 @@ def recover_interrupted_jobs(users_dir: str, user_manager) -> int:
         except Exception as e:
             print(f"Failed to recover audiobook state from {user_file}: {e}")
     return recovered
+
+
+def _safe_cache_path(audio_cache_dir: str, audio_url: str) -> Optional[str]:
+    if not audio_url or not isinstance(audio_url, str) or not audio_url.startswith("/static/audio_cache/"):
+        return None
+    rel = audio_url[len("/static/audio_cache/"):].lstrip("/")
+    root = os.path.abspath(audio_cache_dir)
+    target = os.path.abspath(os.path.join(root, rel))
+    if not target.startswith(root + os.sep):
+        return None
+    return target
+
+
+def compress_podcast_audio(audio_cache_dir: str, user_manager, username: str, podcast_id: str, bitrate: str = "96k") -> dict:
+    """Compress existing WAV chapter/legacy files for an audiobook into MP3."""
+    user_data = user_manager.get_user_data(username)
+    podcast_data = (user_data or {}).get("podcasts", {}).get(podcast_id)
+    if not podcast_data:
+        raise ValueError("Audiobook not found.")
+
+    chapters = podcast_data.get("chapters") or []
+    compressed_count = 0
+
+    if chapters:
+        for ch in chapters:
+            url = ch.get("audio_url")
+            src_path = _safe_cache_path(audio_cache_dir, url)
+            if src_path and src_path.lower().endswith(".wav") and os.path.exists(src_path):
+                mp3_path = src_path[:-4] + ".mp3"
+                duration_sec = transcode_wav_to_mp3(src_path, mp3_path, bitrate=bitrate)
+                os.unlink(src_path)
+                ch["audio_url"] = url[:-4] + ".mp3"
+                ch["duration_sec"] = duration_sec
+                compressed_count += 1
+
+        first_url = chapters[0].get("audio_url") if chapters else podcast_data.get("audio_url")
+        total_duration = round(sum(c.get("duration_sec", 0.0) for c in chapters), 2)
+        user_manager.update_podcast(username, podcast_id, {
+            "chapters": chapters,
+            "audio_url": first_url,
+            "duration_sec": total_duration,
+            "compressed": True,
+        })
+        return {"compressed_files": compressed_count, "audio_url": first_url, "chapters": chapters}
+
+    # Legacy single-file audiobook
+    url = podcast_data.get("audio_url")
+    src_path = _safe_cache_path(audio_cache_dir, url)
+    if src_path and src_path.lower().endswith(".wav") and os.path.exists(src_path):
+        mp3_path = src_path[:-4] + ".mp3"
+        duration_sec = transcode_wav_to_mp3(src_path, mp3_path, bitrate=bitrate)
+        os.unlink(src_path)
+        new_url = url[:-4] + ".mp3"
+        user_manager.update_podcast(username, podcast_id, {
+            "audio_url": new_url,
+            "duration_sec": duration_sec,
+            "compressed": True,
+        })
+        return {"compressed_files": 1, "audio_url": new_url, "chapters": []}
+
+    return {"compressed_files": 0, "audio_url": url, "chapters": chapters}
+
+
+def build_audiobook_zip(audio_cache_dir: str, podcast_id: str, podcast_data: dict) -> str:
+    """Create a ZIP archive of all ready chapter audio files for download and return its path."""
+    podcast_dir = os.path.join(audio_cache_dir, "podcasts", podcast_id)
+    os.makedirs(podcast_dir, exist_ok=True)
+    zip_path = os.path.join(podcast_dir, "audiobook.zip")
+    tmp_zip = f"{zip_path}.tmp"
+
+    chapters = podcast_data.get("chapters") or []
+    with zipfile.ZipFile(tmp_zip, "w", compression=zipfile.ZIP_STORED) as zf:
+        for ch in chapters:
+            url = ch.get("audio_url")
+            src = _safe_cache_path(audio_cache_dir, url)
+            if not src or not os.path.exists(src):
+                continue
+            ext = os.path.splitext(src)[1] or ".mp3"
+            safe_title = re.sub(r'[^a-zA-Z0-9_\-\s]', '', ch.get("title", f"Chapter {ch.get('index', 0) + 1}")).strip()
+            safe_title = safe_title[:50] or f"Chapter {ch.get('index', 0) + 1}"
+            arcname = f"{int(ch.get('index', 0)) + 1:02d} - {safe_title}{ext}"
+            zf.write(src, arcname=arcname)
+
+    os.replace(tmp_zip, zip_path)
+    return zip_path
+

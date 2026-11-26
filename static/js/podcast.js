@@ -110,3 +110,50 @@ export async function retryPodcast(username, podcastId) {
         return { success: false, error: error.message };
     }
 }
+
+export async function compressPodcast(username, podcastId) {
+    try {
+        const response = await fetch(`/api/users/${username}/podcasts/${podcastId}/compress`, {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to compress audiobook.');
+        }
+        const data = await response.json();
+        return { success: true, ...data };
+    } catch (error) {
+        console.error('Error compressing audiobook:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export function getPodcastDownloadUrl(username, podcastId) {
+    return `/api/users/${username}/podcasts/${podcastId}/download`;
+}
+
+export async function savePodcastProgress(username, podcastId, progressData) {
+    try {
+        const response = await fetch(`/api/users/${username}/podcasts/${podcastId}/progress`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(progressData),
+        });
+        if (!response.ok) return { success: false };
+        return { success: true };
+    } catch {
+        return { success: false };
+    }
+}
+
+export function sendPodcastProgressBeacon(username, podcastId, progressData) {
+    if (!navigator.sendBeacon) return;
+    try {
+        const blob = new Blob([JSON.stringify(progressData)], { type: 'application/json' });
+        navigator.sendBeacon(`/api/users/${username}/podcasts/${podcastId}/progress`, blob);
+    } catch {
+        // Ignore beacon errors on unload
+    }
+}

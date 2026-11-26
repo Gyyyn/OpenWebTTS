@@ -12,8 +12,14 @@ import {
 import {
     getPodcastStatus,
     pausePodcast,
-    retryPodcast
+    retryPodcast,
+    compressPodcast,
+    getPodcastDownloadUrl
 } from "./podcast.js";
+import {
+    audiobookPlayer,
+    getSavedAudiobookProgress
+} from "./audiobookPlayer.js";
 
 /**
  * Populates userdata on the appState object.
@@ -291,6 +297,7 @@ function syncPodcastPolling(appState) {
 }
 
 export function renderOnlinePodcasts(appState) {
+        audiobookPlayer.init(appState);
         if (!appState.elements.podcastList) return;
         appState.elements.podcastList.innerHTML = '';
         if (appState.variables.onlinePodcasts.length < 1) {
@@ -304,19 +311,24 @@ export function renderOnlinePodcasts(appState) {
             li.title = `${podcast.title}`;
             li.ariaLabel = `Audiobook item ${podcast.title}`;
 
+            const hasPlayableAudio = Boolean(
+                podcast.audio_url || (podcast.chapters || []).some(ch => ch.audio_url)
+            );
+
             const mainContentDiv = document.createElement('div');
             mainContentDiv.className = 'flex justify-between items-center whitespace-nowrap overflow-hidden text-ellipsis';
             mainContentDiv.addEventListener('click', () => {
-
-                const playerDiv = li.querySelector(`#podcast-audio-player-${podcast.id}`);
-
                 if (appState.elements.sidebar.classList.contains('collapsed')) {
                     appState.functions.handleSidebarCollapse();
-                    playerDiv.classList.add('hidden');
                 }
 
-                if (playerDiv)
-                playerDiv.classList.toggle('hidden');
+                if (hasPlayableAudio) {
+                    audiobookPlayer.open(podcast, true);
+                    return;
+                }
+
+                const playerDiv = li.querySelector(`#podcast-audio-player-${podcast.id}`);
+                if (playerDiv) playerDiv.classList.toggle('hidden');
             });
 
             const titleSpan = document.createElement('span');
@@ -374,116 +386,69 @@ export function renderOnlinePodcasts(appState) {
                 const pct = podcast.progress && typeof podcast.progress.percent === 'number'
                     ? `${Math.round(podcast.progress.percent)}%`
                     : null;
+                const savedPos = getSavedAudiobookProgress(podcast);
+                let progressLabel = podcast.audio_url ? 'Ready to listen' : (pct ? `Progress: ${pct}` : 'Processing audio');
+                if (savedPos) {
+                    if (savedPos.completed) {
+                        progressLabel = 'Completed';
+                    } else if (typeof savedPos.position_sec === 'number' && savedPos.position_sec > 0) {
+                        const mins = Math.floor(savedPos.position_sec / 60);
+                        const secs = Math.floor(savedPos.position_sec % 60);
+                        progressLabel = `Resume Ch. ${(savedPos.chapter_index || 0) + 1} • ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                    }
+                }
                 return {
                     title: podcast.title,
                     badge: podcast.status || 'Audiobook',
                     iconHtml: '<i class="fas fa-headphones"></i>',
                     details: `Status: ${podcast.status || 'unknown'}${podcast.chapters?.length ? ` • ${podcast.chapters.length} ch.` : ''}`,
-                    progress: podcast.audio_url ? 'Audio ready' : (pct ? `Progress: ${pct}` : 'Processing audio'),
+                    progress: progressLabel,
                     snippet: podcast.description || podcast.title || 'Generated audiobook.'
                 };
             });
 
-            // Collapsible Audio Player
+            // Collapsible status/progress container (playback uses docked Audiobook Player)
             const audioPlayerContainer = document.createElement('div');
             audioPlayerContainer.id = `podcast-audio-player-${podcast.id}`;
-            audioPlayerContainer.className = 'mini-audio-player hidden mt-2 p-2 bg-gray-100 rounded-lg'; // Initially hidden
+            audioPlayerContainer.className = 'mini-audio-player hidden mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg';
 
-            if (podcast.status === 'ready' && podcast.audio_url) {
-                const audioElem = document.createElement('audio');
-                audioElem.src = podcast.audio_url;
-                audioElem.preload = 'none'; // Only load metadata or nothing
+            if (podcast.status === 'ready' && hasPlayableAudio) {
+                const downloadBtn = document.createElement('button');
+                downloadBtn.innerHTML = '<i class="fas fa-download"></i>';
+                downloadBtn.className = 'hover:text-indigo-500';
+                downloadBtn.title = 'Download Audiobook';
+                downloadBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.open(getPodcastDownloadUrl(appState.variables.currentUser, podcast.id), '_blank');
+                });
+                actionsDiv.prepend(downloadBtn);
 
-                const controlsDiv = document.createElement('div');
-                controlsDiv.className = 'flex items-center space-x-2';
+                const hasWav = (podcast.audio_url || '').toLowerCase().endsWith('.wav') ||
+                    (podcast.chapters || []).some(ch => (ch.audio_url || '').toLowerCase().endsWith('.wav'));
 
-                const playPauseBtn = document.createElement('button');
-                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                playPauseBtn.className = 'text-lg hover:text-gray-700';
-                
-                const progressSlider = document.createElement('input');
-                progressSlider.type = 'range';
-                progressSlider.min = '0';
-                progressSlider.max = '100';
-                progressSlider.value = '0';
-                progressSlider.className = 'max-w-[50%] flex-grow h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-indigo-600';
-
-                const timeDisplay = document.createElement('span');
-                timeDisplay.className = 'text-xs text-gray-600 w-20 text-right';
-                timeDisplay.textContent = '0:00 / 0:00';
-
-                playPauseBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent li click from being triggered
-
-                    // Ensure other players are paused
-                    document.querySelectorAll('audio').forEach(otherAudio => {
-                        if (otherAudio !== audioElem && !otherAudio.paused) {
-                            otherAudio.pause();
-                            const otherPlayerContainer = otherAudio.closest('[id^="podcast-audio-player-"]');
-                            if (otherPlayerContainer) {
-                                const otherPlayBtn = otherPlayerContainer.querySelector('button');
-                                if (otherPlayBtn) {
-                                    otherPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
-                                }
-                            }
+                if (hasWav) {
+                    const compressBtn = document.createElement('button');
+                    compressBtn.innerHTML = '<i class="fas fa-compress"></i>';
+                    compressBtn.className = 'hover:text-indigo-500';
+                    compressBtn.title = 'Compress Audiobook to MP3';
+                    compressBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        compressBtn.disabled = true;
+                        compressBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                        const res = await compressPodcast(appState.variables.currentUser, podcast.id);
+                        if (res.success) {
+                            podcast.audio_url = res.audio_url;
+                            if (res.chapters?.length) podcast.chapters = res.chapters;
+                            appState.functions.showNotification?.(`Compressed '${podcast.title}' to MP3.`, 'success');
+                            renderOnlinePodcasts(appState);
+                        } else {
+                            compressBtn.disabled = false;
+                            compressBtn.innerHTML = '<i class="fas fa-compress"></i>';
+                            appState.functions.showNotification?.(`Compression failed: ${res.error}`, 'error');
                         }
                     });
-
-                    if (audioElem.paused) {
-                        audioElem.play();
-                        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                        // Also ensure the player is visible if play is clicked
-                        audioPlayerContainer.classList.remove('hidden');
-                    } else {
-                        audioElem.pause();
-                        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                    }
-                });
-
-                audioElem.addEventListener('timeupdate', () => {
-                    const progress = (audioElem.currentTime / audioElem.duration) * 100;
-                    progressSlider.value = isNaN(progress) ? 0 : progress;
-                    
-                    const formatTime = (seconds) => {
-                        const minutes = Math.floor(seconds / 60);
-                        const secs = Math.floor(seconds % 60);
-                        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-                    };
-                    timeDisplay.textContent = `${formatTime(audioElem.currentTime)} / ${formatTime(audioElem.duration)}`;
-                });
-
-                audioElem.addEventListener('ended', () => {
-                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                    progressSlider.value = 0;
-                    timeDisplay.textContent = '0:00 / 0:00';
-                });
-
-                audioElem.addEventListener('loadedmetadata', () => {
-                    const formatTime = (seconds) => {
-                        const minutes = Math.floor(seconds / 60);
-                        const secs = Math.floor(seconds % 60);
-                        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-                    };
-                    timeDisplay.textContent = `0:00 / ${formatTime(audioElem.duration)}`;
-                });
-
-                progressSlider.addEventListener('input', () => {
-                    const seekTime = (progressSlider.value / 100) * audioElem.duration;
-                    audioElem.currentTime = seekTime;
-                });
-
-                controlsDiv.appendChild(playPauseBtn);
-                controlsDiv.appendChild(progressSlider);
-                controlsDiv.appendChild(timeDisplay);
-                audioPlayerContainer.appendChild(controlsDiv);
-
-                // Compress Button (TODO)
-                const compressBtn = document.createElement('button');
-                compressBtn.innerHTML = '<i class="fas fa-compress"></i>';
-                compressBtn.className = 'hover:text-gray-500';
-                compressBtn.title = 'Compress Audiobook';
-
-                actionsDiv.prepend(compressBtn);
+                    actionsDiv.prepend(compressBtn);
+                }
 
             } else if (podcast.status === 'failed' || podcast.status === 'paused') {
 

@@ -467,6 +467,77 @@
         </div>
     </div>
 
+    <!-- Persistent Audiobook Player Bar -->
+    <div id="audiobook-player-bar" class="hidden fixed bottom-0 left-1/2 -translate-x-1/2 z-[90] w-[90dvw] md:w-[750px] m-4 p-4 backdrop-blur-lg bg-white/80 dark:bg-gray-900/80 border border-indigo-200 dark:border-gray-700 rounded-xl shadow-xl text-gray-800 dark:text-gray-200">
+        <div id="ab-chapters-popover" class="hidden absolute bottom-full left-0 mb-2 w-80 max-h-64 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 space-y-1">
+            <div class="px-2 py-1 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Chapters</div>
+            <div id="ab-chapters-list" class="space-y-1"></div>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2 w-full">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <i class="fas fa-headphones"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div id="ab-player-title" class="text-sm font-bold truncate">Audiobook</div>
+                        <div id="ab-player-chapter" class="text-xs text-gray-500 dark:text-gray-400 truncate">Chapter 1</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="ab-chapters-btn" type="button" title="Chapters" class="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                        <i class="fas fa-list-ul"></i>
+                    </button>
+                    <button id="ab-prev-ch-btn" type="button" title="Previous Chapter" class="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 disabled:opacity-40 transition-colors">
+                        <i class="fas fa-step-backward"></i>
+                    </button>
+                    <button id="ab-back-15-btn" type="button" title="Back 15s" class="px-2.5 py-2 text-xs font-medium bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                        -15s
+                    </button>
+                    <button id="ab-play-pause-btn" type="button" title="Play / Pause" class="shadow-xl shadow-indigo-600/50 dark:shadow-indigo-900/50 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center transition-colors">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button id="ab-fwd-30-btn" type="button" title="Forward 30s" class="px-2.5 py-2 text-xs font-medium bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                        +30s
+                    </button>
+                    <button id="ab-next-ch-btn" type="button" title="Next Chapter" class="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 disabled:opacity-40 transition-colors">
+                        <i class="fas fa-step-forward"></i>
+                    </button>
+                </div>
+
+                <div class="hidden sm:flex items-center gap-1.5 shrink-0">
+                    <select id="ab-speed-select" title="Playback Speed" class="text-xs bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 dark:text-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="0.75">0.75x</option>
+                        <option value="1" selected>1x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="1.75">1.75x</option>
+                        <option value="2">2x</option>
+                        <option value="2.5">2.5x</option>
+                        <option value="3">3x</option>
+                    </select>
+                    <button id="ab-sleep-btn" type="button" title="Sleep Timer" class="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <button id="ab-download-btn" type="button" title="Download Audiobook" class="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button id="ab-close-btn" type="button" title="Close Player" class="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-900 dark:text-gray-400 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 border-t border-indigo-200 dark:border-gray-700 pt-2">
+                <span id="ab-time-current" class="text-xs font-mono text-gray-600 dark:text-gray-400 w-12 text-right">0:00</span>
+                <input id="ab-seek-slider" type="range" min="0" max="100" step="0.1" value="0" class="flex-1 h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                <span id="ab-time-total" class="text-xs font-mono text-gray-600 dark:text-gray-400 w-12">0:00</span>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="/static/js/index.js"></script>
 </body>
 </html>

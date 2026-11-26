@@ -32,7 +32,14 @@ from config import templates, STATIC_DIR, AUDIO_DIR, AUDIO_CACHE_DIR, COQUI_DIR,
 # Import other function modules
 from functions.users import UserManager
 from functions.webpage import extract_readable_content
-from functions.audiobook import AudiobookWorker, recover_interrupted_jobs, split_into_chapters
+from functions.audiobook import (
+    AudiobookWorker,
+    build_audiobook_zip,
+    compress_podcast_audio,
+    recover_interrupted_jobs,
+    split_into_chapters,
+    _safe_cache_path,
+)
 
 # Lazy imports for TTS engines - these will be imported only when needed
 def lazy_import_piper():
@@ -803,6 +810,13 @@ class PodcastGenerate(BaseModel):
     lang: Optional[str] = 'en'
     api_key: Optional[str] = None
 
+class PodcastProgressUpdate(BaseModel):
+    chapter_index: int = 0
+    position_sec: float = 0.0
+    duration_sec: Optional[float] = None
+    playback_rate: Optional[float] = 1.0
+    completed: Optional[bool] = False
+
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
@@ -1183,6 +1197,67 @@ async def retry_podcast_route(username: str, podcast_id: str, request: Request):
     user_manager.update_podcast(username, podcast_id, {"status": "queued", "error": None})
     audiobook_worker.enqueue(username, podcast_id)
     return {"message": "Audiobook generation resumed.", "podcast_id": podcast_id, "status": "queued"}
+
+
+@router.post("/api/users/{username}/podcasts/{podcast_id}/compress")
+async def compress_podcast_route(username: str, podcast_id: str, request: Request):
+    require_authorized_user(username, request)
+    try:
+        import asyncio
+        result = await asyncio.to_thread(
+            compress_podcast_audio, AUDIO_CACHE_DIR, user_manager, username, podcast_id
+        )
+        return {"message": "Audiobook compressed successfully.", **result}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compress audiobook: {e}")
+
+
+@router.get("/api/users/{username}/podcasts/{podcast_id}/download")
+async def download_podcast_route(username: str, podcast_id: str, request: Request):
+    require_authorized_user(username, request)
+    user_data = user_manager.get_user_data(username)
+    podcast_data = (user_data or {}).get("podcasts", {}).get(podcast_id)
+    if not podcast_data:
+        raise HTTPException(status_code=404, detail="Audiobook not found.")
+
+    safe_title = re.sub(r'[^a-zA-Z0-9_\-\s]', '', podcast_data.get("title", "audiobook")).strip() or "audiobook"
+    chapters = [ch for ch in (podcast_data.get("chapters") or []) if ch.get("audio_url")]
+
+    if len(chapters) <= 1:
+        audio_url = chapters[0]["audio_url"] if chapters else podcast_data.get("audio_url")
+        file_path = _safe_cache_path(AUDIO_CACHE_DIR, audio_url)
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Audiobook audio file not found.")
+        ext = os.path.splitext(file_path)[1] or ".mp3"
+        media_type = "audio/mpeg" if ext.lower() == ".mp3" else "audio/wav"
+        return FileResponse(file_path, media_type=media_type, filename=f"{safe_title}{ext}")
+
+    zip_path = build_audiobook_zip(AUDIO_CACHE_DIR, podcast_id, podcast_data)
+    return FileResponse(zip_path, media_type="application/zip", filename=f"{safe_title}.zip")
+
+
+@router.api_route("/api/users/{username}/podcasts/{podcast_id}/progress", methods=["PATCH", "POST"])
+async def update_podcast_progress_route(
+    username: str,
+    podcast_id: str,
+    progress: PodcastProgressUpdate,
+    request: Request,
+):
+    require_authorized_user(username, request)
+    listening_progress = {
+        "chapter_index": max(0, progress.chapter_index),
+        "position_sec": max(0.0, progress.position_sec),
+        "duration_sec": progress.duration_sec,
+        "playback_rate": progress.playback_rate or 1.0,
+        "completed": bool(progress.completed),
+        "last_played_at": time.time(),
+    }
+    success = user_manager.update_podcast(username, podcast_id, {"listening_progress": listening_progress})
+    if not success:
+        raise HTTPException(status_code=404, detail="Audiobook not found.")
+    return {"message": "Progress saved.", "listening_progress": listening_progress}
 
 
 @router.get("/api/noise_files")
