@@ -67,7 +67,8 @@ import {
     renderChapterList,
     updateActiveChapter,
     saveReadingProgress,
-    loadReadingProgress
+    loadReadingProgress,
+    scrollToActiveTextChunk
 } from "./books.js"
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -703,6 +704,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 highlightChunk(currentAudio.text); // Plain text
             }
+
+            // Keep the text/EPUB reader following the spoken chunk.
+            requestAnimationFrame(() => scrollToActiveTextChunk(appState));
         }
 
         appState.elements.audioPlayer.src = currentAudio.url;

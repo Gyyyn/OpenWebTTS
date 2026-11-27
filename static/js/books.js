@@ -802,6 +802,46 @@ export function clearHighlights(appState) {
 }
 
 /**
+ * Scrolls the text/EPUB reader so the chunk currently being spoken stays in
+ * view. This mirrors the automatic page progression used for PDFs and only
+ * runs while audio playback is active.
+ * @param {object} appState The main appState object.
+ */
+export function scrollToActiveTextChunk(appState) {
+    if (appState.variables.pdfDoc) return;
+    if (!appState.variables.isPlaying || appState.variables.isPaused) return;
+
+    const readingPage = appState.variables.currentReadingPage;
+    if (!readingPage || !readingPage.isConnected) return;
+
+    // Plain-text pages highlight individual words, while HTML/EPUB pages
+    // highlight whole blocks. Fall back to the page itself when nothing has
+    // been highlighted yet.
+    const target = readingPage.querySelector('.highlight') || readingPage;
+    const rect = target.getBoundingClientRect();
+    if (!rect || rect.height === 0) return;
+
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (viewportHeight === 0) return;
+
+    // Leave the text alone while it is already in a comfortable reading band;
+    // this avoids fighting the user's scroll position on every chunk.
+    const comfortableTop = viewportHeight * 0.12;
+    const comfortableBottom = viewportHeight * 0.72;
+    if (rect.top >= comfortableTop && rect.bottom <= comfortableBottom) return;
+
+    // Otherwise bring the active text back to roughly a third of the way down
+    // the viewport, leaving some context above and below.
+    const anchorOffset = viewportHeight * 0.32;
+    const targetTop = window.scrollY + rect.top;
+
+    window.scrollTo({
+        top: Math.max(0, targetTop - anchorOffset),
+        behavior: 'smooth'
+    });
+}
+
+/**
  * Extracts clean plain text from an HTML fragment string.
  * @param {string} htmlFragment
  * @returns {string}
