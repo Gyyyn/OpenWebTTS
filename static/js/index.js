@@ -392,17 +392,67 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    /**
+     * Locates a TTS chunk inside the rendered page text. Chunks remember the
+     * offset they were generated from, which is more reliable than searching
+     * for the first matching substring (repeated sentences, headers, etc.).
+     * @param {object} chunkObject The TTS chunk.
+     * @param {string} pageText The current page's plain text.
+     * @returns {{start: number, end: number}|null}
+     */
+    function findChunkRange(chunkObject, pageText) {
+        const chunkText = chunkObject?.text || '';
+        if (!chunkText) return null;
+
+        if (Number.isFinite(chunkObject.startIndex)) {
+            // Chunks are generated from pageText.trim(), so account for any
+            // leading whitespace before applying the stored offset.
+            const leadingWhitespace = pageText.length - pageText.trimStart().length;
+            const start = leadingWhitespace + chunkObject.startIndex;
+            if (start >= 0 && pageText.startsWith(chunkText, start)) {
+                return { start, end: start + chunkText.length };
+            }
+        }
+
+        const fallbackStart = pageText.indexOf(chunkText);
+        return fallbackStart === -1
+            ? null
+            : { start: fallbackStart, end: fallbackStart + chunkText.length };
+    }
+
+    /**
+     * Finds the nearest block-level ancestor for a text node, so a whole
+     * paragraph is highlighted instead of an inline fragment.
+     * @param {Element|null} element The text node's parent element.
+     * @param {Element} boundary The reader page element.
+     * @returns {Element|null}
+     */
+    function getHighlightBlock(element, boundary) {
+        let current = element;
+        while (current && current !== boundary) {
+            const display = window.getComputedStyle(current).display;
+            if (display && display !== 'contents' && !display.startsWith('inline')) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+        return null;
+    }
+
     // This function highlights only plain-text.
     function highlightChunk(chunkObject) {
-        const fullText = appState.variables.currentReadingPage.textContent;
+        const page = appState.variables.currentReadingPage;
+        const fullText = page.textContent;
         const chunkText = chunkObject.text;
-        const startIndex = fullText.indexOf(chunkText);
+        const chunkRange = findChunkRange(chunkObject, fullText);
 
-        if (startIndex === -1) {
+        if (!chunkRange) {
             console.error("Could not find chunk text to highlight:", chunkObject);
             console.debug(fullText);
             return;
         }
+
+        const startIndex = chunkRange.start;
 
         let highlightClass = "highlight";
 
@@ -422,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Replace the plain text of the chunk with our new highlighted HTML
-        appState.variables.currentReadingPage.innerHTML = fullText.substring(0, startIndex) +
+        page.innerHTML = fullText.substring(0, startIndex) +
                             highlightedHtml +
                             fullText.substring(startIndex + chunkText.length);
     }
@@ -1006,79 +1056,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function highlightHTML(chunkObject) {
-        const previousHighlights = document.querySelectorAll('[data-highlighted]');
         // First clear previous highlights.
-        if (previousHighlights) {
-            previousHighlights.forEach((item) => {
-                item.classList.remove('highlight');
-                if (item.dataset.highlightClass) {
-                    item.classList.remove(item.dataset.highlightClass);
-                    item.removeAttribute('data-highlight-class');
-                }
-            });
+        document.querySelectorAll('[data-highlighted]').forEach((item) => {
+            item.classList.remove('highlight');
+            if (item.dataset.highlightClass) {
+                item.classList.remove(item.dataset.highlightClass);
+                item.removeAttribute('data-highlight-class');
+            }
+            item.removeAttribute('data-highlighted');
+        });
+
+        const readingPage = appState.variables.currentReadingPage;
+        const chunkText = chunkObject?.text || '';
+        if (!readingPage || !chunkText) return;
+
+        const pageText = readingPage.textContent || '';
+        const chunkRange = findChunkRange(chunkObject, pageText);
+        if (!chunkRange) {
+            console.debug('Could not locate HTML chunk in reading page:', chunkObject);
+            return;
         }
-        
-        // Prepare a semi-flat structure
-        let textNodes = [];
 
-        appState.variables.currentReadingPage.childNodes.forEach((item) => {
+        // Walk every text node, tracking its character range inside the page
+        // text, and highlight the block containing any text the chunk covers.
+        // This keeps short paragraphs and chunks spanning multiple paragraphs
+        // from being missed.
+        const blocksToHighlight = new Set();
+        const walker = document.createTreeWalker(readingPage, NodeFilter.SHOW_TEXT);
+        let offset = 0;
+        let textNode;
 
-            if (!item.textContent || item.nodeName == '#text') return;
+        while ((textNode = walker.nextNode())) {
+            const value = textNode.nodeValue || '';
+            const start = offset;
+            const end = start + value.length;
+            offset = end;
 
-            if (item.textContent == `\n`) return;
+            if (value.length === 0 || end <= chunkRange.start || start >= chunkRange.end) continue;
 
-            if (item.childNodes.length > 5) {
-                item.childNodes.forEach((itemChildNodeItem) => {
-                    textNodes.push(itemChildNodeItem);
-                });
-            } else {
-                textNodes.push(item);
-            }
+            const block = getHighlightBlock(textNode.parentElement, readingPage);
+            if (block) blocksToHighlight.add(block);
+        }
 
-        });
-
-        // Get every child node inside the display area, and check them for text matches.
-        textNodes.forEach((item) => {            
-            let itemMatches = false;
-            const trimmedChunk = chunkObject.text.replaceAll(/\s+/g, ' ');
-            const trimmedItem = item.textContent.replaceAll(/\s+/g, ' ');
-
-            // Adapted logic from PDF highlighting
-            for (let len = trimmedItem.length; len > 100; len = len - 5) {
-                const iLen = trimmedItem.length;
-                let matchIndexStart = -1;
-                let matchIndexEnd = -1;
-                let matchIndexMiddle = -1;
-
-                const prefixFromStart = trimmedChunk.substring(0, len);
-                const prefixFromEnd = trimmedChunk.substring(iLen - len);
-                // This looks complicated, but just gets and increasingly large sub-string from the middle.
-                const prefixFromMiddle = trimmedChunk.substring((iLen/2) - (len/2), (iLen/2) + (len/2));
-
-                // Make sure we are using reasonably long strings
-                if (prefixFromStart.length > 20) matchIndexStart = trimmedItem.indexOf(prefixFromStart);
-                if (prefixFromEnd.length > 20) matchIndexEnd = trimmedItem.indexOf(prefixFromEnd);
-                if (prefixFromMiddle.length > 50) matchIndexMiddle = trimmedItem.indexOf(prefixFromMiddle);
-                
-                if ((matchIndexStart !== -1) || (matchIndexEnd !== -1) || (matchIndexMiddle !== -1)) {
-                    itemMatches = true;
-                    break;
-                }
-            }
-            
-            // If this item is in the main text chunk, include it in the highlight.
-            if (itemMatches) {
-                if (!item.classList) return;            
-                item.classList.add('highlight');
-                // Mark it for removal later.
-                item.dataset.highlighted = true;
-                if (appState.variables.localPrefs.highlightColor) {
-                    item.dataset.highlightClass = appState.variables.localPrefs.highlightColor;
-                    item.classList.add(appState.variables.localPrefs.highlightColor);
-                }
+        blocksToHighlight.forEach((block) => {
+            if (!block.classList) return;
+            block.classList.add('highlight');
+            // Mark it for removal later.
+            block.dataset.highlighted = true;
+            if (appState.variables.localPrefs.highlightColor) {
+                block.dataset.highlightClass = appState.variables.localPrefs.highlightColor;
+                block.classList.add(appState.variables.localPrefs.highlightColor);
             }
         });
-        
     }
 
     appState.elements.libraryBtn.addEventListener('click', async () => {
