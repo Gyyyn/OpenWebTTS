@@ -48,6 +48,10 @@ button, a.button {
     align-items: center;
 }
 
+.key-preview {
+    font-size: 8px;
+}
+
 #sidebar li span + div {
     opacity: 0;
     width: 0;

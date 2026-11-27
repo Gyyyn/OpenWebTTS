@@ -305,7 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!book) return;
 
-        // Remove active bg from library.
+        // Close the library view and remove its active state.
+        document.getElementById('library-file-grid')?.remove();
         appState.elements.libraryBtn.classList.remove('bg-indigo-100', 'dark:bg-indigo-900', 'dark:bg-opacity-30');
 
         loadBookContent(book);
@@ -830,6 +831,12 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.elements.speechToTextSection.classList.remove('hidden');
     }
 
+    function stopAllAudio() {
+        stopAudioQueue();
+        audiobookPlayer.pause();
+        showNotification('All audio stopped.', 'info');
+    }
+
     function goToNextAudioChunk() {
         if (!appState.variables.isPlaying) {
             return;
@@ -1110,7 +1117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    appState.elements.libraryBtn.addEventListener('click', async () => {
+    async function showLibrary() {
         // First reset the book view.
         setActiveBook(null);
         // Remove existing library if present
@@ -1119,11 +1126,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appState.elements.libraryBtn.classList.add('bg-indigo-100', 'dark:bg-indigo-900', 'dark:bg-opacity-30');
         appState.elements.bookView.classList.add('hidden');
-        
+
         if (appState.variables.currentUser)
         appState.elements.mainDiv.appendChild(await renderUserPdfs(appState.variables.currentUser));
         else appState.elements.mainDiv.appendChild(createUserFiles([]));
-    });
+    }
+
+    appState.elements.libraryBtn.addEventListener('click', showLibrary);
 
     appState.elements.playbackSpeed.addEventListener('input', () => {
         appState.elements.audioPlayer.playbackRate = appState.elements.playbackSpeed.value;
@@ -1450,22 +1459,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     appState.elements.engineSelect.addEventListener('change', (e) => { e.preventDefault(); updateVoices(appState) });
 
-    appState.elements.generateBtn.addEventListener('click', () => {
+    function toggleNarration() {
         const bgNoiseAudio = document.getElementById('bg-noise-audio');
-        if (appState.variables.isPlaying) {
-            if (appState.variables.isPaused) {
-                updatePlayerUI('PLAYING', appState);
-                appState.elements.audioPlayer.play();
-                appState.elements.bgNoiseAudio?.play();
+        if (appState.variables.isPaused) {
+            updatePlayerUI('PLAYING', appState);
+            appState.elements.audioPlayer.play();
+            bgNoiseAudio?.play();
+            return;
+        }
 
-            } else {
-                updatePlayerUI('PAUSED', appState);
-                appState.elements.audioPlayer.pause();
-                bgNoiseAudio?.pause();
-                
-            }
-        } else startSpeechGeneration();
-    });
+        if (appState.variables.isPlaying) {
+            updatePlayerUI('PAUSED', appState);
+            appState.elements.audioPlayer.pause();
+            bgNoiseAudio?.pause();
+            return;
+        }
+
+        startSpeechGeneration();
+    }
+
+    appState.elements.generateBtn.addEventListener('click', toggleNarration);
 
     appState.elements.modalCancelBtn.addEventListener('click', () => { hideBookModal(appState) });
     appState.elements.openFilePickerBtn.addEventListener('click', () => { showFileModal(appState) });
@@ -1546,71 +1559,180 @@ document.addEventListener('DOMContentLoaded', () => {
     const commandPaletteInput = document.getElementById('command-palette-input');
     const commandList = document.getElementById('command-list');
 
-    const commands = [
-        { name: 'New Book', icon: 'fa-file-circle-plus', description: 'Create a new temporary book', action: () => { createNewBook(); hideCommandPalette(); } },
-        { name: 'Delete Book', icon: 'fa-trash', description: 'Delete the currently active book', action: () => { 
-            if (appState.variables.activeBook) {
-                deleteBook(appState.variables.activeBook.id);
-                hideCommandPalette();
-            } else showNotification('No book is currently active.');
+    function hasActiveBook() {
+        return Boolean(appState.variables.activeBook?.id);
+    }
+
+    const baseCommands = [
+        { name: 'Open Library', icon: 'fa-folder-open', description: 'Go to the library view', action: () => {
+            hideCommandPalette();
+            showLibrary();
         } },
-        { name: 'Rename Book', icon: 'fa-i-cursor', description: 'Rename the currently active book', action: () => { 
-            if (appState.variables.activeBook) {
-                renameBook(appState.variables.activeBook);
-                hideCommandPalette();
-            } else showNotification('No book is currently active.');
-         } },
+        { name: 'Open Config', icon: 'fa-cog', description: 'Open the configuration page', action: () => {
+            hideCommandPalette();
+            window.location.assign('/config');
+        } },
+        { name: 'New Book', icon: 'fa-file-circle-plus', description: 'Create a new temporary book', action: () => { createNewBook(); hideCommandPalette(); } },
+        { name: 'Delete Book', icon: 'fa-trash', description: 'Delete the currently active book', action: () => {
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            const activeBook = appState.variables.activeBook;
+            hideCommandPalette();
+            if (activeBook.source === 'online') deleteOnlineBook(activeBook.id);
+            else deleteBook(activeBook.id);
+        } },
+        { name: 'Rename Book', icon: 'fa-i-cursor', description: 'Rename the currently active book', action: () => {
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            const activeBook = appState.variables.activeBook;
+            hideCommandPalette();
+            if (activeBook.source === 'online') renameOnlineBook(activeBook);
+            else renameBook(activeBook.id);
+        } },
 
         { name: 'Import File', icon: 'fa-folder-open', description: 'Import a PDF or EPUB file', action: () => {
-            if (appState.variables.activeBook) {
-                showFileModal(appState); hideCommandPalette();
-            } else showNotification('No book is currently active.');
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            showFileModal(appState); hideCommandPalette();
         } },
         { name: 'Generate Speech', icon: 'fa-volume-high', description: 'Generate speech for the current text', action: () => {
-            if (appState.variables.activeBook) {
-                startSpeechGeneration(); hideCommandPalette();
-            } else showNotification('No book is currently active.');
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            startSpeechGeneration(); hideCommandPalette();
         } },
-        { name: 'Stop Playback', icon: 'fa-stop', description: 'Stop current audio playback', action: () => {
-            if (appState.variables.activeBook) {
-                stopAudioQueue(); hideCommandPalette();
-            } else showNotification('No book is currently active.');
+        { name: 'Play/Pause Narration', icon: 'fa-circle-play', description: 'Pause or resume narration for the current book', action: () => {
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            if (!appState.variables.isPlaying && !appState.variables.isPaused) {
+                showNotification('Narration is not playing. Use "Generate Speech" to start.', 'info');
+                return;
+            }
+            hideCommandPalette();
+            toggleNarration();
+        } },
+        { name: 'Stop All Audio', icon: 'fa-stop-circle', description: 'Stop narration and audiobook playback', action: () => {
+            hideCommandPalette();
+            stopAllAudio();
+        } },
+        { name: 'Next Audio Chunk', icon: 'fa-step-forward', description: 'Skip to the next audio chunk', action: () => {
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            if (!appState.variables.isPlaying) {
+                showNotification('No narration is currently playing.', 'info');
+                return;
+            }
+            goToNextAudioChunk(); hideCommandPalette();
+        } },
+        { name: 'Previous Audio Chunk', icon: 'fa-step-backward', description: 'Go back to the previous audio chunk', action: () => {
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            if (!appState.variables.isPlaying) {
+                showNotification('No narration is currently playing.', 'info');
+                return;
+            }
+            goToPreviousAudioChunk(); hideCommandPalette();
+        } },
+        { name: 'Sleep Timer…', icon: 'fa-moon', description: 'Choose a custom sleep timer duration', action: () => {
+            hideCommandPalette();
+            openSleepTimerModal();
+        } },
+        { name: 'Sleep Timer: 15 min', icon: 'fa-hourglass-half', description: 'Stop playback after 15 minutes', action: () => {
+            hideCommandPalette();
+            setSleepTimer(15 * 60 * 1000);
+        } },
+        { name: 'Sleep Timer: 30 min', icon: 'fa-hourglass-half', description: 'Stop playback after 30 minutes', action: () => {
+            hideCommandPalette();
+            setSleepTimer(30 * 60 * 1000);
+        } },
+        { name: 'Sleep Timer: 45 min', icon: 'fa-hourglass-half', description: 'Stop playback after 45 minutes', action: () => {
+            hideCommandPalette();
+            setSleepTimer(45 * 60 * 1000);
+        } },
+        { name: 'Sleep Timer: 60 min', icon: 'fa-hourglass-half', description: 'Stop playback after 1 hour', action: () => {
+            hideCommandPalette();
+            setSleepTimer(60 * 60 * 1000);
+        } },
+        { name: 'Cancel Sleep Timer', icon: 'fa-xmark', description: 'Clear the active sleep timer', action: () => {
+            hideCommandPalette();
+            cancelSleepTimer();
         } },
         { name: 'Record Audio', icon: 'fa-microphone-lines', description: 'Start recording audio for transcription', action: () => {
-            if (appState.variables.activeBook) {
-                startRecording(appState); hideCommandPalette();
-            } else showNotification('No book is currently active.');
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            if (appState.variables.isRecording) {
+                showNotification('Recording is already in progress.', 'info');
+                return;
+            }
+            startRecording(appState); hideCommandPalette();
+        } },
+        { name: 'Stop Recording', icon: 'fa-microphone-slash', description: 'Stop the current audio recording', action: () => {
+            if (!appState.variables.isRecording) {
+                showNotification('No recording is currently in progress.', 'info');
+                return;
+            }
+            stopRecording(appState); hideCommandPalette();
         } },
         { name: 'Transcribe Audio File', icon: 'fa-file-signature', description: 'Transcribe an audio file', action: () => {
-            if (appState.variables.activeBook) {
-                appState.elements.audioFileInput.click(); hideCommandPalette();
-            } else showNotification('No book is currently active.');
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            appState.elements.audioFileInput.click(); hideCommandPalette();
         } },
         { name: 'Save Book', icon: 'fa-floppy-disk', description: 'Save the current book to your online account', action: () => {
-            if (appState.variables.activeBook) {
-                handleSaveBook(); hideCommandPalette();
-            } else showNotification('No book is currently active.');
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            handleSaveBook(); hideCommandPalette();
         } },
         { name: 'Zoom In PDF', icon: 'fa-magnifying-glass-plus', description: 'Increase zoom level of PDF', action: () => {
-            if (appState.variables.activeBook) {
-                appState.elements.zoomInBtn?.click(); hideCommandPalette();
-            } else showNotification('No book is currently active.');
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            appState.elements.zoomInBtn?.click(); hideCommandPalette();
         } },
         { name: 'Zoom Out PDF', icon: 'fa-magnifying-glass-minus', description: 'Decrease zoom level of PDF', action: () => {
-            if (appState.variables.activeBook) {
-                appState.elements.zoomOutBtn?.click(); hideCommandPalette();
-            } else showNotification('No book is currently active.');
+            if (!hasActiveBook()) {
+                showNotification('No book is currently active.');
+                return;
+            }
+            appState.elements.zoomOutBtn?.click(); hideCommandPalette();
+        } },
+        { name: 'Toggle Dark Mode', icon: 'fa-circle-half-stroke', description: 'Switch between light and dark theme', action: () => {
+            hideCommandPalette();
+            applyTheme(!document.documentElement.classList.contains('dark'));
         } },
     ];
 
-    if (appState.variables.currentUser) {
-        commands.push({ name: 'Logout', icon: 'fa-user-minus', description: 'Logout', action: () => {
-            handleLogout(); hideCommandPalette();
-        }});
-    } else {    
-        commands.push({ name: 'Login/Create Account', icon: 'fa-user-plus', description: 'Login or create a new user account', action: () => {
-            showLoginModal(appState); hideCommandPalette();
-        }})
+    function getCommands() {
+        const accountCommand = appState.variables.currentUser
+            ? { name: 'Logout', icon: 'fa-user-minus', description: 'Logout', action: () => {
+                hideCommandPalette();
+                handleLogout();
+            } }
+            : { name: 'Login/Create Account', icon: 'fa-user-plus', description: 'Login or create a new user account', action: () => {
+                hideCommandPalette();
+                showLoginModal(appState);
+            } };
+        return [...baseCommands, accountCommand];
     }
 
     let filteredCommands = [];
@@ -1630,7 +1752,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function filterCommands(query) {
         const lowerCaseQuery = query.toLowerCase();
-        filteredCommands = commands.filter(command =>
+        filteredCommands = getCommands().filter(command =>
             command.name.toLowerCase().includes(lowerCaseQuery) ||
             command.description.toLowerCase().includes(lowerCaseQuery)
         );
@@ -1671,6 +1793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('keydown', (e) => {
+
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
             if (commandPaletteModal.classList.contains('hidden')) showCommandPalette();
@@ -2119,17 +2242,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Theme toggle functionality
-    appState.elements.themeToggle.addEventListener('change', function() {
+    function applyTheme(isDark) {
         const html = document.documentElement;
-        if (this.checked) {
-            html.classList.add('dark');
-            appState.variables.localPrefs.theme = 'dark';
-            handlePrefs({theme: appState.variables.localPrefs.theme});
-        } else {
-            html.classList.remove('dark');
-            appState.variables.localPrefs.theme = 'light';
-            handlePrefs({theme: appState.variables.localPrefs.theme});
-        }
+        html.classList.toggle('dark', isDark);
+        if (appState.elements.themeToggle) appState.elements.themeToggle.checked = isDark;
+        appState.variables.localPrefs.theme = isDark ? 'dark' : 'light';
+        handlePrefs({ theme: appState.variables.localPrefs.theme });
+    }
+
+    appState.elements.themeToggle.addEventListener('change', function() {
+        applyTheme(this.checked);
     });
 
     // Toggle settings dropup
@@ -2309,6 +2431,44 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSleepTimerBadge();
     }
 
+    function setSleepTimer(durationMs) {
+        if (durationMs <= 0) {
+            showNotification('Please enter a duration greater than 0 minutes.', 'warn');
+            return;
+        }
+
+        appState.variables.sleepTimerDurationMs = durationMs;
+        if (appState.elements.sleepTimerCheckbox) {
+            appState.elements.sleepTimerCheckbox.checked = true;
+        }
+
+        appState.elements.sleepTimerModal?.classList.add('hidden');
+
+        // If player is currently playing, start/restart active countdown immediately
+        if (appState.variables.isPlaying || audiobookPlayer.isPlaying()) {
+            startActiveSleepTimer();
+            showNotification(`Sleep timer set for ${formatTimeRemaining(durationMs)}`, 'info');
+        } else {
+            // Timer is armed for when playback starts; also show countdown badge preview
+            appState.variables.sleepTimerTargetTime = Date.now() + durationMs;
+            updateSleepTimerBadge();
+            if (appState.variables.sleepTimerIntervalId) clearInterval(appState.variables.sleepTimerIntervalId);
+            appState.variables.sleepTimerIntervalId = setInterval(() => {
+                updateSleepTimerBadge();
+            }, 1000);
+            showNotification(`Sleep timer set for ${formatTimeRemaining(durationMs)} (starts on playback)`, 'info');
+        }
+    }
+
+    function cancelSleepTimer() {
+        clearSleepTimer();
+        appState.variables.sleepTimerDurationMs = 0;
+        if (appState.elements.sleepTimerCheckbox) {
+            appState.elements.sleepTimerCheckbox.checked = false;
+        }
+        showNotification('Sleep timer cancelled', 'info');
+    }
+
     function openSleepTimerModal() {
         // Populate inputs with current configured duration (or default to 30 mins)
         if (appState.variables.sleepTimerDurationMs > 0) {
@@ -2370,35 +2530,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.elements.sleepTimerApplyBtn.addEventListener('click', () => {
             const hours = parseInt(appState.elements.sleepHoursInput?.value || '0', 10) || 0;
             const minutes = parseInt(appState.elements.sleepMinutesInput?.value || '0', 10) || 0;
-            const durationMs = (hours * 3600 + minutes * 60) * 1000;
-
-            if (durationMs <= 0) {
-                showNotification('Please enter a duration greater than 0 minutes.', 'warn');
-                return;
-            }
-
-            appState.variables.sleepTimerDurationMs = durationMs;
-            if (appState.elements.sleepTimerCheckbox) {
-                appState.elements.sleepTimerCheckbox.checked = true;
-            }
-
-            // Close modal
-            appState.elements.sleepTimerModal?.classList.add('hidden');
-
-            // If player is currently playing, start/restart active countdown immediately
-            if (appState.variables.isPlaying || audiobookPlayer.isPlaying()) {
-                startActiveSleepTimer();
-                showNotification(`Sleep timer set for ${formatTimeRemaining(durationMs)}`, 'info');
-            } else {
-                // Timer is armed for when playback starts; also show countdown badge preview
-                appState.variables.sleepTimerTargetTime = Date.now() + durationMs;
-                updateSleepTimerBadge();
-                if (appState.variables.sleepTimerIntervalId) clearInterval(appState.variables.sleepTimerIntervalId);
-                appState.variables.sleepTimerIntervalId = setInterval(() => {
-                    updateSleepTimerBadge();
-                }, 1000);
-                showNotification(`Sleep timer set for ${formatTimeRemaining(durationMs)} (starts on playback)`, 'info');
-            }
+            setSleepTimer((hours * 3600 + minutes * 60) * 1000);
         });
     }
 
@@ -2415,12 +2547,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (appState.elements.sleepTimerBadgeCancel) {
         appState.elements.sleepTimerBadgeCancel.addEventListener('click', (e) => {
             e.stopPropagation();
-            clearSleepTimer();
-            appState.variables.sleepTimerDurationMs = 0;
-            if (appState.elements.sleepTimerCheckbox) {
-                appState.elements.sleepTimerCheckbox.checked = false;
-            }
-            showNotification('Sleep timer cancelled', 'info');
+            cancelSleepTimer();
         });
     }
 
@@ -2597,4 +2724,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setBodyFont();
     renderNotifications(appState);
     updateCurrentUserUI(appState);
+
+    // The library is the default screen.
+    showLibrary();
 });

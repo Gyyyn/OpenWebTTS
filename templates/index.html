@@ -37,21 +37,17 @@
                 <!-- Quick Access Buttons (shown when sidebar is expanded) -->
                 <div class="mb-4">
                     <div class="grid grid-cols-1 gap-2">
-                        <button id="new-book-btn" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
-                            <i class="fas fa-file-circle-plus text-indigo-300"></i>
-                            <span class="ms-2 hide-on-collapse">New Book</span>
-                        </button>
                         <button id="library-btn" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
                             <i class="fas fa-folder-open"></i>
                             <span class="ms-2 hide-on-collapse">Library</span>
                         </button>
-                        <a href="/config" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
-                            <i class="fas fa-cog"></i>
-                            <span class="ms-2 hide-on-collapse">Config</span>
-                        </a>
+                        <button id="new-book-btn" class="w-full flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200 hover:bg-gray-200">
+                            <i class="fas fa-file-circle-plus text-indigo-300"></i>
+                            <span class="ms-2 hide-on-collapse">New Book</span>
+                        </button>
                         <button id="commands-btn" class="flex items-center cursor-pointer p-2 rounded-lg dark:hover:bg-gray-700 dark:text-gray-200  hover:bg-gray-200">
                             <i class="fas fa-terminal"></i>
-                            <span class="ms-2 hide-on-collapse">Commands</span>
+                            <span class="ms-2 hide-on-collapse flex justify-between w-100">Commands<span class="key-preview text-gray-600 dark:text-gray-400 ml-1 p-1 text-xs border rounded">CTRL + K</span></span>
                         </button>
                     </div>
                 </div>
@@ -98,6 +94,10 @@
                                     <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full peer-checked:translate-x-5 transition-transform"></div>
                                 </label>
                             </div>
+                            <a href="/config" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
+                                <i class="fas fa-cog me-3 text-lg"></i>
+                                <span class="font-medium dark:text-gray-200">Config</span>
+                            </a>
                             <button type="button" id="current-user-button" class="flex items-center w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-left">
                                 <i class="fas fa-bell me-3 text-lg"></i>
                                 <span class="font-medium dark:text-gray-200">Notifications</span>
@@ -259,23 +259,6 @@
                                         </div>
                                     </div>
             
-                                    <!-- Action Buttons -->
-                                    <span class="text-sm dark:text-gray-200 cursor-pointer">Download</span>
-                                    <div class="grid grid-cols-2 gap-2 mb-4">
-                                        <button id="save-book-btn" class="p-2 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors flex items-center justify-center hidden">
-                                            <i class="fas fa-save"></i>
-                                            <span class="text-sm ms-2">Save Book</span>
-                                        </button>
-                                        <a id="download-link" href="#" download="speech.wav" class=" text-center hidden xl:inline button px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                                            <i class="fas fa-download"></i>
-                                            <span class="text-sm ms-2">Audio</span>
-                                        </a>
-                                        <button id="create-offline-podcast-btn" class="button px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                                            <i class="fas fa-headphones"></i>
-                                            <span class="hidden md:inline text-sm ms-2">Audiobook</span>
-                                        </button>
-                                    </div>
-            
                                     <!-- Reading Settings -->
                                     <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
                                         <div class="font-bold dark:text-gray-200 mb-3">Reading Settings</div>
@@ -310,6 +293,23 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- Action Buttons -->
+                                    <div class="grid grid-cols-2 gap-2 mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
+                                        <button id="save-book-btn" class="p-2 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors flex items-center justify-center hidden">
+                                            <i class="fas fa-save"></i>
+                                            <span class="text-sm ms-2">Save Book</span>
+                                        </button>
+                                        <a id="download-link" href="#" download="speech.wav" class=" text-center hidden xl:inline button px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                            <i class="fas fa-download"></i>
+                                            <span class="text-sm ms-2">Audio</span>
+                                        </a>
+                                        <button id="create-offline-podcast-btn" class="button px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
+                                            <i class="fas fa-headphones"></i>
+                                            <span class="hidden md:inline text-sm ms-2">Audiobook</span>
+                                        </button>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -396,10 +396,10 @@
             <input type="text" id="book-title-input" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4" placeholder="Enter book title">
             <div class="flex justify-end space-x-2">
                 <button id="modal-cancel-btn" class="flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-900 dark:text-gray-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
-                    Cancel <span class="ml-1 p-1 text-xs border rounded">ESC</span>
+                    Cancel <span class="key-preview text-gray-600 dark:text-gray-400 ml-1 p-1 text-xs border rounded">ESC</span>
                 </button>
                 <button id="modal-action-btn" class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                    <span class="ml-1"></span><span class="ml-1 p-1 text-xs border rounded">ENTER</span>
+                    <span class="ml-1"></span><span class="key-preview ml-1 p-1 text-xs border rounded">ENTER</span>
                 </button>
             </div>
         </div>
@@ -458,7 +458,7 @@
 
     <!-- Command Palette Modal -->
     <div id="command-palette-modal" class="fixed inset-0 z-[100] flex items-center justify-center shadow-xl bg-modal hidden">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 w-full max-w-lg mx-4">
+        <div class="scale-animation bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 w-full max-w-lg mx-4">
             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Command Palette</h3>
             <input type="text" id="command-palette-input" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg mb-4 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Type a command...">
             <ul id="command-list" class="max-h-60 overflow-y-auto">

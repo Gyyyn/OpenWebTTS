@@ -152,7 +152,7 @@ export function createFileGrid(items, options = {}) {
  */
 function createGutenbergSection() {
     const section = document.createElement('div');
-    section.className = 'col-span-full mt-6 pt-6 border-t border-gray-200 dark:border-gray-700';
+    section.className = 'col-span-full mt-4 pt-4 border-gray-200 dark:border-gray-700';
 
     // Section header
     const header = document.createElement('div');
@@ -160,14 +160,11 @@ function createGutenbergSection() {
 
     const title = document.createElement('h3');
     title.className = 'text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2';
-    title.innerHTML = '<i class="fas fa-book-open text-indigo-500"></i> Suggested Free Classics (Project Gutenberg)';
-
-    const guideText = document.createElement('p');
-    guideText.className = 'text-sm text-gray-600 dark:text-gray-400 mt-1';
-    guideText.innerHTML = 'Download an EPUB below to try importing books into OpenWebTTS! Once downloaded, click <strong>"New Book"</strong> in the sidebar, open the <strong>Import</strong> button, and choose your downloaded file.';
+    title.innerHTML = 'Explore';
+    title.style.fontSize = '55px';
+    title.style.marginBottom = '-25px';
 
     header.appendChild(title);
-    header.appendChild(guideText);
     section.appendChild(header);
 
     // Suggestions grid using the shared createFileGrid helper
@@ -202,9 +199,28 @@ function createGutenbergSection() {
  * @returns {HTMLElement} The container div element with the file grid.
  */
 export function createUserFiles(files) {
+
+    const sectionHeader = document.createElement('div');
+    sectionHeader.className = 'col-span-full mb-6 border-gray-200 dark:border-gray-700';
+
+    // Section header
+    const header = document.createElement('div');
+    header.className = 'mb-4';
+
+    const title = document.createElement('h1');
+    title.className = 'font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2';
+    title.innerHTML = 'Library';
+    title.style.fontSize = '85px';
+    title.style.marginBottom = '-45px';
+
+    header.appendChild(title);
+    sectionHeader.appendChild(header);
+
     const container = document.createElement('div');
     container.id = 'library-file-grid';
     container.className = 'm-5 file-grid-container p-5 relative transition-opacity duration-300 ease-in-out';
+
+    container.appendChild(sectionHeader);
 
     const fileItems = (files || []).map(file => {
         const detailParts = [];
